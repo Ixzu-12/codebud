@@ -10,6 +10,7 @@ Subcommands
   plan "<msg>"    Plan only — print the plan without executing
   chat            Interactive REPL: multiple requests in one session
   doctor          Check the environment (Ollama, model, config, RAM, disk)
+  history         Show past step executions (data/memory/entries.json)
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   version         Print version information
@@ -23,7 +24,7 @@ import json
 import os
 import sys
 
-_KNOWN_SUBCOMMANDS = {"run", "plan", "chat", "doctor", "models", "config", "version"}
+_KNOWN_SUBCOMMANDS = {"run", "plan", "chat", "doctor", "history", "models", "config", "version"}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -352,6 +353,42 @@ def cmd_doctor(_args):
 
 
 # ---------------------------------------------------------------------------
+# Subcommand: history
+# ---------------------------------------------------------------------------
+
+
+def cmd_history(args):
+    """Show past step executions recorded in data/memory/entries.json.
+
+    This is persisted, cross-session execution history (MemoryStore), distinct
+    from the in-session conversation history shown by /history in `chat`.
+    """
+    from agent.memory import MemoryStore
+
+    store = MemoryStore()
+    entries = store.history[-args.limit :] if args.limit else store.history
+
+    if args.json:
+        print(json.dumps(entries, indent=2))
+        return
+
+    if not entries:
+        print("No history yet. Run `codebud run \"...\"` to record some.")
+        return
+
+    for i, entry in enumerate(entries, 1):
+        ts = entry.get("timestamp", "?")
+        data = entry.get("data", {})
+        step = data.get("step", {})
+        result = data.get("result", {})
+        tool = step.get("tool", "?")
+        desc = step.get("description", "")
+        rc = result.get("returncode")
+        status = "ok" if rc == 0 else f"exit {rc}" if rc is not None else "?"
+        print(f"[{i}] {ts}  {tool:<16} {status:<8} {desc}")
+
+
+# ---------------------------------------------------------------------------
 # Subcommand: models
 # ---------------------------------------------------------------------------
 
@@ -473,6 +510,17 @@ def _build_parser() -> argparse.ArgumentParser:
     # doctor
     sub.add_parser("doctor", help="Check the environment.")
 
+    # history
+    p_history = sub.add_parser("history", help="Show past step executions.")
+    p_history.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="Show at most N most-recent entries (0 = all). Default: 20.",
+    )
+    p_history.add_argument("--json", action="store_true", help="Output raw JSON entries.")
+
     # models
     sub.add_parser("models", help="List downloaded Ollama models.")
 
@@ -505,6 +553,7 @@ def main():
         "plan": cmd_plan,
         "chat": cmd_chat,
         "doctor": cmd_doctor,
+        "history": cmd_history,
         "models": cmd_models,
         "config": cmd_config,
         "version": cmd_version,

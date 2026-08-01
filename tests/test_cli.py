@@ -5,6 +5,7 @@ Tests for the Codebud CLI: subcommand routing, doctor checks, plan display,
 and error mapping.
 """
 
+import json
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -448,6 +449,99 @@ class TestSubcommandRouting:
 
         self._run_main(["run", "do something"])
         assert agent.executor.execute_plan.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# history subcommand
+# ---------------------------------------------------------------------------
+
+
+def _write_entries(path, entries):
+    import json as _json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json.dumps(entries))
+
+
+def _entry(desc, tool="command", returncode=0, timestamp="2026-01-01T00:00:00"):
+    return {
+        "timestamp": timestamp,
+        "data": {
+            "step": {"id": "step_0", "description": desc, "tool": tool, "args": {}},
+            "result": {"stdout": "", "stderr": "", "returncode": returncode},
+        },
+    }
+
+
+class TestHistorySubcommand:
+    def _run_main(self, argv):
+        import run_agent
+
+        with patch.object(sys, "argv", ["codebud"] + argv):
+            try:
+                run_agent.main()
+            except SystemExit as exc:
+                return exc.code
+        return 0
+
+    def test_no_entries(self, tmp_path, monkeypatch, capsys):
+        from agent import memory as memory_mod
+
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.json"))
+        self._run_main(["history"])
+        captured = capsys.readouterr()
+        assert "No history yet" in captured.out
+
+    def test_lists_entries_newest_relevant_fields(self, tmp_path, monkeypatch, capsys):
+        from agent import memory as memory_mod
+
+        path = tmp_path / "entries.json"
+        _write_entries(path, [_entry("first"), _entry("second", returncode=1)])
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
+
+        self._run_main(["history"])
+        captured = capsys.readouterr()
+        assert "first" in captured.out
+        assert "second" in captured.out
+        assert "exit 1" in captured.out
+        assert "ok" in captured.out
+
+    def test_limit_option(self, tmp_path, monkeypatch, capsys):
+        from agent import memory as memory_mod
+
+        path = tmp_path / "entries.json"
+        _write_entries(path, [_entry("one"), _entry("two"), _entry("three")])
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
+
+        self._run_main(["history", "-n", "1"])
+        captured = capsys.readouterr()
+        assert "three" in captured.out
+        assert "one" not in captured.out
+        assert "two" not in captured.out
+
+    def test_limit_zero_shows_all(self, tmp_path, monkeypatch, capsys):
+        from agent import memory as memory_mod
+
+        path = tmp_path / "entries.json"
+        _write_entries(path, [_entry("one"), _entry("two")])
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
+
+        self._run_main(["history", "-n", "0"])
+        captured = capsys.readouterr()
+        assert "one" in captured.out
+        assert "two" in captured.out
+
+    def test_json_output(self, tmp_path, monkeypatch, capsys):
+        from agent import memory as memory_mod
+
+        path = tmp_path / "entries.json"
+        _write_entries(path, [_entry("first")])
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
+
+        self._run_main(["history", "--json"])
+        captured = capsys.readouterr()
+        parsed = json.loads(captured.out)
+        assert parsed[0]["data"]["step"]["description"] == "first"
 
 
 # ---------------------------------------------------------------------------
