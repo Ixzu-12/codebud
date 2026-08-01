@@ -267,9 +267,7 @@ def cmd_chat(args):
             while True:
                 print_plan(plan, verbose=args.verbose)
                 try:
-                    review = input(
-                        "  [y] execute  [r] revise  [r: feedback] revise with note  [n] skip  "
-                    ).strip()
+                    review = input("  Run this plan? [y/N/r(evise)[: note]] ").strip()
                 except (EOFError, KeyboardInterrupt):
                     print(file=sys.stderr)
                     review = "n"
