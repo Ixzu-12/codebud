@@ -193,22 +193,20 @@ def cmd_chat(args):
                     print("  History cleared.\n", file=sys.stderr)
                     continue
                 if cmd == "/history":
-                    if not agent._history:
+                    history = agent.get_history()
+                    if not history:
                         print("  (no history yet)\n", file=sys.stderr)
                     else:
-                        for i, t in enumerate(agent._history, 1):
+                        for i, t in enumerate(history, 1):
                             role = t["role"].upper()
                             print(f"  [{i}] {role}: {t['content'][:120]}", file=sys.stderr)
                         print(file=sys.stderr)
                     continue
                 if cmd == "/undo":
-                    if len(agent._history) >= 2:
-                        agent._history.pop()
-                        agent._history.pop()
+                    if agent.undo_last_turn():
                         turn = max(0, turn - 1)
                         print("  Last turn removed.\n", file=sys.stderr)
                     else:
-                        agent._history.clear()
                         turn = 0
                         print("  History cleared (nothing left to undo).\n", file=sys.stderr)
                     continue

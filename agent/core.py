@@ -124,6 +124,23 @@ class AgentCore:
         """Wipe the conversation history (used by /clear in chat mode)."""
         self._history.clear()
 
+    def get_history(self) -> list[dict[str, str]]:
+        """Return a copy of the conversation history (used by /history in chat mode)."""
+        return list(self._history)
+
+    def undo_last_turn(self) -> bool:
+        """Remove the last user+assistant turn pair (used by /undo in chat mode).
+
+        Returns True if a turn pair was removed, False if history was cleared
+        instead because fewer than two entries remained.
+        """
+        if len(self._history) >= 2:
+            self._history.pop()
+            self._history.pop()
+            return True
+        self._history.clear()
+        return False
+
     def regenerate(self, payload: dict[str, Any]) -> dict[str, Any]:
         """
         Called when OpenClaw requests plan regeneration.
