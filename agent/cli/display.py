@@ -12,6 +12,7 @@ import time
 from typing import Any
 
 _IS_TTY = sys.stderr.isatty()
+_STDOUT_IS_TTY = sys.stdout.isatty()
 
 # ---------------------------------------------------------------------------
 # ANSI helpers (graceful fallback)
@@ -25,9 +26,31 @@ _RED = "\033[31m" if _IS_TTY else ""
 _CYAN = "\033[36m" if _IS_TTY else ""
 _RESET = "\033[0m" if _IS_TTY else ""
 
+# Same palette, gated on stdout instead of stderr — for subcommands (history,
+# models, config) whose primary output is stdout rather than progress/status.
+_OUT_BOLD = "\033[1m" if _STDOUT_IS_TTY else ""
+_OUT_DIM = "\033[2m" if _STDOUT_IS_TTY else ""
+_OUT_GREEN = "\033[32m" if _STDOUT_IS_TTY else ""
+_OUT_RED = "\033[31m" if _STDOUT_IS_TTY else ""
+_OUT_CYAN = "\033[36m" if _STDOUT_IS_TTY else ""
+_OUT_RESET = "\033[0m" if _STDOUT_IS_TTY else ""
+
 
 def _err(*args, end="\n", flush=False):
     print(*args, end=end, flush=flush, file=sys.stderr)
+
+
+def print_status(message: str) -> None:
+    """Print a dim, non-error informational status line to stderr.
+
+    Used for inline chat/run feedback like "-- skipped" or "History cleared."
+    """
+    _err(f"  {_DIM}{message}{_RESET}")
+
+
+def print_assistant_reply(reply: str) -> None:
+    """Print a chat_reply from the model, labeled and colored consistently."""
+    _err(f"\n{_CYAN}{_BOLD}Codebud:{_RESET} {reply}\n", flush=True)
 
 
 # ---------------------------------------------------------------------------

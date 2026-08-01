@@ -642,7 +642,10 @@ class TestChatSubcommand:
         agent = FakeChatAgent(plan_by_message={"hello": {"status": "chat_reply", "reply": "hi there"}})
         self._run_chat(monkeypatch, ["hello"], agent=agent)
         captured = capsys.readouterr()
-        assert "hi there" in captured.out
+        # Interactive chat output (including the assistant reply) goes to
+        # stderr, matching every other prompt/status line in chat mode, so
+        # stdout stays clean for piping.
+        assert "hi there" in captured.err
 
     def test_slash_help(self, monkeypatch, capsys):
         self._run_chat(monkeypatch, ["/help"])

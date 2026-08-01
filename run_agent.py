@@ -50,6 +50,7 @@ def cmd_run(args):
     from agent.cli.display import (
         ProgressIndicator,
         print_plan,
+        print_status,
         print_step_header,
         print_step_result,
     )
@@ -87,12 +88,12 @@ def cmd_run(args):
                     approval = "q"
 
                 if approval == "q":
-                    print("  -- aborted", file=sys.stderr)
+                    print_status("-- aborted")
                     break
                 if approval == "a":
                     approve_all = True
                 elif not approval.startswith("y"):
-                    print("  -- skipped", file=sys.stderr)
+                    print_status("-- skipped")
                     continue
 
             result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
@@ -163,7 +164,9 @@ Slash commands (type /cmd and press Enter):
 def cmd_chat(args):
     from agent.cli.display import (
         ProgressIndicator,
+        print_assistant_reply,
         print_plan,
+        print_status,
         print_step_header,
         print_step_result,
     )
@@ -205,12 +208,12 @@ def cmd_chat(args):
                     agent.clear_history()
                     last_plan = None
                     turn = 0
-                    print("  History cleared.\n", file=sys.stderr)
+                    print_status("History cleared.\n")
                     continue
                 if cmd == "/history":
                     history = agent.get_history()
                     if not history:
-                        print("  (no history yet)\n", file=sys.stderr)
+                        print_status("(no history yet)\n")
                     else:
                         for i, t in enumerate(history, 1):
                             role = t["role"].upper()
@@ -220,25 +223,25 @@ def cmd_chat(args):
                 if cmd == "/undo":
                     if agent.undo_last_turn():
                         turn = max(0, turn - 1)
-                        print("  Last turn removed.\n", file=sys.stderr)
+                        print_status("Last turn removed.\n")
                     else:
                         turn = 0
-                        print("  History cleared (nothing left to undo).\n", file=sys.stderr)
+                        print_status("History cleared (nothing left to undo).\n")
                     continue
                 if cmd == "/doctor":
                     from agent.cli.doctor import run_doctor
                     run_doctor()
                     continue
                 if cmd == "/model":
-                    print(f"  Active model: {model_name}\n", file=sys.stderr)
+                    print_status(f"Active model: {model_name}\n")
                     continue
                 if cmd == "/plan":
                     if last_plan:
                         print_plan(last_plan, verbose=args.verbose)
                     else:
-                        print("  (no plan yet)\n", file=sys.stderr)
+                        print_status("(no plan yet)\n")
                     continue
-                print(f"  Unknown command: {cmd}  (try /help)\n", file=sys.stderr)
+                print_status(f"Unknown command: {cmd}  (try /help)\n")
                 continue
 
             prog = ProgressIndicator(no_progress=_no_progress(args))
@@ -251,7 +254,7 @@ def cmd_chat(args):
             turn += 1
 
             if plan.get("status") == "chat_reply":
-                print(f"\nCodebud: {plan.get('reply', '')}\n", flush=True)
+                print_assistant_reply(plan.get("reply", ""))
                 continue
 
             if plan.get("status") != "ok":
@@ -272,7 +275,7 @@ def cmd_chat(args):
                     review = "n"
 
                 if review.lower() == "n" or review == "":
-                    print("  -- skipped", file=sys.stderr)
+                    print_status("-- skipped")
                     break
 
                 if review.lower().startswith("r"):
@@ -286,7 +289,7 @@ def cmd_chat(args):
                     finally:
                         prog.stop()
                     if plan.get("status") == "chat_reply":
-                        print(f"\nCodebud: {plan.get('reply', '')}\n", flush=True)
+                        print_assistant_reply(plan.get("reply", ""))
                         break
                     if plan.get("status") != "ok":
                         err = plan.get("error", "unknown error")
@@ -318,7 +321,7 @@ def cmd_chat(args):
                                 print_error(str(result), label="Execution error")
                         break
                     if not step_approval.startswith("y"):
-                        print("  -- skipped", file=sys.stderr)
+                        print_status("-- skipped")
                         continue
 
                     result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
@@ -357,6 +360,7 @@ def cmd_history(args):
     This is persisted, cross-session execution history (MemoryStore), distinct
     from the in-session conversation history shown by /history in `chat`.
     """
+    from agent.cli.display import _OUT_CYAN, _OUT_DIM, _OUT_GREEN, _OUT_RED, _OUT_RESET
     from agent.memory import MemoryStore
 
     store = MemoryStore()
@@ -367,7 +371,7 @@ def cmd_history(args):
         return
 
     if not entries:
-        print("No history yet. Run `codebud run \"...\"` to record some.")
+        print(f'{_OUT_DIM}No history yet. Run `codebud run "..."` to record some.{_OUT_RESET}')
         return
 
     for i, entry in enumerate(entries, 1):
@@ -378,8 +382,10 @@ def cmd_history(args):
         tool = step.get("tool", "?")
         desc = step.get("description", "")
         rc = result.get("returncode")
-        status = "ok" if rc == 0 else f"exit {rc}" if rc is not None else "?"
-        print(f"[{i}] {ts}  {tool:<16} {status:<8} {desc}")
+        status_text = "ok" if rc == 0 else f"exit {rc}" if rc is not None else "?"
+        status_color = _OUT_GREEN if rc == 0 else _OUT_RED if rc is not None else ""
+        status = f"{status_color}{status_text:<8}{_OUT_RESET}"
+        print(f"{_OUT_CYAN}[{i}]{_OUT_RESET} {_OUT_DIM}{ts}{_OUT_RESET}  {tool:<16} {status} {desc}")
 
 
 # ---------------------------------------------------------------------------
@@ -389,6 +395,8 @@ def cmd_history(args):
 
 def cmd_models(_args):
     import requests as _req
+
+    from agent.cli.display import _OUT_BOLD, _OUT_GREEN, _OUT_RESET
 
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     selected = os.environ.get("OLLAMA_MODEL", "")
@@ -406,12 +414,12 @@ def cmd_models(_args):
         print("  ollama pull qwen2.5-coder:3b-instruct-q4_K_M")
         return
 
-    print(f"{'NAME':<45} {'SIZE':>8}  {'SELECTED'}")
+    print(f"{_OUT_BOLD}{'NAME':<45} {'SIZE':>8}  {'SELECTED'}{_OUT_RESET}")
     for m in models:
         name = m.get("name", "")
         size_bytes = m.get("size", 0)
         size_gb = size_bytes / 1024**3
-        marker = "<-- active" if name == selected else ""
+        marker = f"{_OUT_GREEN}<-- active{_OUT_RESET}" if name == selected else ""
         print(f"  {name:<43} {size_gb:>6.1f}G  {marker}")
 
 
@@ -421,18 +429,20 @@ def cmd_models(_args):
 
 
 def cmd_config(_args):
+    from agent.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
+
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     model = os.environ.get("OLLAMA_MODEL", "(not set)")
     embed = os.environ.get("EMBED_MODEL", model)
     openai_key = "(set)" if os.environ.get("OPENAI_API_KEY") else "(not set)"
     web_search = os.environ.get("WEB_SEARCH_ENABLED", "0")
 
-    print("Codebud resolved configuration:")
-    print(f"  OLLAMA_MODEL       = {model}")
-    print(f"  OLLAMA_BASE_URL    = {base}")
-    print(f"  EMBED_MODEL        = {embed}")
-    print(f"  OPENAI_API_KEY     = {openai_key}")
-    print(f"  WEB_SEARCH_ENABLED = {web_search}")
+    print(f"{_OUT_BOLD}Codebud resolved configuration:{_OUT_RESET}")
+    print(f"  {_OUT_DIM}OLLAMA_MODEL      {_OUT_RESET} = {model}")
+    print(f"  {_OUT_DIM}OLLAMA_BASE_URL   {_OUT_RESET} = {base}")
+    print(f"  {_OUT_DIM}EMBED_MODEL       {_OUT_RESET} = {embed}")
+    print(f"  {_OUT_DIM}OPENAI_API_KEY    {_OUT_RESET} = {openai_key}")
+    print(f"  {_OUT_DIM}WEB_SEARCH_ENABLED{_OUT_RESET} = {web_search}")
 
 
 # ---------------------------------------------------------------------------
