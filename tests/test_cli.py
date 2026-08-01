@@ -317,3 +317,158 @@ class TestSubcommandRouting:
         monkeypatch.setattr("run_agent._no_progress", lambda _: True)
         self._run_main(["list files"])
         assert ran.get("msg") == "list files"
+
+
+# ---------------------------------------------------------------------------
+# chat subcommand (interactive REPL)
+# ---------------------------------------------------------------------------
+
+
+class FakeChatAgent:
+    """Stand-in for AgentCore driven entirely through its public API."""
+
+    def __init__(self, plan_by_message=None):
+        self._history = []
+        self.executor = MagicMock()
+        self.executor.execute_plan = MagicMock(
+            return_value={
+                "status": "ok",
+                "results": {"step_0": {"stdout": "", "returncode": 0}},
+            }
+        )
+        self._plan_by_message = plan_by_message or {}
+        self.closed = False
+
+    def handle_user_message(self, msg, on_chunk=None):
+        self._history.append({"role": "user", "content": msg})
+        plan = self._plan_by_message.get(msg, _good_plan())
+        summary = "planned" if plan.get("status") == "ok" else plan.get("status")
+        self._history.append({"role": "assistant", "content": summary})
+        return plan
+
+    def clear_history(self):
+        self._history.clear()
+
+    def get_history(self):
+        return list(self._history)
+
+    def undo_last_turn(self):
+        if len(self._history) >= 2:
+            self._history.pop()
+            self._history.pop()
+            return True
+        self._history.clear()
+        return False
+
+    def close(self):
+        self.closed = True
+
+
+class TestChatSubcommand:
+    def _run_chat(self, monkeypatch, inputs, agent=None, extra_argv=None):
+        import run_agent
+
+        agent = agent or FakeChatAgent()
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        it = iter(inputs)
+
+        def fake_input(_prompt=""):
+            try:
+                return next(it)
+            except StopIteration:
+                raise EOFError from None
+
+        monkeypatch.setattr("builtins.input", fake_input)
+
+        with patch.object(sys, "argv", ["codebud", "chat"]):
+            run_agent.main()
+
+        return agent
+
+    def test_quit_closes_agent_without_sending_message(self, monkeypatch):
+        agent = self._run_chat(monkeypatch, ["quit"])
+        assert agent.closed
+        assert agent.get_history() == []
+
+    def test_plan_accept_executes_all_steps(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["do something", "y", "y"])
+        assert agent.executor.execute_plan.called
+        captured = capsys.readouterr()
+        assert "step" in captured.err.lower() or "step" in captured.out.lower()
+
+    def test_plan_skip_does_not_execute(self, monkeypatch):
+        agent = self._run_chat(monkeypatch, ["do something", "n"])
+        assert not agent.executor.execute_plan.called
+
+    def test_chat_reply_fallback_printed(self, monkeypatch, capsys):
+        agent = FakeChatAgent(plan_by_message={"hello": {"status": "chat_reply", "reply": "hi there"}})
+        self._run_chat(monkeypatch, ["hello"], agent=agent)
+        captured = capsys.readouterr()
+        assert "hi there" in captured.out
+
+    def test_slash_help(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/help"])
+        captured = capsys.readouterr()
+        assert "/undo" in captured.err
+
+    def test_slash_clear_resets_history_and_turn(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["do something", "n", "/clear"])
+        captured = capsys.readouterr()
+        assert "History cleared." in captured.err
+        assert agent.get_history() == []
+
+    def test_slash_history_empty(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/history"])
+        captured = capsys.readouterr()
+        assert "no history yet" in captured.err
+
+    def test_slash_history_lists_turns(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["do something", "n", "/history"])
+        captured = capsys.readouterr()
+        assert "USER: do something" in captured.err
+        assert "ASSISTANT:" in captured.err
+
+    def test_slash_undo_removes_last_turn(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["do something", "n", "/undo"])
+        captured = capsys.readouterr()
+        assert "Last turn removed." in captured.err
+        assert agent.get_history() == []
+
+    def test_slash_undo_with_no_history_clears(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/undo"])
+        captured = capsys.readouterr()
+        assert "nothing left to undo" in captured.err
+        assert agent.get_history() == []
+
+    def test_slash_model_prints_active_model(self, monkeypatch, capsys):
+        monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+        self._run_chat(monkeypatch, ["/model"])
+        captured = capsys.readouterr()
+        assert "qwen2.5-coder:3b" in captured.err
+
+    def test_slash_plan_before_any_plan(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/plan"])
+        captured = capsys.readouterr()
+        assert "no plan yet" in captured.err
+
+    def test_unknown_slash_command(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/bogus"])
+        captured = capsys.readouterr()
+        assert "Unknown command" in captured.err
+
+    def test_revise_then_accept(self, monkeypatch):
+        agent = self._run_chat(
+            monkeypatch, ["do something", "r: use a different tool", "y", "y"]
+        )
+        # Two handle_user_message calls: original + revision.
+        assert len(agent.get_history()) == 4
+        assert "revision note: use a different tool" in agent.get_history()[2]["content"]
+        assert agent.executor.execute_plan.called
+
+    def test_plan_error_from_planner_shown_and_loop_continues(self, monkeypatch, capsys):
+        agent = FakeChatAgent(plan_by_message={"bad": _plan_error("LLM returned invalid JSON")})
+        self._run_chat(monkeypatch, ["bad"], agent=agent)
+        captured = capsys.readouterr()
+        assert "LLM returned invalid JSON" in captured.err
