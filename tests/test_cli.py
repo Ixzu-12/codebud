@@ -176,6 +176,50 @@ class TestDoctorChecks:
         assert rc == 0
         assert "All checks passed" in captured.out
 
+    def test_run_doctor_no_color_when_not_tty(self, monkeypatch, capsys):
+        """Under pytest capture, stdout isn't a TTY, so no ANSI escapes appear."""
+        import requests
+
+        from agent.cli import doctor
+
+        monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+
+        def fake_get(url, timeout):
+            r = MagicMock()
+            r.status_code = 200
+            r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}
+            return r
+
+        monkeypatch.setattr(requests, "get", fake_get)
+        doctor.run_doctor()
+        captured = capsys.readouterr()
+        assert "\033[" not in captured.out
+
+    def test_run_doctor_color_when_tty(self, monkeypatch, capsys):
+        """When stdout is a TTY, PASS/FAIL lines carry ANSI color codes."""
+        import requests
+
+        from agent.cli import doctor
+
+        monkeypatch.setattr(doctor, "_IS_TTY", True)
+        monkeypatch.setattr(doctor, "_BOLD", "\033[1m")
+        monkeypatch.setattr(doctor, "_DIM", "\033[2m")
+        monkeypatch.setattr(doctor, "_GREEN", "\033[32m")
+        monkeypatch.setattr(doctor, "_RED", "\033[31m")
+        monkeypatch.setattr(doctor, "_RESET", "\033[0m")
+        monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+
+        def fake_get(url, timeout):
+            r = MagicMock()
+            r.status_code = 200
+            r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}
+            return r
+
+        monkeypatch.setattr(requests, "get", fake_get)
+        doctor.run_doctor()
+        captured = capsys.readouterr()
+        assert "\033[32m[PASS]\033[0m" in captured.out
+
 
 # ---------------------------------------------------------------------------
 # Display helpers (unit)

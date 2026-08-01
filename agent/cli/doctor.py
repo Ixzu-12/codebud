@@ -20,6 +20,14 @@ import requests
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# ANSI color helpers — degrade to no-op when stdout isn't a TTY (piped output).
+_IS_TTY = sys.stdout.isatty()
+_BOLD = "\033[1m" if _IS_TTY else ""
+_DIM = "\033[2m" if _IS_TTY else ""
+_GREEN = "\033[32m" if _IS_TTY else ""
+_RED = "\033[31m" if _IS_TTY else ""
+_RESET = "\033[0m" if _IS_TTY else ""
+
 # ---------------------------------------------------------------------------
 # Individual checks
 # ---------------------------------------------------------------------------
@@ -164,19 +172,19 @@ _CHECKS: list[Callable[[], CheckResult]] = [
 def run_doctor() -> int:
     """Run all checks and print a report. Returns exit code (0=all pass)."""
     failures = 0
-    print("Codebud environment check\n")
+    print(f"{_BOLD}Codebud environment check{_RESET}\n")
     for check_fn in _CHECKS:
         passed, label, hint = check_fn()
         if passed:
-            print(f"  [PASS] {label}")
+            print(f"  {_GREEN}[PASS]{_RESET} {label}")
         else:
             failures += 1
-            print(f"  [FAIL] {label}")
+            print(f"  {_RED}[FAIL]{_RESET} {label}")
             if hint:
-                print(f"         -> {hint}")
+                print(f"         {_DIM}-> {hint}{_RESET}")
     print()
     if failures == 0:
-        print("All checks passed. Codebud is ready.")
+        print(f"{_GREEN}All checks passed. Codebud is ready.{_RESET}")
     else:
-        print(f"{failures} check(s) failed. Fix the issues above and re-run: codebud doctor")
+        print(f"{_RED}{failures} check(s) failed.{_RESET} Fix the issues above and re-run: codebud doctor")
     return 0 if failures == 0 else 1
