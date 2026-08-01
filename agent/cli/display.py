@@ -51,12 +51,6 @@ def print_plan(plan: dict[str, Any], *, verbose: bool = False) -> None:
     _err()
 
 
-def print_plan_error(error: str) -> None:
-    """Print a plan_error with a hint to run doctor."""
-    _err(f"\n{_RED}Plan error:{_RESET} {error}")
-    _err(f"{_DIM}Tip: run `codebud doctor` to check your environment.{_RESET}\n")
-
-
 def print_step_header(index: int, step: dict[str, Any]) -> None:
     tool = step.get("tool", "?")
     desc = step.get("description", "")

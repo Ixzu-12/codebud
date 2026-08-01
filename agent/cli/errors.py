@@ -6,6 +6,14 @@ explanations and actionable fix hints. Mirrors the Troubleshooting chapter
 so the CLI surfaces what the docs already document.
 """
 
+import sys
+
+_IS_TTY = sys.stderr.isatty()
+_BOLD = "\033[1m" if _IS_TTY else ""
+_DIM = "\033[2m" if _IS_TTY else ""
+_RED = "\033[31m" if _IS_TTY else ""
+_RESET = "\033[0m" if _IS_TTY else ""
+
 
 _RULES: list[tuple[str, str, str]] = [
     # (substring to match, explanation, fix command)
@@ -88,14 +96,12 @@ def explain(error: str) -> tuple[str, str] | None:
 
 def print_error(error: str, *, label: str = "Error") -> None:
     """Print a formatted error with an explanation and fix hint if known."""
-    import sys
-
-    print(f"\n{label}: {error}", file=sys.stderr)
+    print(f"\n{_RED}{_BOLD}{label}:{_RESET} {error}", file=sys.stderr)
     result = explain(error)
     if result:
         explanation, fix = result
-        print(f"  What happened: {explanation}", file=sys.stderr)
-        print(f"  How to fix:    {fix}", file=sys.stderr)
+        print(f"  {_DIM}What happened:{_RESET} {explanation}", file=sys.stderr)
+        print(f"  {_DIM}How to fix:{_RESET}    {fix}", file=sys.stderr)
     else:
-        print("  Run `codebud doctor` to check your environment.", file=sys.stderr)
+        print(f"  {_DIM}Run `codebud doctor` to check your environment.{_RESET}", file=sys.stderr)
     print(file=sys.stderr)

@@ -238,13 +238,6 @@ class TestDisplay:
         # At minimum the tool name appears
         assert "command" in captured.err
 
-    def test_print_plan_error(self, capsys):
-        from agent.cli.display import print_plan_error
-
-        print_plan_error("LLM returned empty output")
-        captured = capsys.readouterr()
-        assert "LLM returned empty output" in captured.err
-        assert "doctor" in captured.err
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +328,24 @@ class TestSubcommandRouting:
         monkeypatch.setattr("run_agent._make_agent", lambda: FakeAgent())
         rc = self._run_main(["run", "do something"])
         assert rc == 1
+
+    def test_run_subcommand_plan_error_prints_once(self, monkeypatch, capsys):
+        """The plan_error message must appear exactly once, not duplicated
+        by two separate error-printing paths."""
+
+        class FakeAgent:
+            executor = MagicMock()
+
+            def handle_user_message(self, msg, on_chunk=None):
+                return _plan_error("LLM returned empty output")
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr("run_agent._make_agent", lambda: FakeAgent())
+        self._run_main(["run", "do something"])
+        captured = capsys.readouterr()
+        assert captured.err.count("LLM returned empty output") == 1
 
     def test_backwards_compat_no_subcommand(self, monkeypatch):
         """Bare `codebud "msg"` maps to run."""

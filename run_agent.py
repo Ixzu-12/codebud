@@ -50,7 +50,6 @@ def cmd_run(args):
     from agent.cli.display import (
         ProgressIndicator,
         print_plan,
-        print_plan_error,
         print_step_header,
         print_step_result,
     )
@@ -71,7 +70,6 @@ def cmd_run(args):
 
         if plan.get("status") != "ok":
             err = plan.get("error", "unknown error")
-            print_plan_error(err)
             print_error(err, label="Plan error")
             sys.exit(1)
 
@@ -115,7 +113,7 @@ def cmd_run(args):
 
 
 def cmd_plan(args):
-    from agent.cli.display import ProgressIndicator, print_plan, print_plan_error
+    from agent.cli.display import ProgressIndicator, print_plan
     from agent.cli.errors import print_error
 
     agent = _make_agent()
@@ -133,7 +131,6 @@ def cmd_plan(args):
 
         if plan.get("status") != "ok":
             err = plan.get("error", "unknown error")
-            print_plan_error(err)
             print_error(err, label="Plan error")
             sys.exit(1)
 
@@ -167,7 +164,6 @@ def cmd_chat(args):
     from agent.cli.display import (
         ProgressIndicator,
         print_plan,
-        print_plan_error,
         print_step_header,
         print_step_result,
     )
@@ -260,7 +256,6 @@ def cmd_chat(args):
 
             if plan.get("status") != "ok":
                 err = plan.get("error", "unknown error")
-                print_plan_error(err)
                 print_error(err, label="Plan error")
                 continue
 
@@ -295,7 +290,6 @@ def cmd_chat(args):
                         break
                     if plan.get("status") != "ok":
                         err = plan.get("error", "unknown error")
-                        print_plan_error(err)
                         print_error(err, label="Plan error")
                         break
                     continue  # show revised plan for another review
