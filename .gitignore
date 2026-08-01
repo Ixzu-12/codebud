@@ -7,3 +7,4 @@ dist/
 build/
 note
 docs/build/
+data/memory/entries.json
