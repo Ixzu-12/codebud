@@ -6,6 +6,7 @@ Codebud CLI entry point.
 Subcommands
 -----------
   run "<msg>"     Plan + auto-execute a request (default when no subcommand given)
+                  --interactive/-i prompts for approval before each step
   plan "<msg>"    Plan only — print the plan without executing
   chat            Interactive REPL: multiple requests in one session
   doctor          Check the environment (Ollama, model, config, RAM, disk)
@@ -76,8 +77,25 @@ def cmd_run(args):
         print_plan(plan, verbose=args.verbose)
 
         steps = plan.get("plan", [])
+        approve_all = not args.interactive
         for i, step in enumerate(steps, 1):
             print_step_header(i, step)
+
+            if not approve_all:
+                try:
+                    approval = input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    approval = "q"
+
+                if approval == "q":
+                    print("  -- aborted", file=sys.stderr)
+                    break
+                if approval == "a":
+                    approve_all = True
+                elif not approval.startswith("y"):
+                    print("  -- skipped", file=sys.stderr)
+                    continue
+
             result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
             if result.get("status") == "ok":
                 out = result["results"].get(step["id"], {})
@@ -437,6 +455,12 @@ def _build_parser() -> argparse.ArgumentParser:
     # run
     p_run = sub.add_parser("run", help="Plan and execute a request.")
     p_run.add_argument("message", help="Natural-language request.")
+    p_run.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Prompt for approval before executing each step.",
+    )
 
     # plan
     p_plan = sub.add_parser("plan", help="Plan a request without executing it.")

@@ -318,6 +318,93 @@ class TestSubcommandRouting:
         self._run_main(["list files"])
         assert ran.get("msg") == "list files"
 
+    def _two_step_plan(self):
+        return {
+            "status": "ok",
+            "plan": [
+                {"id": "step_0", "description": "first", "tool": "command", "args": {"cmd": "ls"}},
+                {"id": "step_1", "description": "second", "tool": "command", "args": {"cmd": "pwd"}},
+            ],
+        }
+
+    def _fake_agent_with_plan(self, plan):
+        class FakeAgent:
+            executor = MagicMock()
+            executor.execute_plan = MagicMock(
+                return_value={
+                    "status": "ok",
+                    "results": {"step_0": {"stdout": "", "returncode": 0}},
+                }
+            )
+
+            def handle_user_message(self, msg, on_chunk=None):
+                return plan
+
+            def close(self):
+                pass
+
+        return FakeAgent()
+
+    def test_run_interactive_approves_each_step(self, monkeypatch):
+        """run -i prompts per-step; 'y' each time executes both steps."""
+        agent = self._fake_agent_with_plan(self._two_step_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
+
+        self._run_main(["run", "-i", "do something"])
+        assert agent.executor.execute_plan.call_count == 2
+
+    def test_run_interactive_skip_step(self, monkeypatch, capsys):
+        """run -i with 'n' skips that step but continues to the next."""
+        agent = self._fake_agent_with_plan(self._two_step_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        answers = iter(["n", "y"])
+        monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+        self._run_main(["run", "-i", "do something"])
+        assert agent.executor.execute_plan.call_count == 1
+        captured = capsys.readouterr()
+        assert "skipped" in captured.err
+
+    def test_run_interactive_quit_aborts(self, monkeypatch, capsys):
+        """run -i with 'q' stops before executing any further steps."""
+        agent = self._fake_agent_with_plan(self._two_step_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "q")
+
+        self._run_main(["run", "-i", "do something"])
+        assert not agent.executor.execute_plan.called
+        captured = capsys.readouterr()
+        assert "aborted" in captured.err
+
+    def test_run_interactive_all_approves_remaining_steps(self, monkeypatch):
+        """run -i with 'a' approves the current and all remaining steps without further prompts."""
+        agent = self._fake_agent_with_plan(self._two_step_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda _prompt="": "a")
+
+        self._run_main(["run", "-i", "do something"])
+        assert agent.executor.execute_plan.call_count == 2
+
+    def test_run_non_interactive_does_not_prompt(self, monkeypatch):
+        """Without -i, run executes all steps without calling input()."""
+        agent = self._fake_agent_with_plan(self._two_step_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        def fail_input(_prompt=""):
+            raise AssertionError("input() should not be called without -i")
+
+        monkeypatch.setattr("builtins.input", fail_input)
+
+        self._run_main(["run", "do something"])
+        assert agent.executor.execute_plan.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # chat subcommand (interactive REPL)
