@@ -30,7 +30,9 @@ it does.
 @item @env{OLLAMA_MODEL}
 @tab @emph{(none)}
 @tab Model name exactly as it appears in @command{ollama list}.
-Required for the Ollama backend.
+Required for the Ollama backend.  Can be overridden per invocation
+without touching your shell profile --- see @option{--model}/@option{-m}
+and @code{/model} in the Usage chapter (@pxref{The run Subcommand}).
 @item @env{OLLAMA_BASE_URL}
 @tab @code{http://localhost:11434}
 @tab Base URL of the Ollama REST API.

@@ -151,10 +151,39 @@ Show a live spinner while the model generates the plan.
 @item
 Print a numbered plan summary.
 @item
-Execute each step in sequence, printing a one-line outcome.
+Execute each step in sequence, printing its full standard output
+(never truncated --- @pxref{Reading Step Results}).
 @end enumerate
 
 If any step fails, Codebud stops, prints the error, and suggests a fix.
+
+@table @option
+@item --interactive / -i
+Prompt for approval before executing each step, instead of running the
+whole plan automatically:
+
+@example
+codebud run -i "delete all .pyc files"
+@end example
+
+At each step you can answer @kbd{y} (execute), @kbd{n} or @key{RET}
+(skip), @kbd{a} (execute this step and all remaining steps without
+further prompts), or @kbd{q} (abort).
+
+@item --model / -m
+Override @env{OLLAMA_MODEL} for this invocation only.  The model must
+already be downloaded --- Codebud never runs @command{ollama pull} on
+your behalf.  It validates and warms the model (blocking, with the
+usual progress spinner) before planning starts, so a bad name fails
+fast instead of wasting a planning cycle:
+
+@example
+codebud run -m qwen2.5-coder:7b-instruct-q4_K_M "your request"
+@end example
+
+@strong{Note:} @option{--model} must come @emph{after} the subcommand
+name, not before (@pxref{Global Options}).
+@end table
 
 
 @node The plan Subcommand
@@ -184,6 +213,20 @@ codebud plan --json "delete all .pyc files"
 @noindent
 The JSON format is exactly what the executor receives.  Each step has
 the fields @code{id}, @code{description}, @code{tool}, and @code{args}.
+
+To also execute the plan after showing it --- printing full,
+untruncated step output the same way @command{run} does --- pass
+@option{--execute} (or @option{-x}):
+
+@example
+codebud plan -x "delete all .pyc files"
+@end example
+
+@option{--execute} and @option{--json} cannot be combined: executing
+steps has side effects, and @option{--json} output is meant to be
+piped into scripts, so mixing the two would be ambiguous.  @command{plan}
+also accepts @option{--model}/@option{-m}, with the same validate-then-warm
+behaviour as @command{run} (@pxref{The run Subcommand}).
 
 
 @node The chat Subcommand
@@ -222,6 +265,40 @@ multi-step task interactively --- for example, exploring a codebase,
 then editing a file, then running the tests --- @command{chat} lets
 each turn build on the previous one.  Memory from earlier turns helps
 the planner make better decisions.
+
+@subheading Slash commands
+
+Any input starting with @samp{/} is handled locally by the REPL and
+never sent to the model:
+
+@multitable @columnfractions .25 .75
+@headitem Command @tab Effect
+@item @code{/help} @tab Print the command reference.
+@item @code{/history} @tab Show the conversation turns kept in memory.
+@item @code{/clear} @tab Wipe conversation history and reset the turn counter.
+@item @code{/undo} @tab Remove the last user+assistant turn pair.
+@item @code{/doctor} @tab Run environment health checks inline.
+@item @code{/model} @tab Show the active model.
+@item @code{/model @var{name}} @tab Switch models mid-session.
+@item @code{/models} @tab List downloaded models, marking the active one.
+@item @code{/plan} @tab Re-display the last received plan.
+@item @code{/output} @tab Show the full stdout of the last executed step.
+@end multitable
+
+@code{/model @var{name}} validates the model is downloaded and blocks
+on a live warmup (with the usual spinner) before switching --- if
+either check fails, the active model is left unchanged and the reason
+is printed:
+
+@example
+[3] You: /model qwen2.5-coder:7b-instruct-q4_K_M
+| Thinking... 4s (prefill)
+  Switched to 'qwen2.5-coder:7b-instruct-q4_K_M'.
+@end example
+
+@code{/models} is the @command{chat}-mode equivalent of the
+@command{models} subcommand (@pxref{The models Subcommand}), useful
+when you want to see what is downloaded without leaving the session.
 
 
 @node The doctor Subcommand
@@ -282,8 +359,12 @@ NAME                                       SIZE  SELECTED
   qwen2.5-coder:7b-instruct-q4_K_M        4.7G
 @end example
 
-To switch models, change @env{OLLAMA_MODEL} (@pxref{Selecting a Model
-in Codebud}).
+To switch models, pass @option{--model}/@option{-m} on @command{run},
+@command{plan}, or @command{chat}, or type @code{/model @var{name}}
+inside an active @command{chat} session (@pxref{The chat Subcommand}).
+Both paths validate the model is downloaded and warm it before
+switching --- Codebud never runs @command{ollama pull} on your behalf,
+and never touches @env{OLLAMA_MODEL} directly on a failed switch.
 
 
 @node The config Subcommand
@@ -419,10 +500,14 @@ The inline hint mirrors the @ref{Troubleshooting} chapter.
 @cindex step results
 @cindex execution output
 
-After each step executes, Codebud prints a one-line outcome:
+After each step executes, Codebud prints a one-line outcome, followed
+by the step's standard output:
 
 @example
   -> ok, 12 lines stdout
+line 1
+line 2
+@dots{}
 @end example
 
 Or, if the step failed:
@@ -431,8 +516,25 @@ Or, if the step failed:
   -> exit 1, stderr: pytest: no tests ran
 @end example
 
-Pass @option{--verbose} (or @option{-v}) to see the full standard output
-of every step instead of the one-liner.
+@strong{@command{run} and @command{plan -x}} always print the full,
+untruncated stdout of every step --- there is no follow-up prompt in a
+one-shot invocation to ask for more, so nothing is ever hidden by
+default.
+
+@strong{@command{chat}} shows only the first 15 lines of stdout by
+default, with a note when more was withheld:
+
+@example
+  -> ok, 42 lines stdout
+line 1
+@dots{}
+line 15
+  ... (+27 more lines, see /output or --verbose)
+@end example
+
+Type @code{/output} to see the rest of the @emph{last} executed step's
+output, or pass @option{--verbose} (or @option{-v}) at chat startup to
+always show full output for every step in the session.
 
 
 @node Verbose and JSON Output
@@ -442,8 +544,10 @@ of every step instead of the one-liner.
 
 @table @option
 @item --verbose / -v
-Show the full stdout of each step rather than a one-line summary.
-Useful for debugging, or when a step produces output you want to read.
+In @command{chat}, show the full stdout of each step instead of the
+15-line default preview.  Has no effect on @command{run} or
+@command{plan -x}, which always show full output already
+(@pxref{Reading Step Results}).
 
 @item --no-progress
 Suppress the spinner entirely.  Useful when running Codebud from a
@@ -452,7 +556,7 @@ script or when redirecting output.
 @item codebud plan --json "@var{request}"
 Print the raw JSON plan instead of the formatted display.  Useful for
 piping into other tools or for inspecting the exact @code{args} the
-planner chose.
+planner chose.  Cannot be combined with @option{--execute}.
 @end table
 
 
@@ -460,7 +564,8 @@ planner chose.
 @section Global Options
 @cindex global options
 
-The following options can be placed before the subcommand name:
+@option{--no-progress} and @option{--verbose} can be placed before the
+subcommand name:
 
 @example
 codebud [--no-progress] [--verbose] @var{subcommand} ...
@@ -479,6 +584,21 @@ Print full step output instead of one-line summaries.  In
 Print a usage summary and exit.
 @end table
 
+@strong{@option{--model}/@option{-m} is different:} it is defined
+@emph{per subcommand}, not globally, and must come @emph{after} the
+subcommand name:
+
+@example
+codebud run --model qwen2.5-coder:7b-instruct-q4_K_M "your request"   @r{@i{(correct)}}
+codebud --model qwen2.5-coder:7b-instruct-q4_K_M run "your request"   @r{@i{(error: unrecognized subcommand)}}
+@end example
+
+This is deliberate, not an oversight: @command{argparse} lets a
+subcommand's own default silently overwrite a same-named option
+inherited from before the subcommand, so @option{--model} is only
+declared where it is actually read (@command{run}, @command{plan},
+@command{chat}) to avoid that trap entirely.
+
 
 @node Environment Variables
 @section Environment Variables
@@ -491,7 +611,12 @@ There are no configuration files to edit.
 @item OLLAMA_MODEL
 @strong{Required.}  The model name exactly as it appears in
 @command{ollama list} (and @command{codebud models}).  Example:
-@code{qwen2.5-coder:3b-instruct-q4_K_M}.
+@code{qwen2.5-coder:3b-instruct-q4_K_M}.  Can be overridden per
+invocation with @option{--model}/@option{-m} on @command{run},
+@command{plan}, or @command{chat}, or switched mid-session with
+@code{/model @var{name}} in @command{chat} --- both validate the model
+is downloaded and warm it before changing this variable
+(@pxref{The chat Subcommand}).
 
 @item OLLAMA_BASE_URL
 The base URL of the Ollama REST API.  Default:
@@ -539,6 +664,7 @@ codebud run "your request"      @r{(equivalent)}
 python run_agent.py "your request"  @r{(still works)}
 @end example
 
-The @option{-i} / @option{--interactive} flag from the old interface is
-replaced by the @command{chat} subcommand, which provides the same
-step-by-step approval flow with a more natural REPL interface.
+The old interface's step-by-step approval flow is available as
+@option{--interactive}/@option{-i} on @command{run}
+(@pxref{The run Subcommand}), and again --- across multiple turns ---
+in the @command{chat} subcommand's REPL.
