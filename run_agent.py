@@ -99,7 +99,7 @@ def cmd_run(args):
             result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
             if result.get("status") == "ok":
                 out = result["results"].get(step["id"], {})
-                print_step_result(out, verbose=args.verbose)
+                print_step_result(out, verbose=args.verbose, full=True)
             else:
                 err = str(result)
                 print_error(err, label="Execution error")

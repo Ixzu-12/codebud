@@ -83,11 +83,13 @@ def print_step_header(index: int, step: dict[str, Any]) -> None:
 _PREVIEW_LINES = 15
 
 
-def print_step_result(result: dict[str, Any], *, verbose: bool = False) -> None:
-    """Print a one-line outcome for a step result dict, then a preview of stdout.
+def print_step_result(result: dict[str, Any], *, verbose: bool = False, full: bool = False) -> None:
+    """Print a one-line outcome for a step result dict, then stdout.
 
-    By default only the first _PREVIEW_LINES lines of stdout are shown, with a
-    note about how many more lines were withheld. --verbose prints everything.
+    By default (chat) only the first _PREVIEW_LINES lines of stdout are shown,
+    with a note about how many more lines were withheld (--verbose or /output
+    show the rest). Non-interactive callers (run) have no follow-up prompt to
+    ask for more, so they pass full=True to always print everything untruncated.
     """
     rc = result.get("returncode", 0)
     stdout = result.get("stdout", "") or ""
@@ -109,7 +111,7 @@ def print_step_result(result: dict[str, Any], *, verbose: bool = False) -> None:
 
     if not stdout:
         return
-    if verbose or lines <= _PREVIEW_LINES:
+    if full or verbose or lines <= _PREVIEW_LINES:
         _err(stdout.rstrip())
     else:
         _err("\n".join(stdout_lines[:_PREVIEW_LINES]))

@@ -271,6 +271,16 @@ class TestDisplay:
         assert f"line{_PREVIEW_LINES + 10}" in captured.err
         assert "more line" not in captured.err
 
+    def test_print_step_result_full_shows_everything(self, capsys):
+        from agent.cli.display import _PREVIEW_LINES, print_step_result
+
+        stdout = "\n".join(f"line{i}" for i in range(1, _PREVIEW_LINES + 11))
+        result = {"returncode": 0, "stdout": stdout, "stderr": ""}
+        print_step_result(result, full=True)
+        captured = capsys.readouterr()
+        assert f"line{_PREVIEW_LINES + 10}" in captured.err
+        assert "more line" not in captured.err
+
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +503,40 @@ class TestSubcommandRouting:
 
         self._run_main(["run", "do something"])
         assert agent.executor.execute_plan.call_count == 2
+
+    def test_run_prints_full_stdout_without_truncation(self, monkeypatch, capsys):
+        """run has no follow-up prompt like chat's /output, so it must never
+        truncate step stdout the way chat's default preview does."""
+        plan = {
+            "status": "ok",
+            "plan": [{"id": "step_0", "description": "list", "tool": "command", "args": {"cmd": "ls"}}],
+        }
+        full_output = "\n".join(f"line{i}" for i in range(1, 30))
+
+        class FakeAgent:
+            executor = MagicMock()
+            executor.execute_plan = MagicMock(
+                return_value={
+                    "status": "ok",
+                    "results": {"step_0": {"stdout": full_output, "returncode": 0}},
+                }
+            )
+
+            def handle_user_message(self, msg, on_chunk=None):
+                return plan
+
+            def close(self):
+                pass
+
+        agent = FakeAgent()
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        self._run_main(["run", "do something"])
+        captured = capsys.readouterr()
+        assert "line1" in captured.err
+        assert "line29" in captured.err
+        assert "more line" not in captured.err
 
 
 # ---------------------------------------------------------------------------
