@@ -157,6 +157,7 @@ Slash commands (type /cmd and press Enter):
   /doctor    — run environment health checks
   /model     — show the active Ollama model
   /plan      — re-show the last plan (if any)
+  /output    — show the full stdout of the last executed step (untruncated)
   quit / exit / q — end the session
 """
 
@@ -187,6 +188,7 @@ def cmd_chat(args):
 
     turn = 0
     last_plan = None
+    last_step_output = None
 
     try:
         while True:
@@ -240,6 +242,17 @@ def cmd_chat(args):
                         print_plan(last_plan, verbose=args.verbose)
                     else:
                         print_status("(no plan yet)\n")
+                    continue
+                if cmd == "/output":
+                    if last_step_output is not None:
+                        stdout = (last_step_output.get("stdout") or "").rstrip()
+                        if stdout:
+                            print(stdout, file=sys.stderr)
+                        else:
+                            print_status("(last step produced no stdout)")
+                        print(file=sys.stderr)
+                    else:
+                        print_status("(no step output yet)\n")
                     continue
                 print_status(f"Unknown command: {cmd}  (try /help)\n")
                 continue
@@ -315,6 +328,7 @@ def cmd_chat(args):
                             if result.get("status") == "ok":
                                 out = result["results"].get(s["id"], {})
                                 print_step_result(out, verbose=args.verbose)
+                                last_step_output = out
                             else:
                                 print_error(str(result), label="Execution error")
                         break
@@ -326,6 +340,7 @@ def cmd_chat(args):
                     if result.get("status") == "ok":
                         out = result["results"].get(step["id"], {})
                         print_step_result(out, verbose=args.verbose)
+                        last_step_output = out
                     else:
                         print_error(str(result), label="Execution error")
                         break

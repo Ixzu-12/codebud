@@ -684,6 +684,7 @@ class TestChatSubcommand:
         self._run_chat(monkeypatch, ["/help"])
         captured = capsys.readouterr()
         assert "/undo" in captured.err
+        assert "/output" in captured.err
 
     def test_slash_clear_resets_history_and_turn(self, monkeypatch, capsys):
         agent = self._run_chat(monkeypatch, ["do something", "n", "/clear"])
@@ -724,6 +725,25 @@ class TestChatSubcommand:
         self._run_chat(monkeypatch, ["/plan"])
         captured = capsys.readouterr()
         assert "no plan yet" in captured.err
+
+    def test_slash_output_before_any_step(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/output"])
+        captured = capsys.readouterr()
+        assert "no step output yet" in captured.err
+
+    def test_slash_output_shows_full_stdout_after_step(self, monkeypatch, capsys):
+        agent = FakeChatAgent()
+        full_output = "\n".join(f"line{i}" for i in range(1, 30))
+        agent.executor.execute_plan = MagicMock(
+            return_value={
+                "status": "ok",
+                "results": {"step_0": {"stdout": full_output, "returncode": 0}},
+            }
+        )
+        self._run_chat(monkeypatch, ["do something", "y", "y", "/output"], agent=agent)
+        captured = capsys.readouterr()
+        assert "line1" in captured.err
+        assert "line29" in captured.err
 
     def test_unknown_slash_command(self, monkeypatch, capsys):
         self._run_chat(monkeypatch, ["/bogus"])
