@@ -540,6 +540,72 @@ class TestSubcommandRouting:
 
 
 # ---------------------------------------------------------------------------
+# plan subcommand
+# ---------------------------------------------------------------------------
+
+
+class TestPlanSubcommand:
+    def _run_main(self, argv):
+        import run_agent
+
+        with patch.object(sys, "argv", ["codebud"] + argv):
+            try:
+                run_agent.main()
+            except SystemExit as exc:
+                return exc.code
+        return 0
+
+    def _fake_agent_with_plan(self, plan, stdout=""):
+        class FakeAgent:
+            executor = MagicMock()
+            executor.execute_plan = MagicMock(
+                return_value={
+                    "status": "ok",
+                    "results": {"step_0": {"stdout": stdout, "returncode": 0}},
+                }
+            )
+
+            def handle_user_message(self, msg, on_chunk=None):
+                return plan
+
+            def close(self):
+                pass
+
+        return FakeAgent()
+
+    def test_plan_default_does_not_execute(self, monkeypatch):
+        """Plain `codebud plan` never touches the executor — dry-run only."""
+        agent = self._fake_agent_with_plan(_good_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        self._run_main(["plan", "do something"])
+        assert not agent.executor.execute_plan.called
+
+    def test_plan_execute_runs_steps_and_shows_full_output(self, monkeypatch, capsys):
+        full_output = "\n".join(f"line{i}" for i in range(1, 30))
+        agent = self._fake_agent_with_plan(_good_plan(), stdout=full_output)
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        self._run_main(["plan", "--execute", "do something"])
+        assert agent.executor.execute_plan.called
+        captured = capsys.readouterr()
+        assert "line1" in captured.err
+        assert "line29" in captured.err
+        assert "more line" not in captured.err
+
+    def test_plan_execute_and_json_rejected(self, monkeypatch, capsys):
+        agent = self._fake_agent_with_plan(_good_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        rc = self._run_main(["plan", "--execute", "--json", "do something"])
+        assert rc == 2
+        assert not agent.executor.execute_plan.called
+
+
+# ---------------------------------------------------------------------------
 # history subcommand
 # ---------------------------------------------------------------------------
 

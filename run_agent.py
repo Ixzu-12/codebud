@@ -8,6 +8,8 @@ Subcommands
   run "<msg>"     Plan + auto-execute a request (default when no subcommand given)
                   --interactive/-i prompts for approval before each step
   plan "<msg>"    Plan only — print the plan without executing
+                  --execute/-x also runs the steps and prints full output
+                  (cannot combine with --json)
   chat            Interactive REPL: multiple requests in one session
   doctor          Check the environment (Ollama, model, config, RAM, disk)
   history         Show past step executions (data/memory/entries.json)
@@ -114,8 +116,17 @@ def cmd_run(args):
 
 
 def cmd_plan(args):
-    from agent.cli.display import ProgressIndicator, print_plan
+    from agent.cli.display import (
+        ProgressIndicator,
+        print_plan,
+        print_step_header,
+        print_step_result,
+    )
     from agent.cli.errors import print_error
+
+    if args.execute and args.json:
+        print("--execute and --json cannot be combined.", file=sys.stderr)
+        sys.exit(2)
 
     agent = _make_agent()
     try:
@@ -137,8 +148,22 @@ def cmd_plan(args):
 
         if args.json:
             print(json.dumps(plan, indent=2))
-        else:
-            print_plan(plan, verbose=args.verbose)
+            return
+
+        print_plan(plan, verbose=args.verbose)
+
+        if not args.execute:
+            return
+
+        for i, step in enumerate(plan.get("plan", []), 1):
+            print_step_header(i, step)
+            result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
+            if result.get("status") == "ok":
+                out = result["results"].get(step["id"], {})
+                print_step_result(out, verbose=args.verbose, full=True)
+            else:
+                print_error(str(result), label="Execution error")
+                sys.exit(1)
     finally:
         agent.close()
 
@@ -520,6 +545,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_plan = sub.add_parser("plan", help="Plan a request without executing it.")
     p_plan.add_argument("message", help="Natural-language request.")
     p_plan.add_argument("--json", action="store_true", help="Output raw JSON plan.")
+    p_plan.add_argument(
+        "--execute",
+        "-x",
+        action="store_true",
+        help="Also execute the plan's steps and print their full output (cannot combine with --json).",
+    )
 
     # chat
     sub.add_parser("chat", help="Interactive multi-turn session.")
