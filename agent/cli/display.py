@@ -80,12 +80,20 @@ def print_step_header(index: int, step: dict[str, Any]) -> None:
     _err(f"{_BOLD}Step {index} — {tool}:{_RESET} {desc}")
 
 
+_PREVIEW_LINES = 15
+
+
 def print_step_result(result: dict[str, Any], *, verbose: bool = False) -> None:
-    """Print a one-line outcome for a step result dict."""
+    """Print a one-line outcome for a step result dict, then a preview of stdout.
+
+    By default only the first _PREVIEW_LINES lines of stdout are shown, with a
+    note about how many more lines were withheld. --verbose prints everything.
+    """
     rc = result.get("returncode", 0)
     stdout = result.get("stdout", "") or ""
     stderr = result.get("stderr", "") or ""
-    lines = len(stdout.splitlines())
+    stdout_lines = stdout.splitlines()
+    lines = len(stdout_lines)
     if rc == 0:
         color = _GREEN
         mark = "ok"
@@ -98,8 +106,15 @@ def print_step_result(result: dict[str, Any], *, verbose: bool = False) -> None:
     if stderr:
         summary += f", stderr: {stderr[:80]}"
     _err(f"  -> {summary}")
-    if verbose and stdout:
+
+    if not stdout:
+        return
+    if verbose or lines <= _PREVIEW_LINES:
         _err(stdout.rstrip())
+    else:
+        _err("\n".join(stdout_lines[:_PREVIEW_LINES]))
+        hidden = lines - _PREVIEW_LINES
+        _err(f"  {_DIM}... (+{hidden} more line{'s' if hidden != 1 else ''}, see /output or --verbose){_RESET}")
 
 
 # ---------------------------------------------------------------------------

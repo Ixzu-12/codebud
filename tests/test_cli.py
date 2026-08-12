@@ -238,6 +238,39 @@ class TestDisplay:
         # At minimum the tool name appears
         assert "command" in captured.err
 
+    def test_print_step_result_shows_short_stdout_by_default(self, capsys):
+        from agent.cli.display import print_step_result
+
+        result = {"returncode": 0, "stdout": "line1\nline2\nline3", "stderr": ""}
+        print_step_result(result)
+        captured = capsys.readouterr()
+        assert "line1" in captured.err
+        assert "line2" in captured.err
+        assert "line3" in captured.err
+        assert "more line" not in captured.err
+
+    def test_print_step_result_truncates_long_stdout_by_default(self, capsys):
+        from agent.cli.display import _PREVIEW_LINES, print_step_result
+
+        stdout = "\n".join(f"line{i}" for i in range(1, _PREVIEW_LINES + 11))
+        result = {"returncode": 0, "stdout": stdout, "stderr": ""}
+        print_step_result(result)
+        captured = capsys.readouterr()
+        assert f"line{_PREVIEW_LINES}" in captured.err
+        assert f"line{_PREVIEW_LINES + 1}" not in captured.err
+        assert "+10 more lines" in captured.err
+        assert "/output" in captured.err
+
+    def test_print_step_result_verbose_shows_everything(self, capsys):
+        from agent.cli.display import _PREVIEW_LINES, print_step_result
+
+        stdout = "\n".join(f"line{i}" for i in range(1, _PREVIEW_LINES + 11))
+        result = {"returncode": 0, "stdout": stdout, "stderr": ""}
+        print_step_result(result, verbose=True)
+        captured = capsys.readouterr()
+        assert f"line{_PREVIEW_LINES + 10}" in captured.err
+        assert "more line" not in captured.err
+
 
 
 # ---------------------------------------------------------------------------
