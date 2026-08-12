@@ -24,11 +24,12 @@ This file contains NO UI logic and NO OpenClaw logic.
 It is purely the internal agent brain.
 """
 
+import os
 from collections.abc import Callable
 from typing import Any
 
 from .executor import Executor
-from .llm_stub import ModelHeartbeat, call_llm_plain, prewarm_model
+from .llm_stub import ModelHeartbeat, call_llm_plain, list_models, prewarm_model, warm_model_sync
 from .memory import MemoryStore
 from .planner import LLMPlanner
 from .safety import SafetyEngine
@@ -127,6 +128,42 @@ class AgentCore:
     def get_history(self) -> list[dict[str, str]]:
         """Return a copy of the conversation history (used by /history in chat mode)."""
         return list(self._history)
+
+    def get_model(self) -> str:
+        """Return the active OLLAMA_MODEL, or '' if unset."""
+        return os.environ.get("OLLAMA_MODEL", "")
+
+    def set_model(
+        self,
+        model: str,
+        on_chunk: Callable[[str], None] | None = None,
+    ) -> tuple[bool, str]:
+        """Switch the active model and warm it before returning.
+
+        Validates the model is actually downloaded (never auto-pulls — the
+        user must run `ollama pull <name>` themselves), then blocks on a
+        synchronous streamed warmup call so the model is loaded before the
+        next real request. on_chunk is forwarded to drive a live progress
+        indicator the same way handle_user_message does.
+
+        Returns (success, message). On failure OLLAMA_MODEL is left
+        unchanged so a bad switch doesn't break an otherwise-working session.
+        """
+        available = list_models()
+        if not available:
+            return False, "Could not reach Ollama to verify available models."
+        if model not in available:
+            return False, f"Model '{model}' is not downloaded. Run: ollama pull {model}"
+
+        previous = os.environ.get("OLLAMA_MODEL")
+        os.environ["OLLAMA_MODEL"] = model
+        if not warm_model_sync(model, on_chunk=on_chunk):
+            if previous is not None:
+                os.environ["OLLAMA_MODEL"] = previous
+            else:
+                os.environ.pop("OLLAMA_MODEL", None)
+            return False, f"Failed to warm up '{model}'; kept using the previous model."
+        return True, f"Switched to '{model}'."
 
     def undo_last_turn(self) -> bool:
         """Remove the last user+assistant turn pair (used by /undo in chat mode).

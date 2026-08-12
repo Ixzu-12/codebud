@@ -7,10 +7,14 @@ Subcommands
 -----------
   run "<msg>"     Plan + auto-execute a request (default when no subcommand given)
                   --interactive/-i prompts for approval before each step
+                  --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   plan "<msg>"    Plan only — print the plan without executing
                   --execute/-x also runs the steps and prints full output
                   (cannot combine with --json)
+                  --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   chat            Interactive REPL: multiple requests in one session
+                  --model/-m <name> overrides OLLAMA_MODEL at startup;
+                  /model <name> switches mid-session, /models lists available
   doctor          Check the environment (Ollama, model, config, RAM, disk)
   history         Show past step executions (data/memory/entries.json)
   models          List downloaded Ollama models
@@ -43,6 +47,42 @@ def _no_progress(args) -> bool:
     return getattr(args, "no_progress", False) or not sys.stderr.isatty()
 
 
+def _apply_model_override(args) -> bool:
+    """Handle --model/-m: validate it's downloaded, warm it with live progress,
+    then set OLLAMA_MODEL so agent construction picks it up.
+
+    Returns False (after printing an error) if the override was requested but
+    invalid, so the caller can abort before spending time on planning.
+    """
+    requested = getattr(args, "model", None)
+    if not requested:
+        return True
+
+    from agent.cli.display import ProgressIndicator
+    from agent.llm_stub import list_models, warm_model_sync
+
+    available = list_models()
+    if not available:
+        print("Cannot reach Ollama to verify --model.", file=sys.stderr)
+        return False
+    if requested not in available:
+        print(f"Model '{requested}' is not downloaded. Run: ollama pull {requested}", file=sys.stderr)
+        return False
+
+    prog = ProgressIndicator(no_progress=_no_progress(args))
+    prog.start()
+    try:
+        ok = warm_model_sync(requested, on_chunk=prog.on_chunk)
+    finally:
+        prog.stop()
+    if not ok:
+        print(f"Failed to warm up '{requested}'.", file=sys.stderr)
+        return False
+
+    os.environ["OLLAMA_MODEL"] = requested
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Subcommand: run
 # ---------------------------------------------------------------------------
@@ -57,6 +97,9 @@ def cmd_run(args):
         print_step_result,
     )
     from agent.cli.errors import print_error
+
+    if not _apply_model_override(args):
+        sys.exit(1)
 
     agent = _make_agent()
     try:
@@ -128,6 +171,9 @@ def cmd_plan(args):
         print("--execute and --json cannot be combined.", file=sys.stderr)
         sys.exit(2)
 
+    if not _apply_model_override(args):
+        sys.exit(1)
+
     agent = _make_agent()
     try:
         prog = ProgressIndicator(no_progress=_no_progress(args))
@@ -180,7 +226,8 @@ Slash commands (type /cmd and press Enter):
   /clear     — wipe conversation history and start fresh
   /undo      — remove the last turn from history
   /doctor    — run environment health checks
-  /model     — show the active Ollama model
+  /model     — show the active Ollama model, or /model <name> to switch
+  /models    — list downloaded models, marking the active one
   /plan      — re-show the last plan (if any)
   /output    — show the full stdout of the last executed step (untruncated)
   quit / exit / q — end the session
@@ -204,10 +251,12 @@ def cmd_chat(args):
     except ImportError:
         pass
 
+    if not _apply_model_override(args):
+        sys.exit(1)
+
     agent = _make_agent()
-    model_name = os.environ.get("OLLAMA_MODEL", "(not set)")
     print(
-        f"Codebud chat  |  model: {model_name}  |  /help for commands\n",
+        f"Codebud chat  |  model: {agent.get_model() or '(not set)'}  |  /help for commands\n",
         file=sys.stderr,
     )
 
@@ -260,7 +309,33 @@ def cmd_chat(args):
                     run_doctor()
                     continue
                 if cmd == "/model":
-                    print_status(f"Active model: {model_name}\n")
+                    parts = message.split(maxsplit=1)
+                    if len(parts) == 1:
+                        print_status(f"Active model: {agent.get_model() or '(not set)'}\n")
+                        continue
+                    requested = parts[1].strip()
+                    prog = ProgressIndicator(no_progress=_no_progress(args))
+                    prog.start()
+                    try:
+                        ok, msg = agent.set_model(requested, on_chunk=prog.on_chunk)
+                    finally:
+                        prog.stop()
+                    print_status(f"{msg}\n")
+                    continue
+                if cmd == "/models":
+                    from agent.llm_stub import list_models
+
+                    names = list_models()
+                    if not names:
+                        print_status("Cannot reach Ollama to list models.\n")
+                        continue
+                    from agent.cli.display import _GREEN, _RESET
+
+                    active = agent.get_model()
+                    for name in names:
+                        marker = f"  {_GREEN}<-- active{_RESET}" if name == active else ""
+                        print(f"  {name}{marker}", file=sys.stderr)
+                    print(file=sys.stderr)
                     continue
                 if cmd == "/plan":
                     if last_plan:
@@ -529,10 +604,23 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show full step output instead of a one-line summary.",
     )
 
+    # --model is defined per-subcommand (not here at the top level) because
+    # argparse silently lets a subparser's same-named default clobber a
+    # parent-parser value — defining it once, shared via `parents=`, avoids
+    # that trap entirely and keeps `--model` consistently *after* the
+    # subcommand, same position as --interactive/--json/--execute.
+    model_parent = argparse.ArgumentParser(add_help=False)
+    model_parent.add_argument(
+        "--model",
+        "-m",
+        default=None,
+        help="Override OLLAMA_MODEL for this invocation (must already be downloaded).",
+    )
+
     sub = parser.add_subparsers(dest="subcommand")
 
     # run
-    p_run = sub.add_parser("run", help="Plan and execute a request.")
+    p_run = sub.add_parser("run", help="Plan and execute a request.", parents=[model_parent])
     p_run.add_argument("message", help="Natural-language request.")
     p_run.add_argument(
         "--interactive",
@@ -542,7 +630,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # plan
-    p_plan = sub.add_parser("plan", help="Plan a request without executing it.")
+    p_plan = sub.add_parser("plan", help="Plan a request without executing it.", parents=[model_parent])
     p_plan.add_argument("message", help="Natural-language request.")
     p_plan.add_argument("--json", action="store_true", help="Output raw JSON plan.")
     p_plan.add_argument(
@@ -553,7 +641,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # chat
-    sub.add_parser("chat", help="Interactive multi-turn session.")
+    sub.add_parser("chat", help="Interactive multi-turn session.", parents=[model_parent])
 
     # doctor
     sub.add_parser("doctor", help="Check the environment.")

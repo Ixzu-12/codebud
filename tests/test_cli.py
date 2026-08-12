@@ -323,6 +323,109 @@ class TestErrors:
 # ---------------------------------------------------------------------------
 
 
+class TestModelOverride:
+    """--model/-m: validates before construction, warms synchronously, never auto-pulls."""
+
+    def _run_main(self, argv):
+        import run_agent
+
+        with patch.object(sys, "argv", ["codebud"] + argv):
+            try:
+                run_agent.main()
+            except SystemExit as exc:
+                return exc.code
+        return 0
+
+    def test_valid_model_sets_env_and_constructs_agent(self, monkeypatch):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["good-model"])
+        monkeypatch.setattr("agent.llm_stub.warm_model_sync", lambda model, on_chunk=None: True)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        seen = {}
+
+        class FakeAgent:
+            executor = MagicMock()
+
+            def handle_user_message(self, msg, on_chunk=None):
+                seen["model_at_call"] = __import__("os").environ.get("OLLAMA_MODEL")
+                return {"status": "chat_reply", "reply": "ok"}
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr("run_agent._make_agent", lambda: FakeAgent())
+        rc = self._run_main(["run", "--model", "good-model", "do something"])
+        assert rc == 0
+        assert seen["model_at_call"] == "good-model"
+
+    def test_undownloaded_model_aborts_before_planning(self, monkeypatch, capsys):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["other-model"])
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        called = {}
+
+        def fail_make_agent():
+            called["made"] = True
+            raise AssertionError("agent should never be constructed")
+
+        monkeypatch.setattr("run_agent._make_agent", fail_make_agent)
+        rc = self._run_main(["run", "--model", "missing-model", "do something"])
+        assert rc == 1
+        assert "made" not in called
+        captured = capsys.readouterr()
+        assert "not downloaded" in captured.err
+        assert "ollama pull missing-model" in captured.err
+
+    def test_unreachable_ollama_aborts(self, monkeypatch, capsys):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: [])
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        monkeypatch.setattr(
+            "run_agent._make_agent",
+            lambda: (_ for _ in ()).throw(AssertionError("should not construct")),
+        )
+
+        rc = self._run_main(["plan", "--model", "any-model", "do something"])
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert "Cannot reach Ollama" in captured.err
+
+    def test_warmup_failure_aborts(self, monkeypatch, capsys):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["good-model"])
+        monkeypatch.setattr("agent.llm_stub.warm_model_sync", lambda model, on_chunk=None: False)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        monkeypatch.setattr(
+            "run_agent._make_agent",
+            lambda: (_ for _ in ()).throw(AssertionError("should not construct")),
+        )
+
+        rc = self._run_main(["run", "--model", "good-model", "do something"])
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert "Failed to warm up" in captured.err
+
+    def test_no_model_flag_skips_override_entirely(self, monkeypatch):
+        """Without --model, list_models/warm_model_sync must not be called."""
+
+        def fail(*a, **kw):
+            raise AssertionError("should not be called without --model")
+
+        monkeypatch.setattr("agent.llm_stub.list_models", fail)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        class FakeAgent:
+            executor = MagicMock()
+
+            def handle_user_message(self, msg, on_chunk=None):
+                return {"status": "chat_reply", "reply": "ok"}
+
+            def close(self):
+                pass
+
+        monkeypatch.setattr("run_agent._make_agent", lambda: FakeAgent())
+        rc = self._run_main(["run", "do something"])
+        assert rc == 0
+
+
 class TestSubcommandRouting:
     def _run_main(self, argv):
         """Run main() with the given argv list, capturing SystemExit."""
@@ -706,7 +809,7 @@ class TestHistorySubcommand:
 class FakeChatAgent:
     """Stand-in for AgentCore driven entirely through its public API."""
 
-    def __init__(self, plan_by_message=None):
+    def __init__(self, plan_by_message=None, model="fake-model", set_model_result=None):
         self._history = []
         self.executor = MagicMock()
         self.executor.execute_plan = MagicMock(
@@ -717,6 +820,17 @@ class FakeChatAgent:
         )
         self._plan_by_message = plan_by_message or {}
         self.closed = False
+        self._model = model
+        self._set_model_result = set_model_result
+
+    def get_model(self):
+        return self._model
+
+    def set_model(self, model, on_chunk=None):
+        if self._set_model_result is not None:
+            return self._set_model_result
+        self._model = model
+        return True, f"Switched to '{model}'."
 
     def handle_user_message(self, msg, on_chunk=None):
         self._history.append({"role": "user", "content": msg})
@@ -795,6 +909,7 @@ class TestChatSubcommand:
         captured = capsys.readouterr()
         assert "/undo" in captured.err
         assert "/output" in captured.err
+        assert "/models" in captured.err
 
     def test_slash_clear_resets_history_and_turn(self, monkeypatch, capsys):
         agent = self._run_chat(monkeypatch, ["do something", "n", "/clear"])
@@ -826,10 +941,38 @@ class TestChatSubcommand:
         assert agent.get_history() == []
 
     def test_slash_model_prints_active_model(self, monkeypatch, capsys):
-        monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
-        self._run_chat(monkeypatch, ["/model"])
+        agent = FakeChatAgent(model="qwen2.5-coder:3b")
+        self._run_chat(monkeypatch, ["/model"], agent=agent)
         captured = capsys.readouterr()
         assert "qwen2.5-coder:3b" in captured.err
+
+    def test_slash_model_with_arg_switches_model(self, monkeypatch, capsys):
+        agent = FakeChatAgent(model="old-model")
+        self._run_chat(monkeypatch, ["/model new-model"], agent=agent)
+        captured = capsys.readouterr()
+        assert agent.get_model() == "new-model"
+        assert "Switched to 'new-model'" in captured.err
+
+    def test_slash_model_switch_failure_shown(self, monkeypatch, capsys):
+        agent = FakeChatAgent(
+            model="old-model",
+            set_model_result=(False, "Model 'bogus' is not downloaded. Run: ollama pull bogus"),
+        )
+        self._run_chat(monkeypatch, ["/model bogus"], agent=agent)
+        captured = capsys.readouterr()
+        assert "not downloaded" in captured.err
+        assert agent.get_model() == "old-model"
+
+    def test_slash_models_lists_and_marks_active(self, monkeypatch, capsys):
+        agent = FakeChatAgent(model="model-b")
+        monkeypatch.setattr(
+            "agent.llm_stub.list_models", lambda: ["model-a", "model-b"]
+        )
+        self._run_chat(monkeypatch, ["/models"], agent=agent)
+        captured = capsys.readouterr()
+        assert "model-a" in captured.err
+        assert "model-b" in captured.err
+        assert "active" in captured.err
 
     def test_slash_plan_before_any_plan(self, monkeypatch, capsys):
         self._run_chat(monkeypatch, ["/plan"])

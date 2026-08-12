@@ -194,6 +194,50 @@ def prewarm_model() -> None:
     t.start()
 
 
+def warm_model_sync(
+    model: str,
+    on_chunk: Callable[[str], None] | None = None,
+    timeout: float = 120.0,
+) -> bool:
+    """Synchronously load ``model`` into memory, streaming so on_chunk can
+    drive a live progress indicator. Returns True once the model responds.
+
+    Unlike prewarm_model() (fire-and-forget, background thread, used for
+    silent session startup) this blocks and reports success/failure, for use
+    when a user actively switches models and is waiting to know it worked.
+    """
+    if not _ollama_available():
+        return False
+    try:
+        r = requests.post(
+            f"{_OLLAMA_BASE}/api/generate",
+            json={
+                "model": model,
+                "prompt": "hi",
+                "stream": True,
+                "options": {"num_predict": 2},
+            },
+            stream=True,
+            timeout=(10, timeout),
+        )
+        r.raise_for_status()
+        import json as _json
+
+        for line in r.iter_lines():
+            if not line:
+                continue
+            chunk = _json.loads(line)
+            text = chunk.get("response", "")
+            if on_chunk is not None and text:
+                on_chunk(text)
+            if chunk.get("done"):
+                return True
+        return True
+    except Exception as exc:
+        logger.warning("Model warmup failed for %s: %s", model, exc)
+        return False
+
+
 def _ollama_available() -> bool:
     """Return True if the Ollama server answers a lightweight health check."""
     try:
@@ -201,6 +245,16 @@ def _ollama_available() -> bool:
         return r.status_code == 200
     except Exception:
         return False
+
+
+def list_models() -> list[str]:
+    """Return the names of models currently downloaded in Ollama, or [] on failure."""
+    try:
+        r = requests.get(f"{_OLLAMA_BASE}/api/tags", timeout=5)
+        r.raise_for_status()
+        return [m.get("name", "") for m in r.json().get("models", [])]
+    except Exception:
+        return []
 
 
 def _call_ollama(
