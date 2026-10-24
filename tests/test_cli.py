@@ -228,6 +228,37 @@ class TestDoctorChecks:
 
 
 class TestDisplay:
+    def test_print_rule_spans_terminal_width(self, monkeypatch, capsys):
+        from agent.cli import display
+
+        monkeypatch.setattr(display, "_IS_TTY", True)
+        monkeypatch.setenv("COLUMNS", "40")
+        display.print_rule()
+        line = capsys.readouterr().err.strip("\n")
+        assert "\u2500" * 40 in line
+        assert "\u2500" * 41 not in line
+
+    def test_print_rule_prints_nothing_when_not_a_tty(self, monkeypatch, capsys):
+        from agent.cli import display
+
+        monkeypatch.setattr(display, "_IS_TTY", False)
+        display.print_rule()
+        assert capsys.readouterr().err == ""
+
+    def test_print_rule_falls_back_to_ascii(self, monkeypatch):
+        import io
+
+        from agent.cli import display
+
+        buf = io.BytesIO()
+        stream = io.TextIOWrapper(buf, encoding="ascii")
+        monkeypatch.setattr(display, "_IS_TTY", True)
+        monkeypatch.setattr(sys, "stderr", stream)
+        monkeypatch.setenv("COLUMNS", "10")
+        display.print_rule()
+        stream.flush()
+        assert "-" * 10 in buf.getvalue().decode("ascii")
+
     def test_print_plan_shows_steps(self, capsys):
         from agent.cli.display import print_plan
 
@@ -1021,3 +1052,12 @@ class TestChatSubcommand:
         self._run_chat(monkeypatch, ["bad"], agent=agent)
         captured = capsys.readouterr()
         assert "LLM returned invalid JSON" in captured.err
+
+    def test_rule_printed_before_every_prompt(self, monkeypatch, capsys):
+        from agent.cli import display
+
+        monkeypatch.setattr(display, "_IS_TTY", True)
+        monkeypatch.setenv("COLUMNS", "20")
+        self._run_chat(monkeypatch, ["/help", "/history"])
+        # Three prompts: two slash commands, then EOF ends the session.
+        assert capsys.readouterr().err.count("\u2500" * 20) == 3

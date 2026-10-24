@@ -262,6 +262,19 @@ Abort the current plan and return to the prompt.
 
 To end the session, type @samp{quit} or press @kbd{Ctrl-D}.
 
+On a terminal, a dim horizontal rule is drawn across the full width
+before each @samp{[@var{n}] You:} prompt, so turns are easy to tell
+apart:
+
+@example
+────────────────────────────────────────────────────
+[1] You: list the python files
+@end example
+
+The rule is omitted when standard error is not a terminal (for example
+when it is redirected to a file), and drawn with @samp{-} if the
+terminal's encoding cannot show @samp{─}.
+
 @strong{Why use chat instead of run?}  When you are working through a
 multi-step task interactively --- for example, exploring a codebase,
 then editing a file, then running the tests --- @command{chat} lets

@@ -241,6 +241,7 @@ def cmd_chat(args):
         ProgressIndicator,
         print_assistant_reply,
         print_plan,
+        print_rule,
         print_status,
         print_step_header,
         print_step_result,
@@ -269,6 +270,7 @@ def cmd_chat(args):
 
     try:
         while True:
+            print_rule()
             try:
                 message = input(f"[{turn + 1}] You: ").strip()
             except (EOFError, KeyboardInterrupt):

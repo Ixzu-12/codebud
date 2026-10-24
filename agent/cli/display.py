@@ -6,6 +6,7 @@ step results. All output goes to stderr for progress lines so that stdout
 can carry clean JSON when piped. Plain-text fallback when not a TTY.
 """
 
+import shutil
 import sys
 import threading
 import time
@@ -46,6 +47,23 @@ def print_status(message: str) -> None:
     Used for inline chat/run feedback like "-- skipped" or "History cleared."
     """
     _err(f"  {_DIM}{message}{_RESET}")
+
+
+def print_rule() -> None:
+    """Print a dim horizontal rule across the terminal to separate chat turns.
+
+    Prints nothing when stderr is not a TTY, so piped output stays clean.
+    Falls back to ASCII '-' when stderr's encoding can't represent '─'.
+    """
+    if not _IS_TTY:
+        return
+    width = shutil.get_terminal_size().columns
+    char = "─"
+    try:
+        char.encode(sys.stderr.encoding or "ascii")
+    except (UnicodeEncodeError, LookupError):
+        char = "-"
+    _err(f"{_DIM}{char * width}{_RESET}")
 
 
 def print_assistant_reply(reply: str) -> None:
