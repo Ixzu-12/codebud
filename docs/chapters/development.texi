@@ -43,13 +43,21 @@ network access use @code{unittest.mock.patch} to replace @code{call_llm}.
 
 @example
 tests/
-├── test_cli.py              21 tests — subcommand routing, doctor,
-│                            display, error formatter
-├── test_llm_stub.py         LLM stub: Ollama path, OpenAI path, fallback
-├── test_planner.py          15 tests — prompt content, retry logic,
-│                            step validation
-└── test_openclaw_skill.py   10 tests — SKILL.md content, binary
-                             availability, openclaw integration
+├── test_cli.py                 66 tests — subcommand routing, doctor,
+│                               display, chat REPL, history, model flags
+├── test_core.py                 7 tests — AgentCore model selection
+├── test_llm_stub.py             9 tests — Ollama path, OpenAI path,
+│                               fallback
+├── test_memory.py               8 tests — MemoryStore JSON Lines
+│                               storage, corrupt lines, crash safety,
+│                               concurrent writers, legacy migration
+├── test_planner.py             24 tests — prompt content, retry logic,
+│                               step validation
+├── test_safety_executor_patcher.py
+│                               20 tests — safety policy, executor
+│                               dispatch, file patching
+└── test_openclaw_skill.py      10 tests — SKILL.md content, binary
+                                availability, openclaw integration
 @end example
 
 @subsection Test conventions

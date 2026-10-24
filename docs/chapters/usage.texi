@@ -14,6 +14,7 @@ output, and how to get help when something goes wrong.
 * The plan Subcommand::         Inspect a plan without running it.
 * The chat Subcommand::         Multi-turn interactive session.
 * The doctor Subcommand::       Check your environment before running.
+* The history Subcommand::      Past step executions across sessions.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
 * The version Subcommand::      Show version information.
@@ -113,6 +114,7 @@ Codebud organises its functionality into subcommands:
 @item @command{plan} @tab Plan only --- inspect without executing
 @item @command{chat} @tab Interactive multi-turn session
 @item @command{doctor} @tab Check the environment
+@item @command{history} @tab Show past step executions
 @item @command{models} @tab List downloaded Ollama models
 @item @command{config} @tab Show resolved configuration
 @item @command{version} @tab Show version information
@@ -338,6 +340,41 @@ Each failed check prints a one-line fix.  Example output when
 
 @strong{Run @command{doctor} first} whenever you see a
 @code{plan_error} or a connection failure.  It saves time.
+
+
+@node The history Subcommand
+@section The @command{history} Subcommand
+@cindex history subcommand
+@cindex execution history
+
+@command{history} lists steps that Codebud has executed, across all
+sessions, newest last.  Every completed step of @command{run},
+@command{plan --execute} and @command{chat} is recorded.
+
+@example
+codebud history             @r{# the 20 most recent entries}
+codebud history -n 5        @r{# the 5 most recent}
+codebud history -n 0        @r{# everything}
+codebud history --json      @r{# raw entries, for scripts}
+@end example
+
+Example output:
+
+@example
+[1] 2026-08-12T14:29:54.237038  command          ok       list files
+@end example
+
+Each line shows the time (UTC), the tool used, the outcome (@samp{ok} or
+@samp{exit @var{n}}) and the step description.
+
+This is not the same as @code{/history} inside @command{chat}, which
+shows the conversation turns of the current session only
+(@pxref{The chat Subcommand}).
+
+The entries are stored as JSON Lines in
+@file{data/memory/entries.jsonl}, which @command{history} reads without
+contacting Ollama.  @xref{MemoryStore}, for the file format and how it is
+kept safe against crashes and concurrent writers.
 
 
 @node The models Subcommand
