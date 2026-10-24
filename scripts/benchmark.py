@@ -89,7 +89,7 @@ def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
     pe_n    = data.get("prompt_eval_count", 0)
     e_n     = data.get("eval_count", 0)
 
-    print(f"\n  Ollama timing (nanoseconds → seconds):")
+    print("\n  Ollama timing (nanoseconds → seconds):")
     print(f"    load_duration        : {load_s:7.2f} s  (model warm check)")
     print(f"    prompt_eval_count    : {pe_n:7d} tokens")
     print(f"    prompt_eval_duration : {pe_s:7.2f} s  "
@@ -101,7 +101,7 @@ def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
           f"    eval_duration        : {e_s:7.2f} s")
     print(f"    total_duration       : {total_s:7.2f} s")
     print(f"    wall-clock           : {wall:7.2f} s")
-    print(f"\n  Model response (first 150 chars):")
+    print("\n  Model response (first 150 chars):")
     print(f"    {data.get('response', '')[:150]!r}")
 
     return {
@@ -168,7 +168,7 @@ def main():
         print("  Start it with: ollama serve")
         sys.exit(1)
 
-    print(f"Codebud benchmark")
+    print("Codebud benchmark")
     print(f"  Model    : {MODEL}")
     print(f"  Ollama   : {OLLAMA_BASE}")
     print(f"  Prompt   : {args.prompt!r}")

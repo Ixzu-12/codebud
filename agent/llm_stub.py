@@ -25,7 +25,6 @@ operations are performed unless a real model is requested.
 import logging
 import os
 import threading
-import time
 from collections.abc import Callable
 
 import requests
