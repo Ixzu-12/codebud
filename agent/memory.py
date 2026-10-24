@@ -16,6 +16,7 @@ The MemoryStore exposes:
 - history (list of snapshots)
 """
 
+import fcntl
 import json
 import os
 import sys
@@ -64,8 +65,13 @@ class MemoryStore:
             "data": {"step": step, "result": result},
         }
 
-        self.history.append(snapshot)
-        self._save()
+        # Re-read under an exclusive lock so entries appended by another
+        # codebud process since we loaded are kept, not overwritten.
+        with open(f"{MEMORY_PATH}.lock", "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            self._load()
+            self.history.append(snapshot)
+            self._save()
 
     # ------------------------------------------------------------------
     # Internal helpers

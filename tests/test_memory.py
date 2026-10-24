@@ -47,4 +47,16 @@ def test_interrupted_write_keeps_previous_file(tmp_path, monkeypatch):
 
     assert path.read_text() == before
     assert json.loads(path.read_text())[0]["data"]["result"]["returncode"] == 0
-    assert [p.name for p in tmp_path.iterdir()] == ["entries.json"]
+    assert not list(tmp_path.glob(".entries-*.tmp"))
+
+
+def test_two_stores_do_not_lose_each_others_entries(tmp_path, monkeypatch):
+    path = _store(tmp_path, monkeypatch)
+    first = memory_mod.MemoryStore()
+    second = memory_mod.MemoryStore()  # e.g. a second codebud process
+
+    first.add_snapshot({"tool": "shell", "cmd": "a"}, {"returncode": 0})
+    second.add_snapshot({"tool": "shell", "cmd": "b"}, {"returncode": 0})
+
+    cmds = [e["data"]["step"]["cmd"] for e in json.loads(path.read_text())]
+    assert cmds == ["a", "b"]
