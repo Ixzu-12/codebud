@@ -6,6 +6,8 @@ writes, and concurrent writers must never silently lose history.
 """
 
 import json
+import warnings
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -60,3 +62,13 @@ def test_two_stores_do_not_lose_each_others_entries(tmp_path, monkeypatch):
 
     cmds = [e["data"]["step"]["cmd"] for e in json.loads(path.read_text())]
     assert cmds == ["a", "b"]
+
+
+def test_snapshot_timestamp_is_timezone_aware_utc(tmp_path, monkeypatch):
+    path = _store(tmp_path, monkeypatch)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        memory_mod.MemoryStore().add_snapshot({"tool": "shell"}, {"returncode": 0})
+
+    ts = datetime.fromisoformat(json.loads(path.read_text())[0]["timestamp"])
+    assert ts.utcoffset() == timedelta(0)

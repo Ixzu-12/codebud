@@ -61,7 +61,7 @@ class MemoryStore:
         }
         """
         snapshot = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": {"step": step, "result": result},
         }
 
