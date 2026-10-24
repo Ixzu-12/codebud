@@ -16,7 +16,7 @@ Subcommands
                   --model/-m <name> overrides OLLAMA_MODEL at startup;
                   /model <name> switches mid-session, /models lists available
   doctor          Check the environment (Ollama, model, config, RAM, disk)
-  history         Show past step executions (data/memory/entries.json)
+  history         Show past step executions (data/memory/entries.jsonl)
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   version         Print version information
@@ -468,7 +468,7 @@ def cmd_doctor(_args):
 
 
 def cmd_history(args):
-    """Show past step executions recorded in data/memory/entries.json.
+    """Show past step executions recorded in data/memory/entries.jsonl.
 
     This is persisted, cross-session execution history (MemoryStore), distinct
     from the in-session conversation history shown by /history in `chat`.

@@ -717,7 +717,7 @@ def _write_entries(path, entries):
     import json as _json
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_json.dumps(entries))
+    path.write_text("".join(_json.dumps(e) + "\n" for e in entries))
 
 
 def _entry(desc, tool="command", returncode=0, timestamp="2026-01-01T00:00:00"):
@@ -744,7 +744,7 @@ class TestHistorySubcommand:
     def test_no_entries(self, tmp_path, monkeypatch, capsys):
         from agent import memory as memory_mod
 
-        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.json"))
+        monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
         self._run_main(["history"])
         captured = capsys.readouterr()
         assert "No history yet" in captured.out
@@ -752,7 +752,7 @@ class TestHistorySubcommand:
     def test_lists_entries_newest_relevant_fields(self, tmp_path, monkeypatch, capsys):
         from agent import memory as memory_mod
 
-        path = tmp_path / "entries.json"
+        path = tmp_path / "entries.jsonl"
         _write_entries(path, [_entry("first"), _entry("second", returncode=1)])
         monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
 
@@ -766,7 +766,7 @@ class TestHistorySubcommand:
     def test_limit_option(self, tmp_path, monkeypatch, capsys):
         from agent import memory as memory_mod
 
-        path = tmp_path / "entries.json"
+        path = tmp_path / "entries.jsonl"
         _write_entries(path, [_entry("one"), _entry("two"), _entry("three")])
         monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
 
@@ -779,7 +779,7 @@ class TestHistorySubcommand:
     def test_limit_zero_shows_all(self, tmp_path, monkeypatch, capsys):
         from agent import memory as memory_mod
 
-        path = tmp_path / "entries.json"
+        path = tmp_path / "entries.jsonl"
         _write_entries(path, [_entry("one"), _entry("two")])
         monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
 
@@ -791,7 +791,7 @@ class TestHistorySubcommand:
     def test_json_output(self, tmp_path, monkeypatch, capsys):
         from agent import memory as memory_mod
 
-        path = tmp_path / "entries.json"
+        path = tmp_path / "entries.jsonl"
         _write_entries(path, [_entry("first")])
         monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(path))
 

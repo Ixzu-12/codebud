@@ -10,7 +10,7 @@ from agent import memory as memory_mod
 def _make_agent(tmp_path, monkeypatch):
     from agent.core import AgentCore
 
-    monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.json"))
+    monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
     monkeypatch.setattr("agent.core.prewarm_model", lambda: None)
     monkeypatch.setattr("agent.core.ModelHeartbeat.start", lambda self: None)
     monkeypatch.setattr("agent.core.ModelHeartbeat.stop", lambda self: None)

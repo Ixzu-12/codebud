@@ -9,4 +9,6 @@ note
 docs/build/
 data/memory/entries.json
 data/memory/entries.json.*
+data/memory/entries.jsonl
+data/memory/entries.jsonl.*
 data/memory/.entries-*.tmp

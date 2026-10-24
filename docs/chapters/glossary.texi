@@ -90,7 +90,7 @@ human-like text continuations given a prompt.  Codebud uses Qwen2.5-Coder
 served by Ollama.
 
 @item Memory timeline
-The persistent log in @file{data/memory/entries.json}.  After each
+The persistent log in @file{data/memory/entries.jsonl}.  After each
 executed step, the @code{MemoryStore} appends a snapshot with the
 timestamp, step metadata, and tool output.  The timeline accumulates
 across sessions.

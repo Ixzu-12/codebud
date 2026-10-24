@@ -122,7 +122,7 @@ this delegates to @code{Sandbox.run_command(cmd)}.
 @item
 @strong{Executor} calls @code{MemoryStore.add_snapshot(step, result)}
 after each completed step.  The snapshot is persisted to
-@file{data/memory/entries.json} immediately.
+@file{data/memory/entries.jsonl} immediately.
 
 @item
 @strong{Executor} stops and returns a @code{step_error} dict if any step
@@ -308,14 +308,14 @@ Source: @file{agent/sandbox.py}
 @section MemoryStore
 @cindex MemoryStore
 @cindex memory timeline
-@cindex data/memory/entries.json
+@cindex data/memory/entries.jsonl
 
 @code{MemoryStore} maintains a chronological list of execution snapshots.
 Each snapshot contains:
 
 @example
 @{
-  "timestamp": "2026-04-23T15:30:00.000000",
+  "timestamp": "2026-04-23T15:30:00.000000+00:00",
   "data": @{
     "step":   @{ "id": "step_0", "tool": "command", "args": @{...@} @},
     "result": @{ "stdout": "...", "stderr": "", "returncode": 0 @}
@@ -323,9 +323,28 @@ Each snapshot contains:
 @}
 @end example
 
-Snapshots are appended to @file{data/memory/entries.json} after every
-completed step and are persisted immediately, so a crash mid-plan does not
-lose earlier results.
+Snapshots are stored as JSON Lines in @file{data/memory/entries.jsonl}:
+one snapshot per line, appended (and @code{fsync}ed) after every completed
+step.  Earlier lines are never rewritten, so a crash mid-plan cannot lose
+earlier results.
+
+@itemize @bullet
+@item
+Two codebud processes may record at the same time: appends are
+serialised with an exclusive @code{flock} on
+@file{data/memory/entries.jsonl.lock}.
+
+@item
+A line that cannot be parsed (for example, a write cut off by a crash) is
+skipped with a warning on standard error and left in the file untouched.
+
+@item
+A legacy @file{data/memory/entries.json} (a single JSON array, used before
+JSON Lines) is converted automatically on first start and kept as
+@file{entries.json.migrated}.  If it cannot be parsed it is renamed to
+@file{entries.json.corrupt-@var{timestamp}} instead, and a new history is
+started.
+@end itemize
 
 @noindent
 Source: @file{agent/memory.py}
@@ -420,7 +439,7 @@ config/
 └── trusted_sequences.json
 
 data/
-├── memory/entries.json        execution timeline (auto-created)
+├── memory/entries.jsonl       execution timeline (auto-created)
 └── embeddings/index.json      embedding index (auto-created)
 
 openclaw/

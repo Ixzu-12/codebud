@@ -8,8 +8,11 @@ execution snapshots. Each snapshot records:
 - step metadata
 - tool execution result
 
-Memory is persisted to:
-    data/memory/entries.json
+Memory is persisted as JSON Lines (one snapshot per line, append-only) to:
+    data/memory/entries.jsonl
+
+A legacy data/memory/entries.json (a single JSON array) is migrated
+automatically on first load and kept as entries.json.migrated.
 
 The MemoryStore exposes:
 - add_snapshot(step, result)
@@ -21,10 +24,11 @@ import json
 import os
 import sys
 import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-MEMORY_PATH = "data/memory/entries.json"
+MEMORY_PATH = "data/memory/entries.jsonl"
 
 
 class MemoryStore:
@@ -40,8 +44,10 @@ class MemoryStore:
 
     def __init__(self):
         self.history: list[dict[str, Any]] = []
-        self._ensure_storage()
-        self._load()
+        os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
+        with self._locked():
+            self._migrate_legacy_file()
+            self._load()
 
     # ------------------------------------------------------------------
     # Public API
@@ -51,7 +57,7 @@ class MemoryStore:
         """
         Add a new memory snapshot.
 
-        Snapshot format:
+        Snapshot format (one per line in the file):
         {
             "timestamp": "...",
             "data": {
@@ -65,67 +71,106 @@ class MemoryStore:
             "data": {"step": step, "result": result},
         }
 
-        # Re-read under an exclusive lock so entries appended by another
-        # codebud process since we loaded are kept, not overwritten.
-        with open(f"{MEMORY_PATH}.lock", "a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            self._load()
-            self.history.append(snapshot)
-            self._save()
+        # Appending only touches the end of the file, so earlier entries
+        # can never be lost to an interrupted write. The lock keeps lines
+        # from two codebud processes from interleaving.
+        with self._locked():
+            with open(MEMORY_PATH, "a+b") as f:
+                if f.tell() > 0:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        # A previous write was cut off mid-line; end that
+                        # line so it can't swallow this entry.
+                        f.write(b"\n")
+                f.write(json.dumps(snapshot).encode() + b"\n")
+                f.flush()
+                os.fsync(f.fileno())
+        self.history.append(snapshot)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _ensure_storage(self):
-        """Ensure the memory directory and file exist."""
-        os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
-        if not os.path.exists(MEMORY_PATH):
-            with open(MEMORY_PATH, "w") as f:
-                json.dump([], f, indent=2)
+    @contextmanager
+    def _locked(self):
+        """Hold an exclusive flock(2) on the memory lock file."""
+        with open(f"{MEMORY_PATH}.lock", "a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            yield
 
     def _load(self):
-        """Load memory snapshots from disk.
+        """Load memory snapshots from disk, skipping unreadable lines.
 
-        An unparseable file is moved aside rather than discarded, so the
-        next save cannot overwrite the only copy of the old history.
+        Bad lines are left in the file untouched (nothing is ever
+        rewritten), so they stay recoverable by hand.
         """
+        self.history = []
+        skipped = 0
         try:
             with open(MEMORY_PATH) as f:
-                self.history = json.load(f)
-        except ValueError:
-            self._quarantine_corrupt_file()
-            self.history = []
-        except Exception:
-            self.history = []
+                for line in f:
+                    if not line.strip():
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except ValueError:
+                        skipped += 1
+                        continue
+                    if isinstance(entry, dict):
+                        self.history.append(entry)
+                    else:
+                        skipped += 1
+        except FileNotFoundError:
+            return
+        if skipped:
+            print(
+                f"codebud: skipped {skipped} unreadable line(s) in {MEMORY_PATH}",
+                file=sys.stderr,
+            )
 
-    def _quarantine_corrupt_file(self):
-        """Rename an unparseable memory file to entries.json.corrupt-<ts>."""
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-        backup = f"{MEMORY_PATH}.corrupt-{stamp}"
-        os.replace(MEMORY_PATH, backup)
-        print(
-            f"codebud: memory file {MEMORY_PATH} is corrupt; "
-            f"moved it to {backup} and started a new history",
-            file=sys.stderr,
-        )
+    def _migrate_legacy_file(self):
+        """Convert a legacy entries.json array into entries.jsonl.
 
-    def _save(self):
-        """Persist memory snapshots to disk atomically.
-
-        Writes to a temporary file in the same directory and renames it
-        over MEMORY_PATH, so an interrupted write never leaves a
-        truncated file behind.
+        Runs only while entries.jsonl does not exist yet. The new file is
+        written atomically before the old one is renamed to
+        entries.json.migrated, so a crash part-way loses nothing.
         """
+        legacy = os.path.splitext(MEMORY_PATH)[0] + ".json"
+        if legacy == MEMORY_PATH or os.path.exists(MEMORY_PATH):
+            return
+        if not os.path.exists(legacy):
+            return
+        try:
+            with open(legacy) as f:
+                entries = json.load(f)
+            if not isinstance(entries, list):
+                raise ValueError("not a JSON array")
+        except ValueError:
+            self._quarantine_corrupt_file(legacy)
+            return
+
+        lines = "".join(json.dumps(e) + "\n" for e in entries)
         fd, tmp_path = tempfile.mkstemp(
             dir=os.path.dirname(MEMORY_PATH), prefix=".entries-", suffix=".tmp"
         )
         try:
             with os.fdopen(fd, "w") as f:
-                json.dump(self.history, f, indent=2)
+                f.write(lines)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, MEMORY_PATH)
         except BaseException:
             os.unlink(tmp_path)
             raise
+        os.replace(legacy, f"{legacy}.migrated")
+
+    def _quarantine_corrupt_file(self, path):
+        """Rename an unparseable memory file to <path>.corrupt-<ts>."""
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = f"{path}.corrupt-{stamp}"
+        os.replace(path, backup)
+        print(
+            f"codebud: memory file {path} is corrupt; "
+            f"moved it to {backup} and started a new history",
+            file=sys.stderr,
+        )
