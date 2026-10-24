@@ -437,6 +437,7 @@ Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = qwen2.5-coder:3b-instruct-q4_K_M
+  CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
 @end example
@@ -672,6 +673,12 @@ is downloaded and warm it before changing this variable
 The base URL of the Ollama REST API.  Default:
 @code{http://localhost:11434}.  Change this only if Ollama is running
 on a different machine or port.
+
+@item CODEBUD_NUM_CTX
+The context window, in tokens, requested from Ollama on every call.
+Default: @code{8192}.  Raise it if you work with long conversations or
+large files; see @ref{Environment Variables Overview} for the memory
+cost.
 
 @item EMBED_MODEL
 The model to use for generating embeddings (used by the memory and

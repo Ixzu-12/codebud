@@ -35,6 +35,32 @@ logger = logging.getLogger(__name__)
 # Ollama default base URL; override with OLLAMA_BASE_URL if needed.
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
+# Context window requested from Ollama on every call. Must be identical for
+# all requests: a different num_ctx makes Ollama reload the model and drop
+# the cached prompt prefix. Override with CODEBUD_NUM_CTX.
+_DEFAULT_NUM_CTX = 8192
+
+
+def num_ctx() -> int:
+    """Return the context window (tokens) to request from Ollama.
+
+    Ollama's own default (4096 on 0.40) is small enough that long planner
+    prompts get their beginning, i.e. the instructions, silently cut off.
+    Invalid CODEBUD_NUM_CTX values fall back to the default with a warning.
+    """
+    raw = os.environ.get("CODEBUD_NUM_CTX", "")
+    if not raw:
+        return _DEFAULT_NUM_CTX
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value <= 0:
+        logger.warning("Ignoring invalid CODEBUD_NUM_CTX=%r; using %d", raw, _DEFAULT_NUM_CTX)
+        return _DEFAULT_NUM_CTX
+    return value
+
+
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -175,7 +201,7 @@ class ModelHeartbeat:
                     "model": model,
                     "prompt": "hi",
                     "stream": False,
-                    "options": {"num_predict": 2},
+                    "options": {"num_predict": 2, "num_ctx": num_ctx()},
                 },
                 timeout=(5, 60),
             )
@@ -204,7 +230,7 @@ def prewarm_model() -> None:
                     "model": model,
                     "prompt": "hi",
                     "stream": False,
-                    "options": {"num_predict": 2},
+                    "options": {"num_predict": 2, "num_ctx": num_ctx()},
                 },
                 timeout=(10, 120),
             )
@@ -238,7 +264,7 @@ def warm_model_sync(
                 "model": model,
                 "prompt": "hi",
                 "stream": True,
-                "options": {"num_predict": 2},
+                "options": {"num_predict": 2, "num_ctx": num_ctx()},
             },
             stream=True,
             timeout=(10, timeout),
@@ -313,7 +339,7 @@ def _call_ollama(
                 "model": model,
                 "prompt": prompt,
                 "stream": True,
-                "options": {"temperature": 0},
+                "options": {"temperature": 0, "num_ctx": num_ctx()},
             },
             stream=True,
             timeout=(10, timeout),

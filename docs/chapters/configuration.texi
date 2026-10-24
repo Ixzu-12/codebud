@@ -36,6 +36,15 @@ and @code{/model} in the Usage chapter (@pxref{The run Subcommand}).
 @item @env{OLLAMA_BASE_URL}
 @tab @code{http://localhost:11434}
 @tab Base URL of the Ollama REST API.
+@item @env{CODEBUD_NUM_CTX}
+@tab @code{8192}
+@tab Context window, in tokens, that Codebud requests from Ollama on
+every call.  Ollama's own default (4096) is small enough that long
+prompts lose their beginning, which holds the planner's instructions.
+The same value is sent on every request, because a change makes Ollama
+reload the model and discard its cached prompt prefix.  Larger values use
+more memory (roughly 36 KB per token for a 3B Qwen2.5 model).  Invalid
+values are ignored with a warning.
 @item @env{EMBED_MODEL}
 @tab same as @env{OLLAMA_MODEL}
 @tab Model used for generating embeddings.  Override to use a different

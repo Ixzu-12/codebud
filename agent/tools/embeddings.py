@@ -26,7 +26,7 @@ from typing import Any
 
 import requests
 
-from agent.llm_stub import ollama_proxies
+from agent.llm_stub import num_ctx, ollama_proxies
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def ollama_embed(text: str, model: str | None = None) -> list[float]:
     m = model or _DEFAULT_EMBED_MODEL
     r = requests.post(
         f"{_OLLAMA_BASE}/api/embed",
-        json={"model": m, "input": text},
+        json={"model": m, "input": text, "options": {"num_ctx": num_ctx()}},
         timeout=30,
         proxies=ollama_proxies(_OLLAMA_BASE),
     )

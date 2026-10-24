@@ -34,7 +34,7 @@ import requests
 
 sys.path.insert(0, ".")
 
-from agent.llm_stub import ollama_proxies  # noqa: E402
+from agent.llm_stub import num_ctx, ollama_proxies  # noqa: E402
 
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "")
@@ -61,7 +61,7 @@ def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
                 "model": MODEL,
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0},
+                "options": {"temperature": 0, "num_ctx": num_ctx()},
             },
             timeout=(10, 600),
             proxies=ollama_proxies(OLLAMA_BASE),
@@ -136,7 +136,12 @@ def warm_model():
     try:
         requests.post(
             f"{OLLAMA_BASE}/api/generate",
-            json={"model": MODEL, "prompt": "hi", "stream": False, "options": {"num_predict": 2}},
+            json={
+                "model": MODEL,
+                "prompt": "hi",
+                "stream": False,
+                "options": {"num_predict": 2, "num_ctx": num_ctx()},
+            },
             timeout=(10, 300),
             proxies=ollama_proxies(OLLAMA_BASE),
         )
