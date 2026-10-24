@@ -19,6 +19,7 @@ The MemoryStore exposes:
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from typing import Any
 
@@ -104,6 +105,21 @@ class MemoryStore:
         )
 
     def _save(self):
-        """Persist memory snapshots to disk."""
-        with open(MEMORY_PATH, "w") as f:
-            json.dump(self.history, f, indent=2)
+        """Persist memory snapshots to disk atomically.
+
+        Writes to a temporary file in the same directory and renames it
+        over MEMORY_PATH, so an interrupted write never leaves a
+        truncated file behind.
+        """
+        fd, tmp_path = tempfile.mkstemp(
+            dir=os.path.dirname(MEMORY_PATH), prefix=".entries-", suffix=".tmp"
+        )
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(self.history, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, MEMORY_PATH)
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
