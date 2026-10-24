@@ -18,7 +18,8 @@ The MemoryStore exposes:
 
 import json
 import os
-from datetime import datetime
+import sys
+from datetime import datetime, timezone
 from typing import Any
 
 MEMORY_PATH = "data/memory/entries.json"
@@ -77,12 +78,30 @@ class MemoryStore:
                 json.dump([], f, indent=2)
 
     def _load(self):
-        """Load memory snapshots from disk."""
+        """Load memory snapshots from disk.
+
+        An unparseable file is moved aside rather than discarded, so the
+        next save cannot overwrite the only copy of the old history.
+        """
         try:
             with open(MEMORY_PATH) as f:
                 self.history = json.load(f)
+        except ValueError:
+            self._quarantine_corrupt_file()
+            self.history = []
         except Exception:
             self.history = []
+
+    def _quarantine_corrupt_file(self):
+        """Rename an unparseable memory file to entries.json.corrupt-<ts>."""
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = f"{MEMORY_PATH}.corrupt-{stamp}"
+        os.replace(MEMORY_PATH, backup)
+        print(
+            f"codebud: memory file {MEMORY_PATH} is corrupt; "
+            f"moved it to {backup} and started a new history",
+            file=sys.stderr,
+        )
 
     def _save(self):
         """Persist memory snapshots to disk."""
