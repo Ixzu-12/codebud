@@ -105,3 +105,65 @@ def test_set_model_reports_unreachable_ollama(tmp_path, monkeypatch):
     assert ok is False
     assert "reach Ollama" in msg
     assert agent.get_model() == "old-model"
+
+
+# ---------------------------------------------------------------------------
+# compact_history (/compact in chat)
+# ---------------------------------------------------------------------------
+
+
+def _turns(n):
+    return [
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"turn {i} " + "x" * 50}
+        for i in range(n)
+    ]
+
+
+def test_compact_history_replaces_older_turns_with_summary(tmp_path, monkeypatch):
+    agent = _make_agent(tmp_path, monkeypatch)
+    agent._history.extend(_turns(6))
+    seen = {}
+
+    def fake_summarize(turns, on_chunk=None):
+        seen["turns"] = turns
+        return "User listed files, then edited README.md."
+
+    monkeypatch.setattr("agent.core.summarize_conversation", fake_summarize)
+
+    ok, msg = agent.compact_history(keep_last=2)
+
+    assert ok is True
+    history = agent.get_history()
+    assert history[0] == {
+        "role": "summary",
+        "content": "User listed files, then edited README.md.",
+    }
+    assert history[1:] == _turns(6)[-2:]
+    assert seen["turns"] == _turns(6)[:4]
+    assert "4" in msg
+
+
+def test_compact_history_nothing_to_compact(tmp_path, monkeypatch):
+    agent = _make_agent(tmp_path, monkeypatch)
+    agent._history.extend(_turns(2))
+
+    def fail(*a, **kw):
+        raise AssertionError("must not call the model when there is nothing to compact")
+
+    monkeypatch.setattr("agent.core.summarize_conversation", fail)
+
+    ok, msg = agent.compact_history(keep_last=2)
+    assert ok is False
+    assert "Nothing to compact" in msg
+    assert agent.get_history() == _turns(2)
+
+
+def test_compact_history_keeps_history_when_summary_fails(tmp_path, monkeypatch):
+    agent = _make_agent(tmp_path, monkeypatch)
+    agent._history.extend(_turns(6))
+    monkeypatch.setattr("agent.core.summarize_conversation", lambda turns, on_chunk=None: "  ")
+
+    ok, msg = agent.compact_history(keep_last=2)
+    assert ok is False
+    assert "unchanged" in msg
+    assert agent.get_history() == _turns(6)

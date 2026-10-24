@@ -292,6 +292,8 @@ never sent to the model:
 @item @code{/history} @tab Show the conversation turns kept in memory.
 @item @code{/clear} @tab Wipe conversation history and reset the turn counter.
 @item @code{/undo} @tab Remove the last user+assistant turn pair.
+@item @code{/compact} @tab Replace older turns with a short model-written
+summary, keeping the last exchange verbatim (@pxref{Compacting a Conversation}).
 @item @code{/doctor} @tab Run environment health checks inline.
 @item @code{/model} @tab Show the active model.
 @item @code{/model @var{name}} @tab Switch models mid-session.
@@ -299,6 +301,30 @@ never sent to the model:
 @item @code{/plan} @tab Re-display the last received plan.
 @item @code{/output} @tab Show the full stdout of the last executed step.
 @end multitable
+
+@anchor{Compacting a Conversation}
+@subheading Compacting a conversation
+
+@code{/compact} asks the model for a short summary of everything except the
+last exchange (your latest request and Codebud's answer), then replaces those
+older turns with it.  @code{/history} shows the result as a @samp{SUMMARY}
+entry:
+
+@example
+[3] You: /compact
+  Compacted 2 entries (72 chars) into a 80-char summary; kept the last 2.
+[3] You: /history
+  [1] SUMMARY: The user asked the coding agent to list all Python files ...
+  [2] USER: show the last 3 git commits
+  [3] ASSISTANT: planned: command(list last 3 git commits)
+@end example
+
+Use it when a long session has made the prompt large: a smaller prompt is
+faster to process and leaves more room in the context window
+(@env{CODEBUD_NUM_CTX}).  Compaction cannot be undone; if the model returns
+no summary, history is left unchanged.  Codebud also drops the oldest turns
+automatically when a prompt would not fit, so @code{/compact} is about keeping
+the gist of older turns rather than preventing errors.
 
 @code{/model @var{name}} validates the model is downloaded and blocks
 on a live warmup (with the usual spinner) before switching --- if

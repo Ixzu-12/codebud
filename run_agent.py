@@ -227,6 +227,7 @@ Slash commands (type /cmd and press Enter):
   /history   — show the conversation history kept in memory
   /clear     — wipe conversation history and start fresh
   /undo      — remove the last turn from history
+  /compact   — summarise older turns to shrink the conversation history
   /doctor    — run environment health checks
   /model     — show the active Ollama model, or /model <name> to switch
   /models    — list downloaded models, marking the active one
@@ -308,6 +309,15 @@ def cmd_chat(args):
                     else:
                         turn = 0
                         print_status("History cleared (nothing left to undo).\n")
+                    continue
+                if cmd == "/compact":
+                    prog = ProgressIndicator(no_progress=_no_progress(args))
+                    prog.start()
+                    try:
+                        ok, msg = agent.compact_history(on_chunk=prog.on_chunk)
+                    finally:
+                        prog.stop()
+                    print_status(f"{msg}\n")
                     continue
                 if cmd == "/doctor":
                     from agent.cli.doctor import run_doctor

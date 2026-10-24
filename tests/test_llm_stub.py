@@ -125,3 +125,20 @@ def test_warm_model_sync_request_failure(monkeypatch):
 
     monkeypatch.setattr(llm_stub.requests, "post", boom)
     assert llm_stub.warm_model_sync("some-model") is False
+
+
+def test_summarize_conversation_sends_turns_and_strips_reply(monkeypatch):
+    captured = {}
+
+    def fake_call_llm(prompt, timeout=600.0, on_chunk=None):
+        captured["prompt"] = prompt
+        return "  A short summary.  \n"
+
+    monkeypatch.setattr(llm_stub, "call_llm", fake_call_llm)
+    turns = [
+        {"role": "user", "content": "list the python files"},
+        {"role": "assistant", "content": "planned: command(list python files)"},
+    ]
+    assert llm_stub.summarize_conversation(turns) == "A short summary."
+    assert "User: list the python files" in captured["prompt"]
+    assert "Assistant: planned: command(list python files)" in captured["prompt"]

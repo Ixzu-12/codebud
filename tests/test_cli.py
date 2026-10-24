@@ -882,6 +882,13 @@ class FakeChatAgent:
     def get_history(self):
         return list(self._history)
 
+    def compact_history(self, keep_last=2, on_chunk=None):
+        older = self._history[:-keep_last]
+        if len(older) < 2:
+            return False, "Nothing to compact yet."
+        self._history[:] = [{"role": "summary", "content": "S"}] + self._history[-keep_last:]
+        return True, f"Compacted {len(older)} entries into a summary."
+
     def undo_last_turn(self):
         if len(self._history) >= 2:
             self._history.pop()
@@ -1061,3 +1068,18 @@ class TestChatSubcommand:
         self._run_chat(monkeypatch, ["/help", "/history"])
         # Three prompts: two slash commands, then EOF ends the session.
         assert capsys.readouterr().err.count("\u2500" * 20) == 3
+
+    def test_compact_command_summarises_history(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["one", "y", "y", "two", "y", "y", "/compact"])
+        history = agent.get_history()
+        assert history[0] == {"role": "summary", "content": "S"}
+        assert len(history) == 3
+        assert "Compacted 2 entries" in capsys.readouterr().err
+
+    def test_compact_command_with_nothing_to_compact(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/compact"])
+        assert "Nothing to compact" in capsys.readouterr().err
+
+    def test_help_lists_compact(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/help"])
+        assert "/compact" in capsys.readouterr().err

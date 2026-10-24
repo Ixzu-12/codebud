@@ -29,7 +29,14 @@ from collections.abc import Callable
 from typing import Any
 
 from .executor import Executor
-from .llm_stub import ModelHeartbeat, call_llm_plain, list_models, prewarm_model, warm_model_sync
+from .llm_stub import (
+    ModelHeartbeat,
+    call_llm_plain,
+    list_models,
+    prewarm_model,
+    summarize_conversation,
+    warm_model_sync,
+)
 from .memory import MemoryStore
 from .planner import LLMPlanner
 from .safety import SafetyEngine
@@ -164,6 +171,32 @@ class AgentCore:
                 os.environ.pop("OLLAMA_MODEL", None)
             return False, f"Failed to warm up '{model}'; kept using the previous model."
         return True, f"Switched to '{model}'."
+
+    def compact_history(
+        self,
+        keep_last: int = 2,
+        on_chunk: Callable[[str], None] | None = None,
+    ) -> tuple[bool, str]:
+        """Replace all but the last ``keep_last`` history entries with a summary.
+
+        Used by /compact in chat mode to shrink a long conversation. The
+        summary is stored as a single {"role": "summary"} entry, which the
+        planner renders like any other turn. If the model returns no summary,
+        history is left unchanged. Returns (success, message).
+        """
+        older = self._history[:-keep_last] if keep_last else list(self._history)
+        if len(older) < 2:
+            return False, "Nothing to compact yet."
+        summary = summarize_conversation(older, on_chunk=on_chunk)
+        if not summary.strip():
+            return False, "Could not get a summary from the model; history unchanged."
+        recent = self._history[len(older) :]
+        before = sum(len(t["content"]) for t in older)
+        self._history[:] = [{"role": "summary", "content": summary}, *recent]
+        return True, (
+            f"Compacted {len(older)} entries ({before} chars) into a "
+            f"{len(summary)}-char summary; kept the last {len(recent)}."
+        )
 
     def undo_last_turn(self) -> bool:
         """Remove the last user+assistant turn pair (used by /undo in chat mode).

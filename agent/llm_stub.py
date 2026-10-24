@@ -145,6 +145,24 @@ def call_llm_plain(
     return call_llm(prompt, on_chunk=on_chunk)
 
 
+def summarize_conversation(
+    turns: list[dict[str, str]],
+    on_chunk: Callable[[str], None] | None = None,
+) -> str:
+    """Ask the LLM for a short summary of ``turns`` (used by /compact in chat).
+
+    Returns the summary text, or '' if the model gave no answer.
+    """
+    transcript = "\n".join(f"{t['role'].capitalize()}: {t['content']}" for t in turns)
+    prompt = (
+        "Summarize the following conversation between a user and a coding agent "
+        "in a few sentences. Keep file names, commands, decisions and anything "
+        "the user may refer back to. Output only the summary.\n\n"
+        f"{transcript}\n\nSummary:"
+    )
+    return call_llm(prompt, on_chunk=on_chunk).strip()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
