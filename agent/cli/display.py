@@ -116,7 +116,9 @@ def print_step_result(result: dict[str, Any], *, verbose: bool = False, full: bo
     else:
         _err("\n".join(stdout_lines[:_PREVIEW_LINES]))
         hidden = lines - _PREVIEW_LINES
-        _err(f"  {_DIM}... (+{hidden} more line{'s' if hidden != 1 else ''}, see /output or --verbose){_RESET}")
+        _err(
+            f"  {_DIM}... (+{hidden} more line{'s' if hidden != 1 else ''}, see /output or --verbose){_RESET}"
+        )
 
 
 # ---------------------------------------------------------------------------

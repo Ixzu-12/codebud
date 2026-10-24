@@ -46,7 +46,7 @@ MODEL = os.environ.get("OLLAMA_MODEL", "")
 
 def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
     """POST prompt to Ollama with stream=False and return parsed timing dict."""
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print(f"  TEST: {label}")
     print(f"  Prompt: {len(prompt)} chars / first 70 chars: {prompt[:70]!r}")
     print(f"  Sending to {OLLAMA_BASE}/api/generate ...")
@@ -82,23 +82,27 @@ def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
     def ns_to_s(field):
         return data.get(field, 0) / 1e9
 
-    load_s  = ns_to_s("load_duration")
-    pe_s    = ns_to_s("prompt_eval_duration")
-    e_s     = ns_to_s("eval_duration")
+    load_s = ns_to_s("load_duration")
+    pe_s = ns_to_s("prompt_eval_duration")
+    e_s = ns_to_s("eval_duration")
     total_s = ns_to_s("total_duration")
-    pe_n    = data.get("prompt_eval_count", 0)
-    e_n     = data.get("eval_count", 0)
+    pe_n = data.get("prompt_eval_count", 0)
+    e_n = data.get("eval_count", 0)
 
     print("\n  Ollama timing (nanoseconds → seconds):")
     print(f"    load_duration        : {load_s:7.2f} s  (model warm check)")
     print(f"    prompt_eval_count    : {pe_n:7d} tokens")
-    print(f"    prompt_eval_duration : {pe_s:7.2f} s  "
-          f"[prefill @ {pe_n/pe_s:.1f} tok/s]" if pe_s > 0 else
-          f"    prompt_eval_duration : {pe_s:7.2f} s")
+    print(
+        f"    prompt_eval_duration : {pe_s:7.2f} s  [prefill @ {pe_n / pe_s:.1f} tok/s]"
+        if pe_s > 0
+        else f"    prompt_eval_duration : {pe_s:7.2f} s"
+    )
     print(f"    eval_count           : {e_n:7d} tokens")
-    print(f"    eval_duration        : {e_s:7.2f} s  "
-          f"[generation @ {e_n/e_s:.1f} tok/s]" if e_s > 0 else
-          f"    eval_duration        : {e_s:7.2f} s")
+    print(
+        f"    eval_duration        : {e_s:7.2f} s  [generation @ {e_n / e_s:.1f} tok/s]"
+        if e_s > 0
+        else f"    eval_duration        : {e_s:7.2f} s"
+    )
     print(f"    total_duration       : {total_s:7.2f} s")
     print(f"    wall-clock           : {wall:7.2f} s")
     print("\n  Model response (first 150 chars):")
@@ -130,8 +134,7 @@ def warm_model():
     try:
         requests.post(
             f"{OLLAMA_BASE}/api/generate",
-            json={"model": MODEL, "prompt": "hi", "stream": False,
-                  "options": {"num_predict": 2}},
+            json={"model": MODEL, "prompt": "hi", "stream": False, "options": {"num_predict": 2}},
             timeout=(10, 300),
         )
         print("Model warm.\n")
@@ -145,14 +148,20 @@ def warm_model():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--prompt", default="say hello in exactly 5 words",
-                        help="User prompt to benchmark (default: 'say hello in exactly 5 words')")
-    parser.add_argument("--warm-first", action="store_true",
-                        help="Send a small warm-up request before benchmarking")
-    parser.add_argument("--json", action="store_true",
-                        help="Print raw JSON response from Ollama for each test")
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "--prompt",
+        default="say hello in exactly 5 words",
+        help="User prompt to benchmark (default: 'say hello in exactly 5 words')",
+    )
+    parser.add_argument(
+        "--warm-first", action="store_true", help="Send a small warm-up request before benchmarking"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Print raw JSON response from Ollama for each test"
+    )
     args = parser.parse_args()
 
     if not MODEL:
@@ -210,23 +219,27 @@ def main():
         sys.exit(1)
 
     # Summary
-    print(f"\n{'='*65}")
+    print(f"\n{'=' * 65}")
     print("  SUMMARY")
     print(f"\n  {'Test':<40} {'Tokens':>7} {'Prefill':>9} {'Gen':>7} {'Total':>8}")
-    print(f"  {'-'*40} {'-'*7} {'-'*9} {'-'*7} {'-'*8}")
+    print(f"  {'-' * 40} {'-' * 7} {'-' * 9} {'-' * 7} {'-' * 8}")
     for r in [r_short, r_plan]:
-        print(f"  {r['label']:<40} {r['prompt_tokens']:>7d} "
-              f"{r['prefill_s']:>8.2f}s {r['gen_s']:>6.2f}s "
-              f"{r['total_s']:>7.2f}s")
+        print(
+            f"  {r['label']:<40} {r['prompt_tokens']:>7d} "
+            f"{r['prefill_s']:>8.2f}s {r['gen_s']:>6.2f}s "
+            f"{r['total_s']:>7.2f}s"
+        )
 
-    token_diff   = r_plan["prompt_tokens"] - r_short["prompt_tokens"]
+    token_diff = r_plan["prompt_tokens"] - r_short["prompt_tokens"]
     prefill_diff = r_plan["prefill_s"] - r_short["prefill_s"]
-    pct_prefill  = r_plan["prefill_s"] / r_plan["total_s"] * 100
+    pct_prefill = r_plan["prefill_s"] / r_plan["total_s"] * 100
 
     print(f"\n  Extra tokens in planning prompt  : {token_diff}")
     print(f"  Extra prefill time               : {prefill_diff:.2f} s")
     if token_diff > 0:
-        print(f"  Prefill cost per extra token     : {prefill_diff / token_diff * 1000:.1f} ms/token")
+        print(
+            f"  Prefill cost per extra token     : {prefill_diff / token_diff * 1000:.1f} ms/token"
+        )
     print(f"  Prefill as % of planning total   : {pct_prefill:.1f}%")
     print(f"\n  Prefill speed (short)            : {r_short['prefill_tok_per_s']:.1f} tok/s")
     print(f"  Prefill speed (planning)         : {r_plan['prefill_tok_per_s']:.1f} tok/s")

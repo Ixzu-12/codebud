@@ -94,16 +94,11 @@ def call_llm_plain(
     """
     history_lines = ""
     if history:
-        history_lines = "\n".join(
-            f"{t['role'].capitalize()}: {t['content']}" for t in history[-6:]
-        )
+        history_lines = "\n".join(f"{t['role'].capitalize()}: {t['content']}" for t in history[-6:])
         history_lines = f"Conversation so far:\n{history_lines}\n\n"
 
     prompt = (
-        f"You are a helpful coding assistant.\n\n"
-        f"{history_lines}"
-        f"User: {user_message}\n"
-        f"Assistant:"
+        f"You are a helpful coding assistant.\n\n{history_lines}User: {user_message}\nAssistant:"
     )
     return call_llm(prompt, on_chunk=on_chunk)
 
@@ -159,7 +154,12 @@ class ModelHeartbeat:
         try:
             requests.post(
                 f"{_OLLAMA_BASE}/api/generate",
-                json={"model": model, "prompt": "hi", "stream": False, "options": {"num_predict": 2}},
+                json={
+                    "model": model,
+                    "prompt": "hi",
+                    "stream": False,
+                    "options": {"num_predict": 2},
+                },
                 timeout=(5, 60),
             )
         except Exception:
@@ -182,7 +182,12 @@ def prewarm_model() -> None:
             logger.debug("Pre-warming model %s", model)
             requests.post(
                 f"{_OLLAMA_BASE}/api/generate",
-                json={"model": model, "prompt": "hi", "stream": False, "options": {"num_predict": 2}},
+                json={
+                    "model": model,
+                    "prompt": "hi",
+                    "stream": False,
+                    "options": {"num_predict": 2},
+                },
                 timeout=(10, 120),
             )
             logger.debug("Pre-warmup complete")

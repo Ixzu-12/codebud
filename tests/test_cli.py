@@ -282,7 +282,6 @@ class TestDisplay:
         assert "more line" not in captured.err
 
 
-
 # ---------------------------------------------------------------------------
 # Error mapper (unit)
 # ---------------------------------------------------------------------------
@@ -525,7 +524,12 @@ class TestSubcommandRouting:
             "status": "ok",
             "plan": [
                 {"id": "step_0", "description": "first", "tool": "command", "args": {"cmd": "ls"}},
-                {"id": "step_1", "description": "second", "tool": "command", "args": {"cmd": "pwd"}},
+                {
+                    "id": "step_1",
+                    "description": "second",
+                    "tool": "command",
+                    "args": {"cmd": "pwd"},
+                },
             ],
         }
 
@@ -612,7 +616,9 @@ class TestSubcommandRouting:
         truncate step stdout the way chat's default preview does."""
         plan = {
             "status": "ok",
-            "plan": [{"id": "step_0", "description": "list", "tool": "command", "args": {"cmd": "ls"}}],
+            "plan": [
+                {"id": "step_0", "description": "list", "tool": "command", "args": {"cmd": "ls"}}
+            ],
         }
         full_output = "\n".join(f"line{i}" for i in range(1, 30))
 
@@ -896,7 +902,9 @@ class TestChatSubcommand:
         assert not agent.executor.execute_plan.called
 
     def test_chat_reply_fallback_printed(self, monkeypatch, capsys):
-        agent = FakeChatAgent(plan_by_message={"hello": {"status": "chat_reply", "reply": "hi there"}})
+        agent = FakeChatAgent(
+            plan_by_message={"hello": {"status": "chat_reply", "reply": "hi there"}}
+        )
         self._run_chat(monkeypatch, ["hello"], agent=agent)
         captured = capsys.readouterr()
         # Interactive chat output (including the assistant reply) goes to
@@ -965,9 +973,7 @@ class TestChatSubcommand:
 
     def test_slash_models_lists_and_marks_active(self, monkeypatch, capsys):
         agent = FakeChatAgent(model="model-b")
-        monkeypatch.setattr(
-            "agent.llm_stub.list_models", lambda: ["model-a", "model-b"]
-        )
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["model-a", "model-b"])
         self._run_chat(monkeypatch, ["/models"], agent=agent)
         captured = capsys.readouterr()
         assert "model-a" in captured.err
@@ -1004,9 +1010,7 @@ class TestChatSubcommand:
         assert "Unknown command" in captured.err
 
     def test_revise_then_accept(self, monkeypatch):
-        agent = self._run_chat(
-            monkeypatch, ["do something", "r: use a different tool", "y", "y"]
-        )
+        agent = self._run_chat(monkeypatch, ["do something", "r: use a different tool", "y", "y"])
         # Two handle_user_message calls: original + revision.
         assert len(agent.get_history()) == 4
         assert "revision note: use a different tool" in agent.get_history()[2]["content"]

@@ -186,5 +186,7 @@ def run_doctor() -> int:
     if failures == 0:
         print(f"{_GREEN}All checks passed. Codebud is ready.{_RESET}")
     else:
-        print(f"{_RED}{failures} check(s) failed.{_RESET} Fix the issues above and re-run: codebud doctor")
+        print(
+            f"{_RED}{failures} check(s) failed.{_RESET} Fix the issues above and re-run: codebud doctor"
+        )
     return 0 if failures == 0 else 1

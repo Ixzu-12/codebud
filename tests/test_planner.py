@@ -297,10 +297,7 @@ class TestConversationHistory:
     def test_history_window_capped_at_six(self):
         """Only the last _HISTORY_WINDOW turns are included, not all of them."""
         planner = LLMPlanner(_make_registry(), _make_safety())
-        history = [
-            {"role": "user", "content": f"turn {i}"}
-            for i in range(20)
-        ]
+        history = [{"role": "user", "content": f"turn {i}"} for i in range(20)]
         prompt = planner._build_prompt("latest request", history=history)
         # The last 6 turns (14..19) must be present
         assert "turn 19" in prompt

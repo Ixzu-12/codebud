@@ -66,7 +66,9 @@ def _apply_model_override(args) -> bool:
         print("Cannot reach Ollama to verify --model.", file=sys.stderr)
         return False
     if requested not in available:
-        print(f"Model '{requested}' is not downloaded. Run: ollama pull {requested}", file=sys.stderr)
+        print(
+            f"Model '{requested}' is not downloaded. Run: ollama pull {requested}", file=sys.stderr
+        )
         return False
 
     prog = ProgressIndicator(no_progress=_no_progress(args))
@@ -247,6 +249,7 @@ def cmd_chat(args):
 
     try:
         import readline as _rl  # noqa: F401 — enables arrow-key history and Ctrl+R in input()
+
         _rl.parse_and_bind("tab: complete")
     except ImportError:
         pass
@@ -306,6 +309,7 @@ def cmd_chat(args):
                     continue
                 if cmd == "/doctor":
                     from agent.cli.doctor import run_doctor
+
                     run_doctor()
                     continue
                 if cmd == "/model":
@@ -391,7 +395,9 @@ def cmd_chat(args):
 
                 if review.lower().startswith("r"):
                     feedback = review[1:].lstrip(": ").strip()
-                    revision_msg = message if not feedback else f"{message} (revision note: {feedback})"
+                    revision_msg = (
+                        message if not feedback else f"{message} (revision note: {feedback})"
+                    )
                     print(file=sys.stderr)
                     prog = ProgressIndicator(no_progress=_no_progress(args))
                     prog.start()
@@ -413,9 +419,9 @@ def cmd_chat(args):
                 for i, step in enumerate(steps, 1):
                     print_step_header(i, step)
                     try:
-                        step_approval = input(
-                            f"  Execute step {i}? [y/N/a(all)/q(quit)] "
-                        ).strip().lower()
+                        step_approval = (
+                            input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
+                        )
                     except (EOFError, KeyboardInterrupt):
                         step_approval = "q"
 
@@ -498,7 +504,9 @@ def cmd_history(args):
         status_text = "ok" if rc == 0 else f"exit {rc}" if rc is not None else "?"
         status_color = _OUT_GREEN if rc == 0 else _OUT_RED if rc is not None else ""
         status = f"{status_color}{status_text:<8}{_OUT_RESET}"
-        print(f"{_OUT_CYAN}[{i}]{_OUT_RESET} {_OUT_DIM}{ts}{_OUT_RESET}  {tool:<16} {status} {desc}")
+        print(
+            f"{_OUT_CYAN}[{i}]{_OUT_RESET} {_OUT_DIM}{ts}{_OUT_RESET}  {tool:<16} {status} {desc}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -630,7 +638,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # plan
-    p_plan = sub.add_parser("plan", help="Plan a request without executing it.", parents=[model_parent])
+    p_plan = sub.add_parser(
+        "plan", help="Plan a request without executing it.", parents=[model_parent]
+    )
     p_plan.add_argument("message", help="Natural-language request.")
     p_plan.add_argument("--json", action="store_true", help="Output raw JSON plan.")
     p_plan.add_argument(
