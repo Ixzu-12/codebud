@@ -74,7 +74,7 @@ class TestDoctorChecks:
 
         from agent.cli import doctor
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             return r
@@ -88,7 +88,7 @@ class TestDoctorChecks:
 
         from agent.cli import doctor
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             raise requests.exceptions.ConnectionError("refused")
 
         monkeypatch.setattr(requests, "get", fake_get)
@@ -103,7 +103,7 @@ class TestDoctorChecks:
 
         monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}
@@ -120,7 +120,7 @@ class TestDoctorChecks:
 
         monkeypatch.setenv("OLLAMA_MODEL", "missing-model")
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             r.json.return_value = {"models": []}
@@ -164,7 +164,7 @@ class TestDoctorChecks:
 
         monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}
@@ -185,7 +185,7 @@ class TestDoctorChecks:
 
         monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}
@@ -210,7 +210,7 @@ class TestDoctorChecks:
         monkeypatch.setattr(doctor, "_RESET", "\033[0m")
         monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
 
-        def fake_get(url, timeout):
+        def fake_get(url, timeout, **kwargs):
             r = MagicMock()
             r.status_code = 200
             r.json.return_value = {"models": [{"name": "qwen2.5-coder:3b"}]}

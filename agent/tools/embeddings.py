@@ -26,6 +26,8 @@ from typing import Any
 
 import requests
 
+from agent.llm_stub import ollama_proxies
+
 logger = logging.getLogger(__name__)
 
 EMBEDDING_INDEX_PATH = "data/embeddings/index.json"
@@ -54,6 +56,7 @@ def ollama_embed(text: str, model: str | None = None) -> list[float]:
         f"{_OLLAMA_BASE}/api/embed",
         json={"model": m, "input": text},
         timeout=30,
+        proxies=ollama_proxies(_OLLAMA_BASE),
     )
     r.raise_for_status()
     embeddings = r.json().get("embeddings", [[]])

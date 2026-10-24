@@ -17,6 +17,8 @@ from pathlib import Path
 
 import requests
 
+from agent.llm_stub import ollama_proxies
+
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -63,7 +65,7 @@ def check_ollama_model_set() -> CheckResult:
 def check_ollama_reachable() -> CheckResult:
     url = f"{_OLLAMA_BASE}/api/tags"
     try:
-        r = requests.get(url, timeout=3)
+        r = requests.get(url, timeout=3, proxies=ollama_proxies(_OLLAMA_BASE))
         if r.status_code == 200:
             return True, f"Ollama server reachable at {_OLLAMA_BASE}", ""
         hint = "sudo systemctl start ollama  (or: ollama serve)"
@@ -81,7 +83,9 @@ def check_model_pulled() -> CheckResult:
     if not model:
         return False, "OLLAMA_MODEL not set (skipping model-pull check)", "Set OLLAMA_MODEL first."
     try:
-        r = requests.get(f"{_OLLAMA_BASE}/api/tags", timeout=3)
+        r = requests.get(
+            f"{_OLLAMA_BASE}/api/tags", timeout=3, proxies=ollama_proxies(_OLLAMA_BASE)
+        )
         if r.status_code != 200:
             return False, "Cannot reach Ollama to check model list", "sudo systemctl start ollama"
         names = [m.get("name", "") for m in r.json().get("models", [])]

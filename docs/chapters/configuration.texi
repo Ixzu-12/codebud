@@ -104,6 +104,23 @@ codebud run "your task"
 
 Codebud does not require the model to be on the same machine as the CLI.
 
+@cindex proxy
+@cindex HTTP_PROXY
+@subsection HTTP proxies
+
+When @env{OLLAMA_BASE_URL} points at the local machine (@code{localhost},
+@code{127.0.0.1} or @code{::1}), Codebud always connects directly and
+ignores @env{HTTP_PROXY}, @env{HTTPS_PROXY} and @env{ALL_PROXY}.  A
+system-wide proxy therefore never gets in the way of a local Ollama, even
+without a @env{NO_PROXY} setting.
+
+For a remote Ollama the usual proxy variables apply.  If the remote host
+must be reached directly, list it in @env{NO_PROXY}:
+
+@example
+export NO_PROXY=192.168.1.50
+@end example
+
 
 @node Feature Flags
 @section Feature Flags

@@ -34,6 +34,7 @@ import requests
 
 sys.path.insert(0, ".")
 
+from agent.llm_stub import ollama_proxies  # noqa: E402
 
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "")
@@ -63,6 +64,7 @@ def ollama_timed_call(label: str, prompt: str, raw_json: bool = False) -> dict:
                 "options": {"temperature": 0},
             },
             timeout=(10, 600),
+            proxies=ollama_proxies(OLLAMA_BASE),
         )
         r.raise_for_status()
     except requests.exceptions.Timeout:
@@ -136,6 +138,7 @@ def warm_model():
             f"{OLLAMA_BASE}/api/generate",
             json={"model": MODEL, "prompt": "hi", "stream": False, "options": {"num_predict": 2}},
             timeout=(10, 300),
+            proxies=ollama_proxies(OLLAMA_BASE),
         )
         print("Model warm.\n")
     except Exception as exc:
@@ -171,7 +174,9 @@ def main():
 
     # Check Ollama is up
     try:
-        requests.get(f"{OLLAMA_BASE}/api/tags", timeout=3).raise_for_status()
+        requests.get(
+            f"{OLLAMA_BASE}/api/tags", timeout=3, proxies=ollama_proxies(OLLAMA_BASE)
+        ).raise_for_status()
     except Exception as exc:
         print(f"ERROR: cannot reach Ollama at {OLLAMA_BASE}: {exc}")
         print("  Start it with: ollama serve")

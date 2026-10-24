@@ -9,6 +9,7 @@ their root causes, and how to fix them.
 * Agent Returns plan_error::        The planner could not produce a valid plan.
 * Model Timeout::                   Inference takes too long and the call fails.
 * HTTP 500 from Ollama::            The Ollama runner crashes mid-inference.
+* Ollama Unreachable Through a Proxy::  A proxy answers instead of a remote Ollama.
 * Invalid JSON from Planner::       The model wraps output in code fences.
 * Safety Rejection::                A plan step is blocked by the safety engine.
 * Embedding Dimension Mismatch::    Old stub vectors mix with new real vectors.
@@ -128,6 +129,31 @@ of 4096 in the @code{options} block of the API request).
 until its keep-alive timeout expires (default 5 minutes).  Run
 @command{ollama list --running} to see what is loaded.
 @end itemize
+
+
+@node Ollama Unreachable Through a Proxy
+@section Ollama Unreachable Through a Proxy
+@cindex proxy, Ollama unreachable
+
+@strong{Symptom:} @command{codebud doctor} reports that it cannot reach
+Ollama, or @command{codebud models} prints an error such as
+@samp{503 Server Error: Forwarding failure}, although @command{ollama
+list} works.
+
+@strong{Cause:} an HTTP proxy is configured (@env{HTTP_PROXY}, for
+example a local Privoxy) and requests to a @emph{remote} Ollama are being
+sent to the proxy, which cannot forward them.  Requests to a local Ollama
+are never sent through a proxy (@pxref{Configuration}).
+
+@strong{Fix:} add the Ollama host to @env{NO_PROXY}:
+
+@example
+export NO_PROXY=192.168.1.50
+codebud doctor
+@end example
+
+Versions of Codebud before this fix sent even @code{localhost} requests
+through the proxy; with those, set @code{NO_PROXY=localhost,127.0.0.1}.
 
 
 @node Invalid JSON from Planner

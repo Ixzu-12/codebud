@@ -518,11 +518,12 @@ def cmd_models(_args):
     import requests as _req
 
     from agent.cli.display import _OUT_BOLD, _OUT_GREEN, _OUT_RESET
+    from agent.llm_stub import ollama_proxies
 
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     selected = os.environ.get("OLLAMA_MODEL", "")
     try:
-        r = _req.get(f"{base}/api/tags", timeout=5)
+        r = _req.get(f"{base}/api/tags", timeout=5, proxies=ollama_proxies(base))
         r.raise_for_status()
         models = r.json().get("models", [])
     except Exception as exc:
@@ -574,12 +575,14 @@ def cmd_config(_args):
 def cmd_version(_args):
     import requests as _req
 
+    from agent.llm_stub import ollama_proxies
+
     model = os.environ.get("OLLAMA_MODEL", "(not set)")
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
     # Try to get Ollama version
     try:
-        r = _req.get(f"{base}/api/version", timeout=3)
+        r = _req.get(f"{base}/api/version", timeout=3, proxies=ollama_proxies(base))
         ollama_ver = r.json().get("version", "unknown") if r.ok else "unreachable"
     except Exception:
         ollama_ver = "unreachable"

@@ -26,6 +26,7 @@ import logging
 import os
 import threading
 from collections.abc import Callable
+from urllib.parse import urlsplit
 
 import requests
 
@@ -33,6 +34,21 @@ logger = logging.getLogger(__name__)
 
 # Ollama default base URL; override with OLLAMA_BASE_URL if needed.
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def ollama_proxies(base: str) -> dict[str, None] | None:
+    """Return the ``proxies`` argument for a request to the Ollama at ``base``.
+
+    requests honours HTTP_PROXY even for localhost, so with a system-wide
+    proxy (e.g. Privoxy) and no NO_PROXY, every call to a local Ollama would
+    be sent to the proxy and fail. Loopback addresses therefore bypass any
+    proxy; a remote Ollama keeps the environment's proxy settings (None).
+    """
+    if urlsplit(base).hostname in _LOOPBACK_HOSTS:
+        return {"http": None, "https": None, "all": None}
+    return None
 
 
 def call_llm(
@@ -154,6 +170,7 @@ class ModelHeartbeat:
         try:
             requests.post(
                 f"{_OLLAMA_BASE}/api/generate",
+                proxies=ollama_proxies(_OLLAMA_BASE),
                 json={
                     "model": model,
                     "prompt": "hi",
@@ -182,6 +199,7 @@ def prewarm_model() -> None:
             logger.debug("Pre-warming model %s", model)
             requests.post(
                 f"{_OLLAMA_BASE}/api/generate",
+                proxies=ollama_proxies(_OLLAMA_BASE),
                 json={
                     "model": model,
                     "prompt": "hi",
@@ -215,6 +233,7 @@ def warm_model_sync(
     try:
         r = requests.post(
             f"{_OLLAMA_BASE}/api/generate",
+            proxies=ollama_proxies(_OLLAMA_BASE),
             json={
                 "model": model,
                 "prompt": "hi",
@@ -245,7 +264,9 @@ def warm_model_sync(
 def _ollama_available() -> bool:
     """Return True if the Ollama server answers a lightweight health check."""
     try:
-        r = requests.get(f"{_OLLAMA_BASE}/api/tags", timeout=2)
+        r = requests.get(
+            f"{_OLLAMA_BASE}/api/tags", timeout=2, proxies=ollama_proxies(_OLLAMA_BASE)
+        )
         return r.status_code == 200
     except Exception:
         return False
@@ -254,7 +275,9 @@ def _ollama_available() -> bool:
 def list_models() -> list[str]:
     """Return the names of models currently downloaded in Ollama, or [] on failure."""
     try:
-        r = requests.get(f"{_OLLAMA_BASE}/api/tags", timeout=5)
+        r = requests.get(
+            f"{_OLLAMA_BASE}/api/tags", timeout=5, proxies=ollama_proxies(_OLLAMA_BASE)
+        )
         r.raise_for_status()
         return [m.get("name", "") for m in r.json().get("models", [])]
     except Exception:
@@ -285,6 +308,7 @@ def _call_ollama(
     try:
         r = requests.post(
             f"{_OLLAMA_BASE}/api/generate",
+            proxies=ollama_proxies(_OLLAMA_BASE),
             json={
                 "model": model,
                 "prompt": prompt,
