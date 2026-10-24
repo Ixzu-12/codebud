@@ -219,6 +219,14 @@ An empty LLM response short-circuits the retry: it returns
 @code{plan_error: "LLM returned empty output"} immediately without a
 second call.
 
+The prompt includes up to the last six conversation turns.  Before sending,
+@code{_build_prompt()} checks the estimated size against the context window
+(@env{CODEBUD_NUM_CTX} minus a 1,024-token reserve for the answer) and drops
+the oldest turns until it fits, so the instructions at the start of the
+prompt are never truncated by Ollama.  When nothing needs dropping the
+prompt is byte-for-byte unchanged, which keeps Ollama's cached prompt
+prefix valid between turns.
+
 @noindent
 Source: @file{agent/planner.py}
 

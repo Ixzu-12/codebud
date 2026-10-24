@@ -320,3 +320,52 @@ class TestConversationHistory:
             planner.generate_plan("new request", history=history)
 
         assert "prior turn content xyz" in captured["prompt"]
+
+
+# ---------------------------------------------------------------------------
+# Context budget tests
+# ---------------------------------------------------------------------------
+
+
+def _long_history(n=6, size=400):
+    return [
+        {"role": "user" if i % 2 == 0 else "assistant", "content": f"turn-{i:02d} " + "x" * size}
+        for i in range(n)
+    ]
+
+
+class TestContextBudget:
+    def test_oldest_history_dropped_to_fit_context(self, monkeypatch):
+        """With a small context, the oldest turns go first; the newest stays."""
+        from agent import planner as planner_mod
+
+        monkeypatch.setenv("CODEBUD_NUM_CTX", "2200")
+        planner = LLMPlanner(_make_registry(), _make_safety())
+        prompt = planner._build_prompt("latest request", history=_long_history())
+
+        budget = 2200 - planner_mod._OUTPUT_RESERVE_TOKENS
+        assert planner_mod.estimate_tokens(prompt) <= budget
+        assert "turn-05" in prompt
+        assert "turn-00" not in prompt
+
+    def test_instructions_and_request_always_kept(self, monkeypatch):
+        monkeypatch.setenv("CODEBUD_NUM_CTX", "2200")
+        planner = LLMPlanner(_make_registry(), _make_safety())
+        prompt = planner._build_prompt("latest request", history=_long_history())
+        assert prompt.startswith("You are a precise coding-agent planner.")
+        assert "CRITICAL RULES" in prompt
+        assert "USER REQUEST: latest request" in prompt
+
+    def test_history_kept_when_it_fits(self, monkeypatch):
+        monkeypatch.delenv("CODEBUD_NUM_CTX", raising=False)
+        planner = LLMPlanner(_make_registry(), _make_safety())
+        prompt = planner._build_prompt("latest request", history=_long_history())
+        assert all(f"turn-{i:02d}" in prompt for i in range(6))
+
+    def test_oversized_request_warns(self, monkeypatch, caplog):
+        monkeypatch.setenv("CODEBUD_NUM_CTX", "1700")
+        caplog.set_level("WARNING")
+        planner = LLMPlanner(_make_registry(), _make_safety())
+        prompt = planner._build_prompt("y" * 20000, history=_long_history())
+        assert "CONVERSATION HISTORY" not in prompt
+        assert "CODEBUD_NUM_CTX" in caplog.text

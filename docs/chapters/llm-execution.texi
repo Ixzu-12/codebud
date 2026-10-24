@@ -348,11 +348,19 @@ embedded in the GGUF file --- no Python required.
 @subsection Why token count matters
 
 The model counts its context in tokens, not characters or words.  Codebud's
-planning prompt (system instructions + user request + examples) is
-approximately 500--700 tokens.  The model's maximum context window
-(the longest combined prompt + response it can handle without confusion) is
-4,096 tokens in Ollama's default configuration for Qwen2.5-Coder, though
-the model architecture supports up to 128K tokens.
+planning prompt (system instructions + examples + user request) is about
+1,050 tokens on the first turn of a session, and grows with conversation
+history.  The context window --- the longest combined prompt + response the
+model sees --- is whatever the client asks for when the model is loaded.
+Ollama 0.40 defaults to 4,096 tokens; Codebud asks for 8,192 on every
+request (@env{CODEBUD_NUM_CTX}), well within the 32K Qwen2.5-Coder supports.
+
+If a prompt does not fit, Ollama keeps the @emph{end} and silently drops the
+beginning --- for Codebud, the instructions.  The planner therefore estimates
+the prompt size (conservatively, at 3 characters per token) and, when it
+would exceed the window minus 1,024 tokens reserved for the answer, drops
+the oldest conversation turns first.  If the request alone is too large, a
+warning suggests raising @env{CODEBUD_NUM_CTX}.
 
 More tokens = slower prefill.  This is why the planning prompt was trimmed
 to reduce cold-start time (@pxref{Phase 2 Prefill}).

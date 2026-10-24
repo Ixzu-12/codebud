@@ -29,10 +29,26 @@ The planner NEVER exposes chain-of-thought. It only returns the final plan.
 """
 
 import json
+import logging
 from collections.abc import Callable
 from typing import Any
 
-from .llm_stub import call_llm
+from .llm_stub import call_llm, num_ctx
+
+logger = logging.getLogger(__name__)
+
+# Tokens kept free in the context window for the model's JSON answer.
+_OUTPUT_RESERVE_TOKENS = 1024
+
+# Conservative characters-per-token ratio for estimating prompt size
+# (measured ~3.5 for planner prompts on qwen2.5-coder); erring low means
+# history is trimmed slightly early rather than the prompt overflowing.
+_CHARS_PER_TOKEN = 3
+
+
+def estimate_tokens(text: str) -> int:
+    """Return a conservative estimate of the token count of ``text``."""
+    return len(text) // _CHARS_PER_TOKEN + 1
 
 
 class LLMPlanner:
@@ -148,6 +164,26 @@ User: "order me a pizza"
     ) -> str:
         """Build the full planning prompt with tools, rules, examples, and request."""
 
+        # Keep the prompt inside the context window: if it would overflow,
+        # drop the oldest history turns first. Ollama would otherwise cut
+        # the *start* of the prompt, i.e. these instructions.
+        window = list(history[-self._HISTORY_WINDOW :]) if history else []
+        budget = num_ctx() - _OUTPUT_RESERVE_TOKENS
+        prompt = self._render_prompt(user_message, window)
+        while window and estimate_tokens(prompt) > budget:
+            window.pop(0)
+            prompt = self._render_prompt(user_message, window)
+        if estimate_tokens(prompt) > budget:
+            logger.warning(
+                "Planner prompt (~%d tokens) exceeds the context budget (%d); "
+                "raise CODEBUD_NUM_CTX or shorten the request",
+                estimate_tokens(prompt),
+                budget,
+            )
+        return prompt
+
+    def _render_prompt(self, user_message: str, history: list[dict[str, str]]) -> str:
+        """Render the planning prompt for ``user_message`` with ``history``."""
         tool_descriptions = self.tool_registry.describe_tools()
         safety_rules = self.safety_engine.describe_rules()
         history_block = self._format_history(history)
