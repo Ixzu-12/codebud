@@ -4,14 +4,18 @@ codebud/safety.py
 This module defines the SafetyEngine class, which validates LLM-generated
 steps before execution. It enforces:
 
-- Harmless command list
-- Powerful command list
-- Trusted sequences
-- Tool-level safety rules
+- the harmless and powerful command lists (whole-word matching)
+- arguments that are always refused (find -exec/-delete, python -c, ...)
+- the active agent mode (see codebud/modes.py)
+
+It also reports which commands are powerful (they need confirmation in
+auto mode and in `codebud run`). Trusted sequences are loaded and shown to
+the planner, but not enforced.
 
 The safety engine is consulted by:
 - planner.py (during plan validation)
 - core.py (final plan validation)
+- executor.py (may_execute(), right before each step runs)
 
 It does NOT:
 - execute commands
@@ -29,7 +33,7 @@ from .paths import policy_file
 
 logger = logging.getLogger(__name__)
 
-# Policy files, looked up by agent/paths.policy_file(): the project's
+# Policy files, looked up by codebud/paths.policy_file(): the project's
 # .codebud/, then the user's config dir, then the defaults shipped with codebud.
 HARMLESS_FILE = "harmless_commands.json"
 POWERFUL_FILE = "powerful_commands.json"
@@ -121,7 +125,7 @@ class SafetyEngine:
     - Provide safety descriptions for planner prompt
     """
 
-    # Active agent mode (see agent/modes.py); AgentCore.set_mode() updates it.
+    # Active agent mode (see codebud/modes.py); AgentCore.set_mode() updates it.
     mode = DEFAULT_MODE
 
     def __init__(self):

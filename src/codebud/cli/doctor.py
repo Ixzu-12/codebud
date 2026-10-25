@@ -3,9 +3,9 @@ codebud/cli/doctor.py
 
 Environment health checks for `codebud doctor`.
 
-Each check is a function that returns (passed: bool, message: str).
-The message is shown to the user in both the pass and fail cases.
-Failures also print a one-line "How to fix:" hint.
+Each check is a function that returns (passed: bool, label: str, hint: str).
+The label is shown to the user in both the pass and fail cases; failures
+also print the hint, a one-line "How to fix:" suggestion.
 """
 
 import json

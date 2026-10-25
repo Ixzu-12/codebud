@@ -9,9 +9,9 @@ execution snapshots. Each snapshot records:
 - tool execution result
 
 Memory is persisted as JSON Lines (one snapshot per line, append-only) to:
-    data/memory/entries.jsonl
+    $XDG_DATA_HOME/codebud/memory/entries.jsonl   (see codebud/paths.py)
 
-A legacy data/memory/entries.json (a single JSON array) is migrated
+A legacy entries.json (a single JSON array) next to it is migrated
 automatically on first load and kept as entries.json.migrated.
 
 The MemoryStore exposes:

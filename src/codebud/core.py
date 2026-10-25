@@ -145,7 +145,7 @@ class AgentCore:
         return self.safety.is_powerful(step)
 
     def get_mode(self) -> str:
-        """Return the active agent mode (see agent/modes.py)."""
+        """Return the active agent mode (see codebud/modes.py)."""
         return self.safety.mode
 
     def set_mode(self, mode: str) -> tuple[bool, str]:

@@ -5,8 +5,9 @@ Codebud CLI entry point.
 
 Subcommands
 -----------
-  run "<msg>"     Plan + auto-execute a request (default when no subcommand given)
+  run "<msg>"     Plan + execute a request (default when no subcommand given)
                   --interactive/-i prompts for approval before each step
+                  --yes/-y runs powerful commands without asking
                   --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   plan "<msg>"    Plan only — print the plan without executing
                   --execute/-x also runs the steps and prints full output
@@ -15,8 +16,12 @@ Subcommands
   chat            Interactive REPL: multiple requests in one session
                   --model/-m <name> overrides OLLAMA_MODEL at startup;
                   /model <name> switches mid-session, /models lists available
-  doctor          Check the environment (Ollama, model, config, RAM, disk)
-  history         Show past step executions
+                  --mode <ask|auto|full-auto|plan|edit> sets the agent mode
+                  --resume [SESSION] continues a saved session
+  doctor          Check the environment (Ollama, model, policy files, RAM, disk)
+  history         Show past step executions (-n/--limit, --json)
+  sessions        List saved chat sessions (-n/--limit, --json)
+  skill           Show or install codebud's skill for other agents
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   version         Print version information
@@ -297,7 +302,7 @@ def _open_session_to_resume(args):
 
 
 class _ChatCheckpoint:
-    """Keeps a chat's conversation saved to a session file (agent/sessions.py).
+    """Keeps a chat's conversation saved to a session file (codebud/sessions.py).
 
     The session file is created lazily, the first time there is something
     to save, so a chat that ends without any turns leaves nothing behind.

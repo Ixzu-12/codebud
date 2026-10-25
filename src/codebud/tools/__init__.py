@@ -14,7 +14,7 @@ The most important tools are:
 - FileWriteTool / FileReadTool: basic file I/O.
 - PatchTool: apply unified diff patches.
 - CommandTool: execute shell commands via the sandbox.
-- WebSearchTool: stubbed web search.
+- WebSearchTool: DuckDuckGo Lite search (off unless WEB_SEARCH_ENABLED=1).
 - EmbedTool / EmbeddingSearchTool: simple embedding + vector search.
 """
 

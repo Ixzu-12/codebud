@@ -150,8 +150,8 @@ User: "create a file called hello.py that prints Hello, world"
 {"status": "ok", "plan": [{"id": "step_0", "description": "write hello.py", "tool": "file_write", "args": {"path": "hello.py", "content": "print('Hello, world')\\n"}}]}
 
 Example 4:
-User: "add a docstring at the top of agent/planner.py"
-{"status": "ok", "plan": [{"id": "step_0", "description": "read planner.py", "tool": "file_read", "args": {"path": "agent/planner.py"}}, {"id": "step_1", "description": "patch in docstring", "tool": "patch", "args": {"patch": "--- a/agent/planner.py\n+++ b/agent/planner.py\n@@ -1,0 +1,2 @@\n+\"\"\"LLM-driven planner.\"\"\"\n+\n"}}]}
+User: "add a docstring at the top of src/codebud/planner.py"
+{"status": "ok", "plan": [{"id": "step_0", "description": "read planner.py", "tool": "file_read", "args": {"path": "src/codebud/planner.py"}}, {"id": "step_1", "description": "patch in docstring", "tool": "patch", "args": {"patch": "--- a/src/codebud/planner.py\n+++ b/src/codebud/planner.py\n@@ -1,0 +1,2 @@\n+\"\"\"LLM-driven planner.\"\"\"\n+\n"}}]}
 
 Example 5:
 User: "order me a pizza"

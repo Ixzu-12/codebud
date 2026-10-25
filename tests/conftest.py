@@ -17,6 +17,6 @@ def _isolated_codebud_dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))
     # Set as environment variables too, so `codebud` run as a subprocess
-    # (tests/test_openclaw_skill.py) is isolated as well.
+    # (e.g. tests/test_paths.py runs `python -m codebud`) is isolated as well.
     monkeypatch.setenv("CODEBUD_LEGACY_DATA_DIR", str(tmp_path / "no-legacy-data"))
     monkeypatch.setattr(paths, "LEGACY_DATA_DIR", None)

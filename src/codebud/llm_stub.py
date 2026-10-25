@@ -8,18 +8,18 @@ this module.
 
 The implementation is small and flexible:
 
-* Check for an Ollama installation and a configured model via the
-  `OLLAMA_MODEL` environment variable.  If available we shell out to the
-  `ollama` CLI (the lightweight local inference tool used in the README).
+* If `OLLAMA_MODEL` is set and the Ollama server (`OLLAMA_BASE_URL`) answers,
+  we call its REST API (`/api/generate`, streamed), sending the same
+  `num_ctx` on every request and bypassing HTTP proxies for a local server.
 * Otherwise, if `OPENAI_API_KEY` is set we fall back to the OpenAI Python
-  library and send a ChatCompletion request using `OPENAI_MODEL` or
+  client (the optional extra `codebud[openai]`) with `OPENAI_MODEL` or
   `gpt-3.5-turbo` by default.
 * If neither backend is configured, `call_llm` returns an empty string and
   logs a warning.
 
-For simplicity this stub keeps dependencies minimal; the package already
-lists `openai` in requirements so importing it is safe.  No network
-operations are performed unless a real model is requested.
+It also holds the helpers around the model: warm-up and heartbeat, model
+listing, conversation summaries for /compact. No network operations are
+performed unless a real model is requested.
 """
 
 import logging

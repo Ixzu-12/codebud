@@ -3,7 +3,7 @@ codebud/sessions.py
 
 Chat session checkpoints. Each conversation is saved to
 
-    $XDG_DATA_HOME/codebud/sessions/<id>.json   (see agent/paths.py)
+    $XDG_DATA_HOME/codebud/sessions/<id>.json   (see codebud/paths.py)
 
 after every turn, so it can be resumed later with `codebud chat --resume`.
 This is separate from MemoryStore, which records executed *steps*; a
