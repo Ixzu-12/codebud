@@ -35,14 +35,16 @@ machine without re-downloading.
 @cindex Ollama, overview
 
 Ollama is a lightweight server that runs large language models (LLMs) locally
-on your computer.  Codebud does not call any external API; instead it sends
-every prompt to Ollama over a plain HTTP connection on
-@code{localhost:11434}.  Your code and your prompts never leave your machine.
+on your computer.  By default Codebud sends every prompt to Ollama over a
+plain HTTP connection on @code{localhost:11434}, so your code and your
+prompts never leave your machine.  (They do if you point
+@env{OLLAMA_BASE_URL} at another machine, or set @env{OPENAI_API_KEY} to
+enable the optional OpenAI fallback.)
 
 Ollama stores model weights in a central directory, serves them through a
 small REST API, and handles loading/unloading models from RAM automatically.
 You install it once, pull whichever models you want, and point Codebud at
-them with a single environment variable.
+them with @env{OLLAMA_MODEL} (or @option{--model}).
 
 
 @node Model Hardware Requirements
@@ -55,28 +57,29 @@ the practical requirements for the models Codebud recommends.
 
 @multitable @columnfractions .35 .15 .20 .30
 @headitem Model name @tab Disk @tab RAM needed @tab Gen. speed (i7-8550U)
-@item @code{qwen2.5-coder:1.5b} @tab ~1 GB @tab ~2 GB @tab ~8 t/s
-@item @code{qwen2.5-coder:3b-instruct-q4_K_M} @tab ~1.8 GB @tab ~4 GB @tab ~1.1 t/s
-@item @code{qwen2.5-coder:7b-instruct-q4_K_M} @tab ~4.7 GB @tab ~8 GB @tab <1 t/s
-@item @code{qwen2.5-coder:14b-instruct-q4_K_M} @tab ~9 GB @tab ~16 GB @tab <0.5 t/s
+@item @code{qwen2.5-coder:1.5b} @tab ~1 GB @tab ~2 GB @tab faster than 3B (not measured)
+@item @code{qwen2.5-coder:3b-instruct-q4_K_M} @tab ~1.8 GB @tab ~4 GB @tab ~10 t/s
+@item @code{qwen2.5-coder:7b-instruct-q4_K_M} @tab ~4.7 GB @tab ~8 GB @tab slower than 3B (not measured)
+@item @code{qwen2.5-coder:14b-instruct-q4_K_M} @tab ~9 GB @tab ~16 GB @tab much slower (not measured)
 @end multitable
 
 @noindent
-@emph{t/s} = output tokens per second (generation phase).  Prefill (processing
-the input prompt) is a separate, slower phase on CPU-only hardware: the 3B
-model takes approximately 230 seconds to prefill a 360-token planning prompt
-on an i7-8550U, plus ~58 seconds of generation, for a total of ~5 minutes
-per agent call.  The 7B model is impractically slow on this hardware (the
-same prompt exceeds 5 minutes of prefill alone).
+@emph{t/s} = output tokens per second (generation phase), measured on
+2026-10-24 with Ollama 0.40.6.  Prefill (processing the input prompt) is a
+separate, slower phase on CPU-only hardware: the 3B model takes about 30 s
+to prefill Codebud's ~1,046-token planning prompt the first time; after
+that Ollama reuses the cached start of the prompt, and a whole request takes
+about 8 s (@pxref{October 2026 Results}).  Larger models scale roughly with
+their size, so the 7B model is several times slower on this hardware.
 
 If you have an NVIDIA GPU, Ollama uses it automatically and speeds improve
 by 10--50x, making even the 7B model interactive.
 
 @strong{Recommendation for CPU-only laptops (e.g. i7-8550U, 16 GB RAM):}
 use @code{qwen2.5-coder:3b-instruct-q4_K_M}.  It fits in RAM, produces
-valid JSON plans reliably, and completes a round-trip in under 6 minutes.
-The 1.5B model is faster but less accurate at following structured JSON
-instructions; switch to it only if 6 minutes is unacceptably slow.
+valid JSON plans reliably, and answers in about 30 s for the first request
+of a session and about 8 s after that.  The 1.5B model is faster but less
+accurate at following structured JSON instructions.
 
 
 @node Choosing a Model
@@ -109,8 +112,7 @@ in this manual.
 
 @noindent
 If you are unsure, start with @code{3b-instruct-q4_K_M}.  You can always
-pull a larger model later and switch with one environment variable change
-(@pxref{Selecting a Model in Codebud}).
+pull a larger model later and switch to it (@pxref{Switching Models}).
 
 
 @node Ollama Server Setup
@@ -312,8 +314,10 @@ Codebud reads two environment variables to find the model:
 @table @env
 @item OLLAMA_MODEL
 The exact model name to use, as it appears in @command{ollama list}.
-This variable @strong{must} be set; without it Codebud falls back to
-OpenAI or logs a warning and returns no plan.
+Set it, or pass @option{--model}/@option{-m} to @command{run}, @command{plan}
+or @command{chat}.  With no model, Codebud uses the OpenAI fallback if
+@env{OPENAI_API_KEY} is set, and otherwise logs a warning and produces no
+plan.
 
 @item OLLAMA_BASE_URL
 The base URL of the Ollama server.  Defaults to
@@ -342,9 +346,18 @@ highlighted (@pxref{The models Subcommand}).
 @section Switching Models
 @cindex switching models
 
-To switch from one model to another, simply change @env{OLLAMA_MODEL} and
-run Codebud again.  No restart of the Ollama server is needed; it loads and
+To switch models for one command, pass @option{--model}/@option{-m} after
+the subcommand; inside @command{chat}, type @code{/model @var{name}}
+(@code{/models} lists what is downloaded).  Both check that the model is
+downloaded and warm it up before switching.  To change the default, set
+@env{OLLAMA_MODEL}.  No restart of the Ollama server is needed; it loads and
 unloads models from RAM on demand.
+
+@example
+codebud run --model qwen2.5-coder:7b-instruct-q4_K_M "..."
+@end example
+
+Or for the whole shell session:
 
 @example
 # Switch from 3B to 7B
@@ -602,8 +615,9 @@ Observed results on an i7-8550U (CPU-only, 16 GB RAM):
 @end multitable
 
 @noindent
-The first request after a cold start (model not in RAM) adds 1--5 minutes
-of loading time on top of these figures.  Subsequent requests within the
+The first request after a cold start (model not in RAM) adds the time to
+load the model from disk --- typically 10--30 seconds for the 3B model on
+this laptop --- on top of these figures.  Subsequent requests within the
 keep_alive window use the times in the table above.
 
 @strong{Rule of thumb:} if @command{time llm -m <model> "hello"} exceeds
@@ -638,11 +652,13 @@ cat /proc/$(pgrep ollama)/status | grep VmRSS
 
 If @samp{available} RAM is near zero, you need a smaller model.
 
-@item @samp{LLM returned empty output} or request timeout in Codebud
-The HTTP request timed out before Ollama finished generating.  This usually
-means the model is too slow for the prompt size.  Try a smaller model, or
-wait for the model to finish loading into RAM (the first request after a
-server restart is always the slowest).
+@item Codebud prints an empty reply, or a request times out
+When the model returns nothing usable, Codebud answers with a plain chat
+reply instead of a plan, which may be empty.  A request also stops after
+600 seconds in total.  Usually the model is too slow for the prompt size,
+or Ollama is not answering: run @command{codebud doctor}, try a smaller
+model, or wait for the model to finish loading into RAM (the first request
+after a server restart is always the slowest).
 
 @item Out of memory / Ollama killed by the OOM killer
 The model weights do not fit in RAM.  Check @command{ollama list} for the

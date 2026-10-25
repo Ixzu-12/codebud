@@ -6,7 +6,7 @@ This chapter covers the most common failures you are likely to encounter,
 their root causes, and how to fix them.
 
 @menu
-* Agent Returns plan_error::        The planner could not produce a valid plan.
+* No Plan or an Empty Reply::       The planner could not produce a plan.
 * Model Timeout::                   Inference takes too long and the call fails.
 * HTTP 500 from Ollama::            The Ollama runner crashes mid-inference.
 * Ollama Unreachable Through a Proxy::  A proxy answers instead of a remote Ollama.
@@ -14,19 +14,24 @@ their root causes, and how to fix them.
 * Safety Rejection::                A plan step is blocked by the safety engine.
 * Embedding Dimension Mismatch::    Old stub vectors mix with new real vectors.
 * Web Search Returns No Results::   The DuckDuckGo scraper finds nothing.
-* Pytest Cannot Import agent::      The package is not installed in the venv.
+* Tests Cannot Import codebud::     The package is not on the path.
 @end menu
 
 
-@node Agent Returns plan_error
-@section Agent Returns @code{plan_error}
+@node No Plan or an Empty Reply
+@section No Plan, or an Empty Reply
 @cindex plan_error
+@cindex chat reply instead of a plan
 
-The agent prints something like:
-
-@example
-@{"status": "plan_error", "error": "LLM returned empty output"@}
-@end example
+When the planner cannot produce a valid plan --- no model answered, the
+answer was not valid JSON even after one retry, or a step broke the safety
+policy --- Codebud does not print a planner error.  It asks the model for a
+plain conversational answer instead and prints that; if no model is
+reachable, the answer is empty.  So a missing plan, an empty reply, or a
+chatty answer to a request that should have produced a plan all point to
+the causes below.  Run @command{codebud doctor} first: it checks most of
+them.  (A plan refused because of the agent mode is reported directly; see
+@ref{Agent Modes}.)
 
 @table @strong
 @item Cause: no LLM backend configured
@@ -57,6 +62,9 @@ ollama pull qwen2.5-coder:3b-instruct-q4_K_M
 
 @item Cause: request timed out
 The model is too slow for the hardware.  See @ref{Model Timeout}.
+
+@item Cause: a step broke the safety policy
+See @ref{Safety Rejection}.
 @end table
 
 
@@ -66,19 +74,19 @@ The model is too slow for the hardware.  See @ref{Model Timeout}.
 @cindex CPU-only inference speed
 
 On CPU-only hardware, inference is much slower than on a machine with a GPU.
-The table below shows measured timings on an Intel i7-8550U (2018 laptop CPU)
-with the 3B model:
+Measured on an Intel i7-8550U (2018 laptop CPU) with the 3B model and Ollama
+0.40.6 (2026-10-24):
 
-@multitable @columnfractions .30 .35 .35
+@multitable @columnfractions .40 .20 .40
 @headitem Phase @tab Time @tab Notes
-@item Prefill (361 tokens) @tab ~231 s @tab Processing the input prompt
-@item Generation (67 tokens) @tab ~58 s @tab Producing the output JSON
-@item Total (first run) @tab ~290 s @tab ~5 minutes end-to-end
+@item Prefill, first request (~1,046 tokens) @tab ~30 s @tab Processing the whole planning prompt
+@item Prefill, later requests @tab ~2--2.6 s @tab Ollama reuses the cached start of the prompt
+@item Whole request, prompt cached @tab ~8 s @tab Typical @command{codebud plan}
 @end multitable
 
 @noindent
-The first call after starting the server is the slowest because the model
-loads from disk into RAM.  Subsequent calls skip the load step.
+The first call after starting the server is slower still because the model
+loads from disk into RAM.  A request gives up after 600 seconds in total.
 
 @strong{Do not use @code{stream=False}} when calling the Ollama API on slow
 hardware.  With streaming disabled, the HTTP connection sits silent for the
@@ -96,8 +104,8 @@ loaded by Ollama will slow inference significantly.
 @example
 sudo cpupower frequency-set -g performance
 @end example
-@item Reduce context pressure by lowering @code{num_predict} (maximum
-output tokens) in the Ollama options.
+@item Long conversations make the prompt longer: use @code{/compact} in
+@command{chat} to summarise older turns (@pxref{The chat Subcommand}).
 @end itemize
 
 
@@ -123,11 +131,12 @@ free -h
 @itemize
 @item Close other large applications to free RAM.
 @item Switch to a smaller model that fits more comfortably in available RAM.
-@item Reduce the Ollama KV-cache size (set @code{num_ctx} to 2048 instead
-of 4096 in the @code{options} block of the API request).
+@item Reduce the KV-cache size by asking for a smaller context window, for
+example @code{export CODEBUD_NUM_CTX=4096} (the default is 8192); longer
+conversations are then trimmed sooner.
 @item Do not load two models simultaneously --- Ollama keeps a model in RAM
 until its keep-alive timeout expires (default 5 minutes).  Run
-@command{ollama list --running} to see what is loaded.
+@command{ollama ps} to see what is loaded.
 @end itemize
 
 
@@ -169,11 +178,11 @@ Some models wrap their JSON output in markdown code fences:
 ```
 @end example
 
-Codebud's planner strips these fences automatically before parsing.  If
-you see @code{"error": "LLM returned invalid JSON"} despite the model
-returning something, check that @code{LLMPlanner._strip_code_fence} is
-present in @file{src/codebud/planner.py} --- it may have been removed by a
-merge or revert.
+Codebud's planner strips these fences automatically before parsing
+(@code{LLMPlanner._strip_code_fence} in @file{src/codebud/planner.py}).  If
+the output is still not valid JSON, the planner retries once with a
+shorter, stricter prompt; if that fails too, Codebud answers with a plain
+chat reply instead of a plan (@pxref{No Plan or an Empty Reply}).
 
 If the model returns something other than JSON entirely (reasoning text,
 an apology, etc.), the prompt needs tuning.  The planner prompt instructs
@@ -186,16 +195,14 @@ requests.  Simplify the request or switch to a larger model.
 @cindex safety engine, rejection
 @cindex plan step rejected
 
-The planner may return:
-
-@example
-@{"status": "plan_error", "error": "LLM returned malformed plan"@}
-@end example
-
-This can mean a plan step was rejected by the @code{SafetyEngine}.
-The engine blocks any @code{command} step whose @code{cmd} does not
-start with a prefix listed in @file{harmless_commands.json} or
-@file{powerful_commands.json}.
+A plan whose step breaks the safety policy is rejected as a whole.
+Today this is not reported as such: Codebud falls back to a plain chat
+reply (@pxref{No Plan or an Empty Reply}).  The @code{SafetyEngine} rejects
+a @code{command} step when its words do not begin with an entry in
+@file{harmless_commands.json} or @file{powerful_commands.json} (matched by
+whole words), or when it uses an argument that is always refused, such as
+@code{find -exec} or @code{python -c} (@pxref{The Safety Engine}).  A step
+refused because of the agent mode is reported directly instead.
 
 @strong{To diagnose:}
 
@@ -206,13 +213,13 @@ without executing anything:
 codebud plan --json "your request here"
 @end example
 
-This prints the raw JSON plan (or the error) so you can see exactly
-which tool and @code{cmd} the planner chose.  Alternatively, call the
-Python API directly:
+This prints the raw JSON result.  To see the planner's own verdict
+(including @code{plan_error} and the steps it proposed), call the Python
+API directly:
 
 @example
 python -c "
-from agent.core import AgentCore
+from codebud.core import AgentCore
 import json
 a = AgentCore()
 plan = a.planner.generate_plan('your request here')
@@ -224,8 +231,12 @@ If the plan contains a @code{command} step with an unexpected @code{cmd},
 either:
 
 @itemize
-@item Add the command prefix to @file{harmless_commands.json} if it
-is genuinely safe.
+@item Add the command to your policy if it is genuinely safe: to
+@file{harmless_commands.json} if it only reads, or to
+@file{powerful_commands.json} if it runs code or changes files (those are
+confirmed before running).  Put your copy in @file{~/.config/codebud/} or
+the project's @file{.codebud/}; @command{codebud config} shows which files
+are in effect (@pxref{Policy JSON Files}).
 @item Rephrase the request so the planner uses a different tool (e.g.
 @code{file_read} instead of @code{cat}).
 @end itemize
@@ -236,14 +247,15 @@ is genuinely safe.
 @cindex embedding dimension mismatch
 
 If you used Codebud before the real Ollama embedding backend was wired up,
-@file{~/.local/share/codebud/embeddings/index.json} may contain 16-dimensional stub vectors.
+@file{$XDG_DATA_HOME/codebud/embeddings/index.json} (by default under
+@file{~/.local/share}) may contain 16-dimensional stub vectors.
 New embeddings are 2048-dimensional.  Cosine similarity between entries of
 different sizes returns 0.0, making search results incorrect.
 
 @strong{Fix:} clear the index and re-embed your content:
 
 @example
-echo "[]" > ~/.local/share/codebud/embeddings/index.json
+echo "[]" > "$@{XDG_DATA_HOME:-$HOME/.local/share@}/codebud/embeddings/index.json"
 @end example
 
 Then re-run whatever pipeline populated the index.
@@ -275,24 +287,29 @@ they have changed, update the regex patterns in
 @file{src/codebud/tools/web_search.py:_ddg_search}.
 
 
-@node Pytest Cannot Import agent
-@section Pytest Cannot Import @code{agent}
+@node Tests Cannot Import codebud
+@section Tests Cannot Import @code{codebud}
 @cindex pytest, ImportError
 @cindex editable install
 
 If @command{pytest} reports:
 
 @example
-ModuleNotFoundError: No module named 'agent'
+ModuleNotFoundError: No module named 'codebud'
 @end example
 
-The package is not installed in the active virtual environment.  Fix:
+it is running with a Python that cannot see the package.  Either run the
+tests through the build, which puts @file{src/} on the path:
 
 @example
-source .venv/bin/activate
-pip install -e . --group dev
-pytest -q
+make check
 @end example
 
-Make sure you are running @command{pytest} from the repository root and that
-the venv is active (your prompt shows @samp{(.venv)}).
+@noindent
+or set up the development environment and use its Python
+(@pxref{Build System}):
+
+@example
+./bootstrap --dev
+.venv/bin/python -m pytest tests
+@end example
