@@ -43,7 +43,9 @@ class FileWriteTool:
             return {"stdout": "", "stderr": "Missing required argument: path", "returncode": 1}
 
         try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
+            directory = os.path.dirname(path)
+            if directory:  # a bare filename ("hello.py") has none to create
+                os.makedirs(directory, exist_ok=True)
             with open(path, "w") as f:
                 f.write(content)
 
