@@ -12,3 +12,6 @@ data/memory/entries.json.*
 data/memory/entries.jsonl
 data/memory/entries.jsonl.*
 data/memory/.entries*.tmp
+
+# chat session checkpoints (runtime data)
+data/sessions/
