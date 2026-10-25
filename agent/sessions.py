@@ -129,6 +129,7 @@ class Session:
         self.created: str = data.get("created", "")
         self.updated: str = data.get("updated", "")
         self.model: str = data.get("model", "")
+        self.mode: str = data.get("mode", "")
         self.history: list[dict[str, str]] = list(data.get("history", []))
         self._lock = lock
 
@@ -184,10 +185,11 @@ class Session:
     # Saving
     # ------------------------------------------------------------------
 
-    def save(self, history: list[dict[str, str]], model: str) -> None:
-        """Checkpoint ``history`` and ``model`` to disk atomically."""
+    def save(self, history: list[dict[str, str]], model: str, mode: str = "") -> None:
+        """Checkpoint ``history``, ``model`` and agent ``mode`` atomically."""
         self.history = list(history)
         self.model = model
+        self.mode = mode
         self.updated = _now_iso()
         self._write()
 
@@ -220,6 +222,7 @@ class Session:
             "created": self.created,
             "updated": self.updated,
             "model": self.model,
+            "mode": self.mode,
             "history": self.history,
         }
         atomic_write_text(_path(self.id), json.dumps(data, indent=2) + "\n")

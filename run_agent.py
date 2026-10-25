@@ -30,6 +30,8 @@ import json
 import os
 import sys
 
+from agent.modes import MODES
+
 _KNOWN_SUBCOMMANDS = {
     "run",
     "plan",
@@ -242,6 +244,7 @@ Slash commands (type /cmd and press Enter):
   /undo      — remove the last turn from history
   /compact   — summarise older turns to shrink the conversation history
   /save      — save the session now; /save <name> also names it for --resume
+  /mode      — show the agent mode, or /mode <ask|auto|plan|edit> to switch
   /doctor    — run environment health checks
   /model     — show the active Ollama model, or /model <name> to switch
   /models    — list downloaded models, marking the active one
@@ -294,7 +297,7 @@ class _ChatCheckpoint:
     def __init__(self, agent, session=None):
         self.agent = agent
         self.session = session
-        self._saved = list(session.history) if session else []
+        self._saved = (list(session.history), session.mode) if session else ([], None)
 
     @property
     def ref(self) -> str:
@@ -306,14 +309,15 @@ class _ChatCheckpoint:
         from agent import sessions
 
         history = self.agent.get_history()
-        if history == self._saved and not force:
+        mode = self.agent.get_mode()
+        if (history, mode) == self._saved and not force:
             return
         if self.session is None:
             if not history and not force:
                 return
             self.session = sessions.Session.create()
-        self.session.save(history, self.agent.get_model())
-        self._saved = history
+        self.session.save(history, self.agent.get_model(), mode=mode)
+        self._saved = (history, mode)
 
     def close(self) -> None:
         if self.session is not None:
@@ -348,8 +352,13 @@ def cmd_chat(args):
     resumed = _open_session_to_resume(args) if args.resume is not None else None
 
     agent = _make_agent()
+    if resumed is not None and resumed.mode:
+        agent.set_mode(resumed.mode)
+    if args.mode:
+        agent.set_mode(args.mode)  # an explicit --mode wins over the session's
     print(
-        f"Codebud chat  |  model: {agent.get_model() or '(not set)'}  |  /help for commands\n",
+        f"Codebud chat  |  model: {agent.get_model() or '(not set)'}  |  "
+        f"mode: {agent.get_mode()}  |  /help for commands\n",
         file=sys.stderr,
     )
 
@@ -425,6 +434,17 @@ def cmd_chat(args):
                     else:
                         turn = 0
                         print_status("History cleared (nothing left to undo).\n")
+                    continue
+                if cmd == "/mode":
+                    parts = message.split(maxsplit=1)
+                    if len(parts) == 1:
+                        print_status(
+                            f"Mode: {agent.get_mode()}  (choose with /mode <name>: "
+                            f"{', '.join(MODES)})\n"
+                        )
+                        continue
+                    ok, msg = agent.set_mode(parts[1].strip())
+                    print_status(f"{msg}\n")
                     continue
                 if cmd == "/save":
                     parts = message.split(maxsplit=1)
@@ -524,6 +544,10 @@ def cmd_chat(args):
                 continue
 
             last_plan = plan
+            if agent.get_mode() == "plan":
+                print_plan(plan, verbose=args.verbose)
+                print_status("plan mode: not executed (switch with /mode ask to run plans)\n")
+                continue
             # --- plan review loop: accept / revise / skip ---
             while True:
                 print_plan(plan, verbose=args.verbose)
@@ -561,13 +585,16 @@ def cmd_chat(args):
                 # y / yes / anything else → proceed to execution
                 steps = plan.get("plan", [])
                 for i, step in enumerate(steps, 1):
-                    print_step_header(i, step)
-                    try:
-                        step_approval = (
-                            input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
-                        )
-                    except (EOFError, KeyboardInterrupt):
-                        step_approval = "q"
+                    if agent.get_mode() == "auto":
+                        step_approval = "a"  # plan approved once; run all steps
+                    else:
+                        print_step_header(i, step)
+                        try:
+                            step_approval = (
+                                input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
+                            )
+                        except (EOFError, KeyboardInterrupt):
+                            step_approval = "q"
 
                     if step_approval == "q":
                         break
@@ -836,6 +863,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # chat
     p_chat = sub.add_parser("chat", help="Interactive multi-turn session.", parents=[model_parent])
+    p_chat.add_argument(
+        "--mode",
+        choices=MODES,
+        help="Start in this agent mode (default: ask). Switch later with /mode.",
+    )
     p_chat.add_argument(
         "--resume",
         nargs="?",

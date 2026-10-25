@@ -868,6 +868,17 @@ class FakeChatAgent:
     def get_model(self):
         return self._model
 
+    def get_mode(self):
+        return getattr(self, "_mode", "ask")
+
+    def set_mode(self, mode):
+        from agent.modes import MODES
+
+        if mode not in MODES:
+            return False, f"Unknown mode '{mode}'. Choose one of: {', '.join(MODES)}."
+        self._mode = mode
+        return True, f"Mode: {mode}"
+
     def set_model(self, model, on_chunk=None):
         if self._set_model_result is not None:
             return self._set_model_result
@@ -912,7 +923,9 @@ class FakeChatAgent:
         self.closed = True
 
 
-class TestChatSubcommand:
+class _ChatHarness:
+    """Shared fixture and helpers for driving the chat REPL in tests."""
+
     @pytest.fixture(autouse=True)
     def _isolated_sessions(self, tmp_path, monkeypatch):
         """Keep session checkpoints out of the repo's data/ directory."""
@@ -946,6 +959,8 @@ class TestChatSubcommand:
 
         return agent
 
+
+class TestChatSubcommand(_ChatHarness):
     def test_quit_closes_agent_without_sending_message(self, monkeypatch):
         agent = self._run_chat(monkeypatch, ["quit"])
         assert agent.closed
@@ -1282,3 +1297,65 @@ class TestSessionsSubcommand:
         parsed = json.loads(capsys.readouterr().out)
         assert parsed[0]["id"] == s.id
         assert parsed[0]["turns"] == 1
+
+
+def _two_step_plan():
+    plan = _good_plan()
+    plan["plan"].append(
+        {"id": "step_1", "description": "show cwd", "tool": "command", "args": {"cmd": "pwd"}}
+    )
+    return plan
+
+
+class TestChatModes(_ChatHarness):
+    """Mode commands and per-mode chat flow (backlog item 6)."""
+
+    def test_mode_command_shows_current_and_choices(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/mode"])
+        err = capsys.readouterr().err
+        assert "Mode: ask" in err
+        assert "ask, auto, plan, edit" in err
+
+    def test_mode_command_switches(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/mode edit"])
+        assert agent.get_mode() == "edit"
+        assert "Mode: edit" in capsys.readouterr().err
+
+    def test_unknown_mode_is_rejected(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/mode yolo"])
+        assert agent.get_mode() == "ask"
+        assert "Unknown mode 'yolo'" in capsys.readouterr().err
+
+    def test_mode_flag_sets_initial_mode(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, [], extra_argv=["--mode", "plan"])
+        assert agent.get_mode() == "plan"
+        assert "mode: plan" in capsys.readouterr().err
+
+    def test_auto_mode_runs_all_steps_after_one_approval(self, monkeypatch):
+        agent = FakeChatAgent(plan_by_message={"do it": _two_step_plan()})
+        agent.set_mode("auto")
+        self._run_chat(monkeypatch, ["do it", "y"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 2
+
+    def test_plan_mode_never_offers_to_run(self, monkeypatch, capsys):
+        agent = FakeChatAgent()
+        agent.set_mode("plan")
+        # If chat asked "Run this plan?", it would consume "y" and execute.
+        self._run_chat(monkeypatch, ["do it", "y"], agent=agent)
+        assert not agent.executor.execute_plan.called
+        assert "plan mode" in capsys.readouterr().err
+
+    def test_plan_refused_is_shown_as_an_error(self, monkeypatch, capsys):
+        refused = {"status": "plan_refused", "error": "not allowed in edit mode: command."}
+        agent = FakeChatAgent(plan_by_message={"run tests": refused})
+        self._run_chat(monkeypatch, ["run tests"], agent=agent)
+        assert "not allowed in edit mode: command." in capsys.readouterr().err
+
+    def test_mode_is_saved_and_restored_on_resume(self, monkeypatch):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["fake-model"])
+        self._run_chat(monkeypatch, ["/mode edit", "one", "n"])
+        saved = self._saved_sessions()[0]
+        assert saved["mode"] == "edit"
+
+        agent = self._run_chat(monkeypatch, [], extra_argv=["--resume", saved["id"]])
+        assert agent.get_mode() == "edit"

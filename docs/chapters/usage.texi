@@ -294,6 +294,8 @@ never sent to the model:
 @item @code{/history} @tab Show the conversation turns kept in memory.
 @item @code{/clear} @tab Wipe conversation history and reset the turn counter.
 @item @code{/undo} @tab Remove the last user+assistant turn pair.
+@item @code{/mode} @tab Show the agent mode, or @code{/mode @var{name}} to
+switch (@pxref{Agent Modes}).
 @item @code{/save} @tab Save the session now; @code{/save @var{name}} also
 gives it a name to resume by (@pxref{Saved Sessions}).
 @item @code{/compact} @tab Replace older turns with a short model-written
@@ -305,6 +307,37 @@ summary, keeping the last exchange verbatim (@pxref{Compacting a Conversation}).
 @item @code{/plan} @tab Re-display the last received plan.
 @item @code{/output} @tab Show the full stdout of the last executed step.
 @end multitable
+
+@anchor{Agent Modes}
+@subheading Agent modes
+@cindex modes
+
+A @dfn{mode} controls what Codebud may do.  Start in one with
+@option{--mode}, switch with @code{/mode @var{name}}, and check the current
+one with @code{/mode} (it is also shown in the session header):
+
+@multitable @columnfractions .12 .88
+@headitem Mode @tab Behaviour
+@item @code{ask} @tab Default.  Review the plan, then approve each step.
+@item @code{auto} @tab Review the plan once; all its steps then run without
+per-step prompts.  Safety rules still apply.
+@item @code{plan} @tab Plans are shown but never executed.
+@item @code{edit} @tab Only file tools (@code{file_read}, @code{file_write},
+@code{patch}); shell commands are refused.
+@end multitable
+
+@example
+codebud chat --mode plan
+[1] You: /mode edit
+  Mode: edit
+[1] You: run the test suite
+Plan error: The plan uses tools not allowed in edit mode: command.
+@end example
+
+Restrictions are enforced by the safety engine and again just before each
+step runs, so switching to a stricter mode also stops a plan made earlier
+(@pxref{SafetyEngine}).  The mode is saved with the session and restored
+by @option{--resume}; an explicit @option{--mode} takes precedence.
 
 @anchor{Saved Sessions}
 @subheading Saved sessions
