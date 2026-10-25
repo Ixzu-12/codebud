@@ -170,8 +170,8 @@ Ollama's scheduler checks its @samp{loaded} map.  The model is absent.
 
 @item
 The scheduler calls @code{processPending()}, which validates that the number
-of currently loaded models is below @env{OLLAMA_MAX_RUNNERS} (default: 1 on
-machines with less than ~6 GB available RAM, otherwise as many as fit).
+of currently loaded models is below @env{OLLAMA_MAX_LOADED_MODELS} (by
+default as many as fit in the available memory).
 
 @item
 If at capacity, the least-recently-used model is evicted first
@@ -221,7 +221,7 @@ Codebud fires a tiny warm-up request in a background thread as soon as
 @code{AgentCore} is constructed, before the user types anything:
 
 @example
-# src/codebud/llm_stub.py
+# src/codebud/llm_stub.py  (simplified)
 def prewarm_model() -> None:
     model = os.environ.get("OLLAMA_MODEL")
     if not model or not _ollama_available():
@@ -230,9 +230,10 @@ def prewarm_model() -> None:
     def _warm() -> None:
         requests.post(
             f"@{_OLLAMA_BASE@}/api/generate",
-            json=@{"model": model, "prompt": "hi",
-                  "stream": False, "options": @{"num_predict": 2@}@},
+            json=@{"model": model, "prompt": "hi", "stream": False,
+                  "options": @{"num_predict": 2, "num_ctx": num_ctx()@}@},
             timeout=(10, 120),
+            proxies=ollama_proxies(_OLLAMA_BASE),  # local: no HTTP proxy
         )
 
     threading.Thread(target=_warm, daemon=True,
@@ -375,8 +376,14 @@ to reduce cold-start time (@pxref{Phase 2 Prefill}).
 @cindex attention mechanism
 
 @dfn{Prefill} is the phase where the model reads your entire prompt and
-builds its internal representation of it.  It happens once per request, and
-on CPU-only hardware it is usually the single slowest phase.
+builds its internal representation of it.  On CPU-only hardware it is
+usually the single slowest phase.  The first request prefills the whole
+prompt; later requests that start with the same text reuse Ollama's cached
+key/value data for that prefix and only prefill the new tail.  Codebud's
+planning prompt starts with the same instructions every time, and it sends
+the same @code{num_ctx} on every request (a change would make Ollama reload
+the model and drop the cache), so after the first request only the history
+and the new request are prefilled.
 
 @subsection What the model is actually doing
 
@@ -446,7 +453,8 @@ Per token = 2 × layers × KV_heads × head_size × bytes_per_value
           = 2 × 28 × 4 × 128 × 2 bytes
           = 57,344 bytes  ≈ 56 KB per token
 
-At 4,096 tokens context: 56 KB × 4,096 ≈ 224 MB
+At 4,096 tokens context: 56 KB × 4,096 ≈ 224 MB   (Ollama's default)
+At 8,192 tokens context: 56 KB × 8,192 ≈ 448 MB   (what Codebud requests)
 At 128K tokens context:  56 KB × 131,072 ≈ 7 GB  (!)
 @end example
 
@@ -460,16 +468,18 @@ Prefill speed is measured in @dfn{TTFT} --- Time To First Token.  On
 CPU-only hardware, prefill is much slower than generation:
 
 @example
-Hardware: i7-8550U (CPU-only), Qwen2.5-Coder-3B Q4_K_M
+Measured 2026-10-24: i7-8550U (CPU-only), Ollama 0.40.6,
+Qwen2.5-Coder-3B Q4_K_M
 
-Codebud planning prompt (≈600 tokens):
-  Prefill time:    ~230 seconds   (≈0.4 tokens/second processed)
-  TTFT:            ~230 seconds   (user waits this long before any output)
-
-Short prompt (10 tokens):
-  Prefill time:    ~2--5 seconds
-  TTFT:            ~2--5 seconds
+Codebud planning prompt (≈1,046 tokens), nothing cached:
+  Prefill time:    ~30 seconds    (≈35 tokens/second)
+Same prompt prefix cached (turn 2 and later):
+  Prefill time:    ~2--2.6 seconds (only the new tail is processed)
+A whole `codebud plan` request, prefix cached:  ~8 seconds
 @end example
+
+Earlier measurements (May 2026, Ollama 0.22) took about 57 seconds for the
+same cold prefill.
 
 @noindent
 The progress indicator in @command{codebud chat} shows ``Thinking... Xs
@@ -481,19 +491,21 @@ When @code{stream: false}, Ollama includes prefill timing in the response:
 
 @example
 @{
-  "prompt_eval_count": 612,         ← tokens in your prompt
-  "prompt_eval_duration": 237000000000, ← nanoseconds (= 237 s)
-  "eval_count": 45,                 ← tokens generated
-  "eval_duration": 41000000000,     ← nanoseconds (= 41 s)
-  "total_duration": 278134000000    ← nanoseconds (= 278 s total)
+  "prompt_eval_count": 1046,        ← tokens in your prompt
+  "prompt_eval_duration": 29850000000, ← nanoseconds (= 29.9 s)
+  "eval_count": 48,                 ← tokens generated
+  "eval_duration": 4660000000,      ← nanoseconds (= 4.7 s)
+  "total_duration": 34900000000     ← nanoseconds (= 34.9 s total)
 @}
 @end example
 
 @noindent
 Tokens per second during prefill = @code{prompt_eval_count /
-(prompt_eval_duration / 1e9)} = 612 / 237 ≈ 2.6 t/s.
+(prompt_eval_duration / 1e9)} = 1046 / 29.9 ≈ 35 t/s.
 Tokens per second during generation = @code{eval_count /
-(eval_duration / 1e9)} = 45 / 41 ≈ 1.1 t/s.
+(eval_duration / 1e9)} = 48 / 4.7 ≈ 10 t/s.
+(Cold run, 2026-10-24, values rounded; with the prefix cached,
+@code{prompt_eval_duration} drops to about 2--2.6 s.)
 
 
 @node Phase 3 Generation
@@ -562,7 +574,8 @@ end-of-sequence token @code{<|im_end|>} (ID 151645).
 
 During each generation step, the model must read the @emph{entire} KV cache
 from RAM into CPU registers --- once per token, every token.  For a 4,096
-token KV cache at 224 MB, that is 224 MB of RAM reads per generated token.
+token KV cache at 224 MB, that is 224 MB of RAM reads per generated token
+(up to twice that with Codebud's 8,192-token context, once it is full).
 A modern CPU can read RAM at ~40--60 GB/s, meaning each attention step takes
 roughly 4--6 ms, or about 170--250 tokens/second at the memory-bandwidth
 limit.
@@ -632,13 +645,17 @@ indicator without coupling display logic to the LLM layer:
 def _call_ollama(model, prompt, timeout, on_chunk=None):
     r = requests.post(
         f"@{_OLLAMA_BASE@}/api/generate",
-        json=@{"model": model, "prompt": prompt,
-              "stream": True, "options": @{"temperature": 0@}@},
+        json=@{"model": model, "prompt": prompt, "stream": True,
+              "options": @{"temperature": 0, "num_ctx": num_ctx()@}@},
         stream=True,
         timeout=(10, timeout),
+        proxies=ollama_proxies(_OLLAMA_BASE),  # local: no HTTP proxy
     )
+    deadline = time.monotonic() + timeout
     chunks = []
     for line in r.iter_lines():
+        if time.monotonic() > deadline:   ← total time limit
+            break
         chunk = json.loads(line)
         text = chunk.get("response", "")
         chunks.append(text)
@@ -654,6 +671,9 @@ The HTTP read timeout is set to the full @code{timeout} value (600 s by
 default) because with streaming, the connection receives a trickle of data
 throughout generation --- the read timeout only fires if @emph{no data
 arrives for that entire duration}, which would only happen if Ollama crashed.
+Separately, a total deadline of the same 600 s stops reading the stream
+even while tokens are still arriving, so a runaway generation cannot run
+forever.
 
 
 @node Phase 5 Idle and Keep-Alive
@@ -705,13 +725,15 @@ class ModelHeartbeat:
     def __init__(self, interval: float = 240.0):  # 4 minutes
         ...
 
-    def _ping(self) -> None:
+    def _ping(self) -> None:      # (simplified)
         requests.post(
             f"@{_OLLAMA_BASE@}/api/generate",
-            json=@{"model": model, "prompt": "hi",
-                  "stream": False,
-                  "options": @{"num_predict": 2@}@},  # tiny real request
+            json=@{"model": model, "prompt": "hi", "stream": False,
+                  # tiny real request; same num_ctx as every other call,
+                  # so the ping never makes Ollama reload the model
+                  "options": @{"num_predict": 2, "num_ctx": num_ctx()@}@},
             timeout=(5, 60),
+            proxies=ollama_proxies(_OLLAMA_BASE),
         )
 @end example
 
@@ -762,7 +784,13 @@ being evicted by setting its @code{keep_alive} to @code{-1}.
 @cindex worked example
 @cindex qwen2.5-coder
 
-Let us trace a single real request from start to finish.
+Let us trace a single real request from start to finish.  The timings in
+this walkthrough come from an early-2026 version of Codebud, whose planning
+prompt was about 600 tokens and whose Ollama processed it far more slowly;
+they show the shape of a request, not today's speed.  Measured on
+2026-10-24 (Ollama 0.40.6, same laptop), the planning prompt is about 1,046
+tokens, a cold prefill takes about 30 s, and with the prompt prefix cached a
+whole request takes about 8 s (@pxref{Phase 2 Prefill}).
 
 @strong{Request:} @samp{list files in the current directory}
 @strong{Model:} @code{qwen2.5-coder:3b-instruct-q4_K_M} (warm, already in RAM)
@@ -788,7 +816,7 @@ This prompt is approximately 600 tokens.
 
 @subsection Step 2: Tokenization
 
-The 600-word prompt is passed to the Ollama REST API.  Inside the runner,
+The 600-token prompt is passed to the Ollama REST API.  Inside the runner,
 the embedded tokenizer converts it to 600 integer IDs.  Elapsed time:
 @strong{<1 second}.
 
@@ -859,10 +887,13 @@ prefill: 230s | gen: 41s | total: 271s | tokens: 45 | 1.1 t/s
 
 @subsection Step 6: JSON parsing and execution
 
-@code{call_llm()} joins all chunks into the full string.  The planner calls
-@code{json.loads()}, validates the structure, and returns the plan.
-@code{AgentCore} passes it to @code{Executor.execute_plan()}, which runs
-@command{ls -la} in the sandbox and prints the result.
+@code{_call_ollama()} joins all chunks into the full string.  The planner
+calls @code{json.loads()}, validates the structure, and returns the plan.
+(Had the output not been valid JSON, the planner would retry once with a
+shorter, stricter prompt, and if that failed too, Codebud would answer with
+a plain conversational reply instead of a plan.)
+The CLI then passes each approved step to @code{Executor.execute_plan()},
+which runs @command{ls -la} in the sandbox and prints the result.
 
 @subsection Summary timeline
 
@@ -950,8 +981,8 @@ model learned to emit @code{</think>} when it has reasoned ``enough'', but:
 @end itemize
 
 @noindent
-On CPU-only hardware at 1--5 t/s, 2,000 thinking tokens takes
-@strong{7--33 minutes}.  This is not a loading delay --- the model is
+On CPU-only hardware at 1--10 t/s, 2,000 thinking tokens takes
+@strong{3--33 minutes}.  This is not a loading delay --- the model is
 actively generating every second.
 
 @subsection Controlling thinking behavior
@@ -976,11 +1007,10 @@ text = tokenizer.apply_chat_template(
 @end example
 
 @noindent
-In Ollama, thinking behavior is controlled by the modelfile system prompt
-and is not directly configurable per-request at the API level --- you would
-need to create a custom modelfile with @code{PARAMETER think false} (where
-supported) or switch to the @samp{:no-think} model variant if one is
-available.
+Recent Ollama versions accept a per-request @code{"think": false} option on
+@code{/api/generate} for models that support thinking; older versions need
+a custom modelfile or a non-thinking model variant.  Codebud does not send
+this option, so use an instruct (non-thinking) model with it.
 
 @subsection Why thinking models break Codebud's planner
 
@@ -1067,7 +1097,8 @@ active internal reasoning being generated token by token.
 
 @subsection Why the 0.8B model is slower than the 3B for this task
 
-The 3B instruct model produces a ~45 token JSON plan in ~41 seconds.
+The 3B instruct model produces a ~45 token JSON plan in a few seconds
+of generation (about 8 s per request in total, measured 2026-10-24).
 The 0.8B @emph{thinking} model took 815 seconds for a 5-word greeting.
 The 0.8B model is smaller and would otherwise be @emph{faster} per
 token --- but it generated @strong{~50 times more tokens} due to the
@@ -1086,12 +1117,12 @@ with each model type.
 
 @multitable @columnfractions .20 .38 .42
 @headitem Phase @tab Non-thinking (qwen2.5-coder:3b) @tab Thinking (qwen3.5:0.8b)
-@item Prefill @tab Spinner: ``Thinking... 230s (prefill)'' @tab Spinner: ``Thinking... 3s (prefill)''
+@item Prefill @tab Spinner: ``Thinking... 30s (prefill)'' cold, ~2 s once the prompt prefix is cached @tab Spinner: ``Thinking... 3s (prefill)''
 @item First output @tab JSON @code{@{} token appears @tab @code{<think>} prose token appears
-@item Generation @tab Token counter: @code{tokens: 23 | 1.1 t/s} @tab Token counter: @code{tokens: 847 | 4.8 t/s}
+@item Generation @tab Token counter: @code{tokens: 23 | 10 t/s} @tab Token counter: @code{tokens: 847 | 4.8 t/s}
 @item End of gen. @tab @code{"done":true} after ~45 tokens @tab @code{"done":true} after ~4000 tokens
-@item Total time @tab ~271s (4.5 minutes) @tab ~815s (13.5 minutes)
-@item Planner result @tab Valid JSON plan @tab JSON parse error (output starts with @code{<think>})
+@item Total time @tab ~35 s cold, ~8 s warm (2026-10-24) @tab ~815s (13.5 minutes)
+@item Planner result @tab Valid JSON plan @tab Not valid JSON (output starts with @code{<think>}); after one retry Codebud falls back to a plain chat reply
 @end multitable
 
 @noindent
@@ -1220,7 +1251,8 @@ it.
 @item Generation @tab @code{_call_ollama()} iterates @code{r.iter_lines()} @tab Each line is one NDJSON token fragment
 @item Streaming @tab @code{on_chunk} callback passed through AgentCore → LLMPlanner → call_llm @tab Decouples display from LLM layer
 @item Done signal @tab @code{chunk.get("done")} breaks the loop @tab Full text assembled from @code{chunks}
-@item JSON parse @tab @code{LLMPlanner._attempt()} calls @code{json.loads()} @tab On failure: strips fences, retries with simpler prompt
+@item JSON parse @tab @code{LLMPlanner._attempt()} calls @code{json.loads()} @tab On failure: strips fences, retries once with a simpler prompt, then @code{AgentCore} falls back to a plain chat reply (@code{call_llm_plain()})
+@item Model switch @tab @code{src/codebud/llm_stub.py::warm_model_sync()} @tab Blocking, streamed warm-up when @option{--model} or @code{/model} changes the model
 @item Idle / heartbeat @tab @code{src/codebud/llm_stub.py::ModelHeartbeat._ping()} @tab Sends ``hi'' every 4 min to reset keep_alive timer
 @item Unload @tab @code{src/codebud/core.py::AgentCore.close()} stops heartbeat @tab Model unloads naturally after next keep_alive expiry
 @end multitable
@@ -1229,10 +1261,11 @@ it.
 The complete call chain for a single user request:
 
 @example
-codebud/cli/main.py cmd_run / cmd_chat
+src/codebud/cli/main.py cmd_run / cmd_chat
   → AgentCore.handle_user_message(message, on_chunk=prog.on_chunk)
-      → LLMPlanner.generate_plan(message, on_chunk=on_chunk)
-          → LLMPlanner._build_prompt(message)   [tokenization input]
+      → LLMPlanner.generate_plan(message, on_chunk=on_chunk, history=...)
+          → LLMPlanner._build_prompt(message, history)
+              → _render_prompt(...)  [drops oldest turns to fit num_ctx]
           → call_llm(prompt, on_chunk=on_chunk)
               → _call_ollama(model, prompt, timeout, on_chunk)
                   ← Ollama /api/generate  (streaming NDJSON)
@@ -1242,8 +1275,10 @@ codebud/cli/main.py cmd_run / cmd_chat
                   → on_chunk(fragment)  [ProgressIndicator.on_chunk]
           → json.loads(full_output)
           → _validate_plan_structure(plan_json)
+          [invalid JSON: one retry with _build_retry_prompt()]
+      [planner failed: call_llm_plain() → plain chat reply]
       → AgentCore._validate_plan(plan_json)
-  → Executor.execute_plan(plan)
+  → for each approved step: Executor.execute_plan(@{"plan": [step]@})
       → ToolRegistry.get(tool).run(args)
       → MemoryStore.add_snapshot(step, result)
   → print results
@@ -1260,7 +1295,7 @@ codebud/cli/main.py cmd_run / cmd_chat
 @headitem # @tab Phase @tab Bottleneck @tab Typical time @tab What to watch
 @item 0 @tab Cold-load @tab Disk I/O @tab 10--120 s @tab Only on first request or after idle timeout
 @item 1 @tab Tokenize @tab Negligible @tab <1 s @tab --
-@item 2 @tab Prefill @tab CPU compute @tab 2--230 s @tab Grows with prompt length (×4 for ×2 tokens)
+@item 2 @tab Prefill @tab CPU compute @tab 2--30 s @tab ~30 s cold for the planning prompt, ~2 s with its prefix cached; grows with prompt length
 @item 3 @tab Generate @tab RAM bandwidth @tab 5--600 s @tab Grows with output length; 1--15 t/s on CPU
 @item 4 @tab Stream @tab Network (loopback) @tab Negligible @tab Tokens appear live in terminal
 @item 5 @tab Idle @tab -- @tab 0--5 min @tab keep_alive timer; reset by each request
@@ -1411,10 +1446,10 @@ model unloading via @code{keep_alive: 0}.
 @*@url{https://github.com/ollama/ollama/blob/main/docs/api.md}
 
 @item Ollama scheduler and runner source
-The Go source for the scheduler (@file{llm/server.go}),
+The Go source for the scheduler (@file{server/sched.go}),
 @code{processPending()}, LRU eviction (@code{findRunnerToUnload()}), and
 the multi-process runner architecture.
-@*@url{https://github.com/ollama/ollama/blob/main/llm/server.go}
+@*@url{https://github.com/ollama/ollama/blob/main/server/sched.go}
 
 @item Ollama FAQ --- @emph{How do I keep a model loaded in memory?}
 Official documentation for @code{keep_alive} values and the

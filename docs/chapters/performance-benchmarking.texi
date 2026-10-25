@@ -6,12 +6,17 @@
 @cindex prompt_eval_duration
 @cindex prefill timing
 
-This chapter documents three concrete, reproducible performance measurements
-taken on 2026-05-01 on a CPU-only laptop running Codebud with Ollama and
-the @code{qwen2.5-coder:3b-instruct-q4_K_M} model.  Every number comes
-directly from Ollama's own timing API --- there is no estimation or
-extrapolation.  The chapter also explains what the numbers mean and what
-they imply for Codebud's architecture.
+This chapter documents concrete, reproducible performance measurements on
+a CPU-only laptop running Codebud with Ollama and the
+@code{qwen2.5-coder:3b-instruct-q4_K_M} model.  Every number comes directly
+from Ollama's own timing API --- there is no estimation or extrapolation.
+
+Most of the chapter is the original benchmark of 2026-05-01 (Ollama
+0.22.0), kept as a record of how the analysis was done.  Codebud and
+Ollama have changed since; the follow-up measurements of 2026-10-24
+(Ollama 0.40.6) are in @ref{October 2026 Results}, and they are the ones
+that describe Codebud today: about 30 s for the first request of a
+session and about 8 s for later ones.
 
 @menu
 * Test Environment::          Hardware, software, and model used.
@@ -22,8 +27,9 @@ they imply for Codebud's architecture.
 * Test 4 Codebud End-to-End:: Codebud run command, wall-clock time.
 * Evidence and Raw Numbers::  All four raw outputs in one place.
 * Performance Breakdown::     Where every second goes.
-* Assessment::                What this means for users and for the roadmap.
-* The Measurement Program::   The Python script that produced the evidence.
+* Assessment::                What the May numbers meant at the time.
+* October 2026 Results::      Prompt caching, num_ctx, threads: today's numbers.
+* The Measurement Program::   scripts/benchmark.py.
 @end menu
 
 
@@ -386,7 +392,7 @@ The ~1.4 second difference between Ollama's reported total (65.59 s) and
 Codebud's wall-clock (67.4 s warm) accounts for:
 
 @itemize @bullet
-@item Python interpreter start and import of @code{agent.*} modules
+@item Python interpreter start and import of the Codebud modules
 @item @code{AgentCore.__init__}: creating Sandbox, ToolRegistry,
 SafetyEngine, MemoryStore, LLMPlanner, Executor
 @item @code{prewarm_model()} launching a background thread
@@ -404,14 +410,13 @@ All of this takes @strong{~1.4 seconds} --- a tiny fraction of the total.
 
 @subsection Why cold and warm are nearly identical
 
-Cold (68.3 s) and warm (67.4 s) differ by only 0.9 seconds.
-This is Codebud's pre-warmup working as intended:
-@code{prewarm_model()} fires a background request the instant
-@code{AgentCore} is constructed.  By the time the user's request reaches
-@code{_call_ollama()}, the model is already loaded.
-
-Without pre-warmup, a cold run would add 10--30 seconds of loading time
-on top.
+Cold (68.3 s) and warm (67.4 s) differ by only 0.9 seconds.  The May
+analysis credited this to @code{prewarm_model()}, but that cannot be the
+whole story: the pre-warm request starts in a background thread when
+@code{AgentCore} is constructed, only moments before the real request, so
+it cannot hide much of a cold load.  The more likely explanation is that
+Ollama still had the model in memory from the previous test, so neither run
+paid a real cold-load cost (10--30 seconds on this laptop).
 
 
 @node Evidence and Raw Numbers
@@ -510,7 +515,11 @@ parallelise some of the computation across its 8 threads.
 @cindex optimisation directions
 @cindex prompt length
 
-@subsection What the numbers tell us
+This is the assessment as written in May 2026.  It led to the work
+described in @ref{October 2026 Results}, which changed several of these
+conclusions; it is kept here as the record of that reasoning.
+
+@subsection What the numbers tell us (May 2026)
 
 @enumerate
 
@@ -524,11 +533,11 @@ action.  Switching to a faster CPU or a faster disk has minimal effect
 on a warm-model run.
 
 @item
-@strong{The pre-warmup eliminates cold-load penalty.}
+@strong{Cold and warm runs cost the same.}
 
-Cold and warm runs are within 1 second of each other (68.3 s vs 67.4 s).
-Without pre-warmup the cold run would take 78--98 s (add 10--30 s
-cold-load).
+Cold and warm runs were within 1 second of each other (68.3 s vs 67.4 s);
+see @ref{Test 4 Codebud End-to-End} for why that is probably because the
+model was still loaded, not because of the pre-warm.
 
 @item
 @strong{Codebud's Python overhead is 1.4 s --- negligible.}
@@ -565,8 +574,10 @@ overhead, tuning generation parameters.  The bottleneck is purely prefill.
 
 @subsection What ``beginner-friendly'' means here
 
-If you are a new user wondering why Codebud takes a minute for a simple
-request: @strong{the model is reading.}
+In May 2026, a simple request took about a minute.  (Today the first
+request of a session takes about 30 s and later ones about 8 s; see
+@ref{October 2026 Results}.)  If you wonder where that time goes:
+@strong{the model is reading.}
 
 Before it can write a single character of output, it must read and
 process every character of the 1,046-token planning prompt --- the system
@@ -578,150 +589,90 @@ It is not a bug.  It is not a hang.  The progress spinner showing
 ``Thinking... 57s (prefill)'' is the model doing real work.
 
 
+@node October 2026 Results
+@section October 2026 Results
+@cindex prompt caching
+@cindex KV prefix cache
+@cindex num_thread
+
+Measured on 2026-10-24 on the same laptop with Ollama 0.40.6 and the same
+model.  Three things changed the picture since May.
+
+@subsection 1. Ollama reuses the cached prompt prefix
+
+Codebud's planning prompt starts with the same instructions, tools and
+examples every time; only the conversation history and the request at the
+end change.  Ollama keeps the key/value data of the last prompts it
+processed and only prefills what differs:
+
+@multitable @columnfractions .40 .20 .20 .20
+@headitem Request @tab Prompt tokens @tab Prefill @tab Wall time
+@item Chat turn 1, nothing cached @tab 1,046 @tab 29.9 s @tab 32.4 s
+@item Chat turn 2 @tab 1,092 @tab 2.6 s @tab 4.9 s
+@item Chat turn 3 @tab 1,123 @tab 2.0 s @tab 4.4 s
+@item @code{codebud plan}, new process, prefix cached @tab --- @tab --- @tab ~8 s
+@end multitable
+
+The cache survived unrelated requests in between (the heartbeat's
+@samp{hi}, a different prompt), so after the first request of a session the
+planning prompt's length matters much less than the May assessment
+assumed.  Ollama 0.40.6 is also about twice as fast on the cold prefill as
+0.22 (29.9 s against 57.2 s for the same 1,046 tokens).
+
+@subsection 2. A fixed context window
+
+Ollama 0.40 loads models with a 4,096-token context unless told otherwise,
+and silently drops the @emph{start} of a longer prompt --- Codebud's
+instructions.  Codebud now asks for 8,192 tokens on every request
+(@env{CODEBUD_NUM_CTX}) and trims the oldest conversation turns when a
+prompt would not fit.  The value must be the same on every request: a
+different @code{num_ctx} makes Ollama reload the model and lose the cache,
+which is why lowering it per request is not a useful optimisation.
+
+@subsection 3. CPU threads
+
+Cold prefill of the planning prompt by @code{num_thread} (one run each):
+
+@multitable @columnfractions .25 .25 .25 .25
+@headitem @code{num_thread} @tab Prefill @tab Prefill tok/s @tab Generation tok/s
+@item 2 @tab 46.1 s @tab 22.7 @tab 7.8
+@item 3 @tab 37.3 s @tab 28.0 @tab 9.2
+@item 4 @tab 31.1 s @tab 33.6 @tab 10.3
+@item 8 @tab 31.7 s @tab 33.0 @tab 10.5
+@item default @tab 35.7 s @tab 29.3 @tab 10.3
+@end multitable
+
+Four threads (the number of physical cores) is the sweet spot; Ollama's
+default is within about 10%.  Since prefill is now mostly cached, this only
+affects the first request of a session, and Codebud leaves the default.
+
+@subsection What this means now
+
+@itemize @bullet
+@item The first request of a session costs about 30 s on this laptop,
+almost all of it reading the prompt; later requests take about 8 s.
+@item Shortening the planning prompt now mainly speeds up that first
+request.
+@item Python overhead remains negligible (about 1.4 s, of which imports
+take about 22 ms).
+@end itemize
+
+
 @node The Measurement Program
 @section The Measurement Program
 @cindex measurement program
 @cindex benchmark script
 
-The following self-contained Python script reproduces all four measurements.
-Save it as @file{scripts/benchmark.py} and run it from the Codebud project
-root with the model warm:
+@file{scripts/benchmark.py} reproduces the measurements: it sends a short
+prompt and the full Codebud planning prompt to Ollama and prints Ollama's
+own timings.  It sends the same @code{num_ctx} as Codebud, bypasses HTTP
+proxies for a local Ollama, and imports Codebud from @file{src/}.  Run it
+from the repository root in the development environment
+(@pxref{Build System}), with @env{OLLAMA_MODEL} set:
 
 @example
-#!/usr/bin/env python3
-"""
-benchmark.py -- Measure Codebud planning prompt vs short prompt timing.
-
-Usage (from Codebud project root, model must be running):
-    export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M
-    python scripts/benchmark.py
-
-Requires: the dev environment (@command{make install-dev}); run from the repository root.
-"""
-import json
-import os
-import sys
-import time
-
-import requests
-
-# Ensure the agent package is importable
-sys.path.insert(0, ".")
-
-from agent.planner import LLMPlanner
-from agent.safety import SafetyEngine
-from agent.sandbox import Sandbox
-from agent.tools.tool_registry import ToolRegistry
-
-OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-MODEL = os.environ.get("OLLAMA_MODEL", "")
-USER_PROMPT = "say hello in exactly 5 words"
-
-
-def ollama_call(label: str, prompt: str) -> dict:
-    """Send prompt to Ollama with stream=False and print timing."""
-    print(f"\n@{'='*60@}")
-    print(f"  TEST: @{label@}")
-    print(f"  Prompt: @{len(prompt)@} chars, first 60: @{prompt[:60]!r@}")
-    print("  Sending to Ollama (stream=False) ...")
-
-    t0 = time.monotonic()
-    r = requests.post(
-        f"@{OLLAMA_BASE@}/api/generate",
-        json=@{
-            "model": MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": @{"temperature": 0@},
-        @},
-        timeout=(10, 600),
-    )
-    t1 = time.monotonic()
-    data = r.json()
-    wall = t1 - t0
-
-    def ns(field):
-        return data.get(field, 0)
-
-    load_s  = ns("load_duration")        / 1e9
-    pe_s    = ns("prompt_eval_duration") / 1e9
-    e_s     = ns("eval_duration")        / 1e9
-    total_s = ns("total_duration")       / 1e9
-    pe_n    = data.get("prompt_eval_count", 0)
-    e_n     = data.get("eval_count", 0)
-
-    print(f"\n  Ollama timing (from API response):")
-    print(f"    load_duration        : @{load_s:7.2f@} s")
-    print(f"    prompt_eval_count    : @{pe_n:7d@} tokens")
-    print(f"    prompt_eval_duration : @{pe_s:7.2f@} s  "
-          f"(@{pe_n/pe_s:.1f@} tok/s)" if pe_s > 0 else "")
-    print(f"    eval_count           : @{e_n:7d@} tokens")
-    print(f"    eval_duration        : @{e_s:7.2f@} s  "
-          f"(@{e_n/e_s:.1f@} tok/s)" if e_s > 0 else "")
-    print(f"    total_duration       : @{total_s:7.2f@} s")
-    print(f"    wall-clock           : @{wall:7.2f@} s")
-    print(f"\n  Response (first 120 chars): @{data.get('response','')[:120]!r@}")
-    return @{
-        "label": label, "prompt_tokens": pe_n, "load_s": load_s,
-        "prefill_s": pe_s, "gen_s": e_s, "gen_tokens": e_n,
-        "total_s": total_s, "wall_s": wall,
-    @}
-
-
-def main():
-    if not MODEL:
-        print("ERROR: set OLLAMA_MODEL before running.")
-        sys.exit(1)
-
-    # Check Ollama is up
-    try:
-        requests.get(f"@{OLLAMA_BASE@}/api/tags", timeout=3).raise_for_status()
-    except Exception as exc:
-        print(f"ERROR: cannot reach Ollama at @{OLLAMA_BASE@}: @{exc@}")
-        sys.exit(1)
-
-    print(f"Model : @{MODEL@}")
-    print(f"Ollama: @{OLLAMA_BASE@}")
-
-    # Build the planning prompt
-    sandbox  = Sandbox()
-    registry = ToolRegistry(sandbox)
-    safety   = SafetyEngine()
-    planner  = LLMPlanner(registry, safety)
-    planning_prompt = planner._build_prompt(USER_PROMPT)
-
-    r1 = ollama_call("SHORT PROMPT (raw model baseline)", USER_PROMPT)
-    r2 = ollama_call("PLANNING PROMPT (what Codebud sends)", planning_prompt)
-
-    # Summary table
-    print(f"\n@{'='*60@}")
-    print("  SUMMARY")
-    print(f"  @{'Test':<30@} @{'Tokens':>8@} @{'Prefill':>9@} @{'Gen':>7@} @{'Total':>8@}")
-    print(f"  @{'-'*30@} @{'-'*8@} @{'-'*9@} @{'-'*7@} @{'-'*8@}")
-    for r in [r1, r2]:
-        print(f"  @{r['label']:<30@} @{r['prompt_tokens']:>8d@} "
-              f"@{r['prefill_s']:>8.2f@}s @{r['gen_s']:>6.2f@}s "
-              f"@{r['total_s']:>7.2f@}s")
-
-    overhead_s = r2["prefill_s"] - r1["prefill_s"]
-    token_diff = r2["prompt_tokens"] - r1["prompt_tokens"]
-    print(f"\n  Extra tokens in planning prompt : @{token_diff@}")
-    print(f"  Extra prefill time              : @{overhead_s:.2f@} s")
-    print(f"  Prefill cost per extra token    : @{overhead_s/token_diff*1000:.1f@} ms/token")
-
-
-if __name__ == "__main__":
-    main()
+python scripts/benchmark.py                 @r{# short and planning prompts}
+python scripts/benchmark.py --warm-first    @r{# load the model before timing}
+python scripts/benchmark.py --prompt "..."  @r{# time your own prompt}
+python scripts/benchmark.py --json          @r{# machine-readable results}
 @end example
-
-@noindent
-Save the script and run:
-
-@example
-python scripts/benchmark.py
-@end example
-
-@noindent
-The script prints raw Ollama timing for both prompts and a summary table
-showing the prefill cost breakdown.  Re-run it after any change to the
-planning prompt to measure the impact immediately.
