@@ -1456,3 +1456,13 @@ class TestChatModes(_ChatHarness):
         # No answers after the request: any prompt would hit EOF and skip/quit.
         self._run_chat(monkeypatch, ["do it"], agent=agent)
         assert agent.executor.execute_plan.call_count == 2
+
+
+def test_error_hints_are_current():
+    """Fix hints must not name removed paths or outdated timings/commands."""
+    from codebud.cli import errors
+
+    for _fragment, explanation, fix in errors._RULES:
+        text = explanation + fix
+        assert "config/harmless_commands.json" not in text
+        assert "5 minutes" not in text

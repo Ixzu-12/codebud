@@ -63,9 +63,9 @@ _RULES: list[tuple[str, str, str]] = [
     ),
     (
         "timed out",
-        "The request took too long. On CPU-only hardware the 3B model "
-        "takes ~5 minutes per call — this is normal.",
-        "Wait a little longer, or switch to the 1.5B model for faster (but less accurate) results.",
+        "The request took too long (the limit is 600 s). On CPU-only hardware "
+        "the first request of a session takes about 30 s with the 3B model.",
+        "Check that Ollama is still running (`codebud doctor`), or try a smaller model.",
     ),
     (
         "step is not safe",
@@ -75,7 +75,7 @@ _RULES: list[tuple[str, str, str]] = [
     (
         "not safe",
         "A plan step was rejected by the safety engine.",
-        "Rephrase the request, or review config/harmless_commands.json.",
+        "Rephrase the request, or adjust the policy (see `codebud config` for the files in effect).",
     ),
 ]
 

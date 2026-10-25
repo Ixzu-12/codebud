@@ -51,10 +51,10 @@ def check_agent_importable() -> CheckResult:
     try:
         import codebud  # noqa: F401
 
-        return True, "agent package is importable", ""
+        return True, "codebud package is importable", ""
     except ImportError:
-        hint = "Run: source .venv/bin/activate && pip install -e '.[dev]'"
-        return False, "agent package is NOT importable", hint
+        hint = "Run: ./bootstrap --dev  (or: pip install -e . --group dev)"
+        return False, "codebud package is NOT importable", hint
 
 
 def check_ollama_model_set() -> CheckResult:
