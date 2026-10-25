@@ -137,7 +137,8 @@ class EmbeddingSearchTool:
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         query = args.get("query")
-        k = args.get("k", 5)
+        # "top_k" is the name in usage_hint; "k" is accepted for compatibility.
+        k = args.get("top_k", args.get("k", 5))
         if not query:
             return {"stdout": "", "stderr": "Missing required argument: query", "returncode": 1}
 
