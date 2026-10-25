@@ -23,10 +23,11 @@ import fcntl
 import json
 import os
 import sys
-import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
+
+from .fsutil import atomic_write_text
 
 MEMORY_PATH = "data/memory/entries.jsonl"
 
@@ -150,18 +151,7 @@ class MemoryStore:
             return
 
         lines = "".join(json.dumps(e) + "\n" for e in entries)
-        fd, tmp_path = tempfile.mkstemp(
-            dir=os.path.dirname(MEMORY_PATH), prefix=".entries-", suffix=".tmp"
-        )
-        try:
-            with os.fdopen(fd, "w") as f:
-                f.write(lines)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp_path, MEMORY_PATH)
-        except BaseException:
-            os.unlink(tmp_path)
-            raise
+        atomic_write_text(MEMORY_PATH, lines)
         os.replace(legacy, f"{legacy}.migrated")
 
     def _quarantine_corrupt_file(self, path):
