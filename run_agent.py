@@ -30,7 +30,17 @@ import json
 import os
 import sys
 
-_KNOWN_SUBCOMMANDS = {"run", "plan", "chat", "doctor", "history", "models", "config", "version"}
+_KNOWN_SUBCOMMANDS = {
+    "run",
+    "plan",
+    "chat",
+    "doctor",
+    "history",
+    "sessions",
+    "models",
+    "config",
+    "version",
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -241,6 +251,39 @@ Slash commands (type /cmd and press Enter):
 """
 
 
+def _open_session_to_resume(args):
+    """Open the session named by --resume, restoring its model if possible.
+
+    Exits with status 1 if there is no such session or it is open in
+    another chat. An explicit --model wins over the session's saved model.
+    """
+    from agent import sessions
+    from agent.cli.display import print_warning
+
+    ref = args.resume or sessions.most_recent_available()
+    if ref is None:
+        print("No saved session to resume. Start one with: codebud chat", file=sys.stderr)
+        sys.exit(1)
+    try:
+        session = sessions.Session.open(ref)
+    except sessions.SessionError as exc:
+        print(f"Cannot resume: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    saved = session.model
+    if saved and not getattr(args, "model", None) and saved != os.environ.get("OLLAMA_MODEL"):
+        from agent.llm_stub import list_models
+
+        if saved in list_models():
+            os.environ["OLLAMA_MODEL"] = saved
+        else:
+            current = os.environ.get("OLLAMA_MODEL", "(not set)")
+            print_warning(
+                f"The session used '{saved}', which is not downloaded; continuing with {current}."
+            )
+    return session
+
+
 class _ChatCheckpoint:
     """Keeps a chat's conversation saved to a session file (agent/sessions.py).
 
@@ -300,19 +343,29 @@ def cmd_chat(args):
     if not _apply_model_override(args):
         sys.exit(1)
 
+    from agent import sessions
+
+    resumed = _open_session_to_resume(args) if args.resume is not None else None
+
     agent = _make_agent()
     print(
         f"Codebud chat  |  model: {agent.get_model() or '(not set)'}  |  /help for commands\n",
         file=sys.stderr,
     )
 
-    from agent import sessions
-
     turn = 0
     checked_turn = 0
     last_plan = None
     last_step_output = None
-    checkpoint = _ChatCheckpoint(agent)
+    checkpoint = _ChatCheckpoint(agent, resumed)
+    if resumed is not None:
+        agent.restore_history(resumed.history)
+        turn = sum(1 for t in resumed.history if t.get("role") == "user")
+        checked_turn = turn
+        print_status(f"Resumed session {checkpoint.ref} ({len(resumed.history)} entries).")
+        for t in resumed.history[-2:]:
+            print_status(f"  {t['role'].upper()}: {t['content'][:120]}")
+        print(file=sys.stderr)
 
     def autosave():
         try:
@@ -571,6 +624,34 @@ def cmd_doctor(_args):
 # ---------------------------------------------------------------------------
 
 
+def cmd_sessions(args):
+    """List saved chat sessions, most recently updated first."""
+    from agent import sessions
+    from agent.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_GREEN, _OUT_RESET
+
+    found = sessions.list_sessions()
+    shown = found[: args.limit] if args.limit else found
+
+    if args.json:
+        print(json.dumps(shown, indent=2))
+        return
+    if not shown:
+        print(f"{_OUT_DIM}No saved sessions yet. Start one with: codebud chat{_OUT_RESET}")
+        return
+
+    for s in shown:
+        label = f"{s['id']}" + (f"  {_OUT_BOLD}{s['name']}{_OUT_RESET}" if s["name"] else "")
+        busy = f"  {_OUT_GREEN}(open){_OUT_RESET}" if s["in_use"] else ""
+        print(f"{label}{busy}")
+        print(
+            f"  {_OUT_DIM}updated {s['updated'][:19]}  ·  {s['turns']} entries  ·  "
+            f"{s['model'] or '?'}{_OUT_RESET}"
+        )
+        if s["first_request"]:
+            print(f"  {s['first_request'][:100]}")
+    print(f"\n{_OUT_DIM}Resume with: codebud chat --resume <id or name>{_OUT_RESET}")
+
+
 def cmd_history(args):
     """Show past step executions recorded in data/memory/entries.jsonl.
 
@@ -754,7 +835,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # chat
-    sub.add_parser("chat", help="Interactive multi-turn session.", parents=[model_parent])
+    p_chat = sub.add_parser("chat", help="Interactive multi-turn session.", parents=[model_parent])
+    p_chat.add_argument(
+        "--resume",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="SESSION",
+        help="Resume a saved session by ID or name (default: the most recent one).",
+    )
 
     # doctor
     sub.add_parser("doctor", help="Check the environment.")
@@ -769,6 +858,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show at most N most-recent entries (0 = all). Default: 20.",
     )
     p_history.add_argument("--json", action="store_true", help="Output raw JSON entries.")
+
+    # sessions
+    p_sessions = sub.add_parser("sessions", help="List saved chat sessions.")
+    p_sessions.add_argument(
+        "-n",
+        "--limit",
+        type=int,
+        default=20,
+        help="Show at most N most recent sessions (0 = all). Default: 20.",
+    )
+    p_sessions.add_argument("--json", action="store_true", help="Output raw JSON.")
 
     # models
     sub.add_parser("models", help="List downloaded Ollama models.")
@@ -803,6 +903,7 @@ def main():
         "chat": cmd_chat,
         "doctor": cmd_doctor,
         "history": cmd_history,
+        "sessions": cmd_sessions,
         "models": cmd_models,
         "config": cmd_config,
         "version": cmd_version,

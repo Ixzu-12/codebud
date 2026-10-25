@@ -184,3 +184,10 @@ def test_context_usage_reports_estimated_prompt_and_window(tmp_path, monkeypatch
 
     assert total == 8192
     assert 0 < used_empty < used_full
+
+
+def test_restore_history_replaces_conversation(tmp_path, monkeypatch):
+    agent = _make_agent(tmp_path, monkeypatch)
+    agent._history.extend(_turns(2))
+    agent.restore_history(_turns(4))
+    assert agent.get_history() == _turns(4)

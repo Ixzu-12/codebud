@@ -887,6 +887,9 @@ class FakeChatAgent:
     def get_history(self):
         return list(self._history)
 
+    def restore_history(self, history):
+        self._history[:] = list(history)
+
     def context_usage(self):
         return self._usage
 
@@ -938,7 +941,7 @@ class TestChatSubcommand:
 
         monkeypatch.setattr("builtins.input", fake_input)
 
-        with patch.object(sys, "argv", ["codebud", "chat"]):
+        with patch.object(sys, "argv", ["codebud", "chat", *(extra_argv or [])]):
             run_agent.main()
 
         return agent
@@ -1144,3 +1147,138 @@ class TestChatSubcommand:
     def test_clear_is_checkpointed(self, monkeypatch):
         self._run_chat(monkeypatch, ["one", "n", "/clear"])
         assert self._saved_sessions()[0]["history"] == []
+
+    # --- resume (backlog item 9) ---
+
+    def _seed_session(self, history, model="saved-model", name=None):
+        from agent import sessions
+
+        s = sessions.Session.create()
+        if name:
+            s.set_name(name)
+        s.save(history, model=model)
+        s.close()
+        return s.id
+
+    _OLD = [
+        {"role": "user", "content": "list files"},
+        {"role": "assistant", "content": "planned: command(list files)"},
+    ]
+
+    def test_resume_by_id_restores_history_and_keeps_saving_there(self, monkeypatch, capsys):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["saved-model"])
+        sid = self._seed_session(self._OLD)
+        agent = self._run_chat(monkeypatch, ["two", "n"], extra_argv=["--resume", sid])
+
+        assert [t["content"] for t in agent.get_history()][:2] == [
+            "list files",
+            "planned: command(list files)",
+        ]
+        saved = self._saved_sessions()
+        assert len(saved) == 1  # same file, no new session
+        assert [t["content"] for t in saved[0]["history"]][-2:] == ["two", "planned"]
+        err = capsys.readouterr().err
+        assert f"Resumed session {sid}" in err
+        assert "list files" in err  # last exchange shown
+
+    def test_resume_by_name(self, monkeypatch):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["saved-model"])
+        self._seed_session(self._OLD, name="work")
+        agent = self._run_chat(monkeypatch, [], extra_argv=["--resume", "work"])
+        assert agent.get_history() == self._OLD
+
+    def test_resume_without_argument_picks_most_recent(self, monkeypatch):
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["saved-model"])
+        stamps = iter(["2026-10-25T09:00:00+00:00", "2026-10-25T10:00:00+00:00"])
+        monkeypatch.setattr(
+            "agent.sessions._now_iso", lambda: next(stamps, "2026-10-25T11:00:00+00:00")
+        )
+        self._seed_session([{"role": "user", "content": "older"}])
+        self._seed_session([{"role": "user", "content": "newer"}])
+        agent = self._run_chat(monkeypatch, [], extra_argv=["--resume"])
+        assert agent.get_history() == [{"role": "user", "content": "newer"}]
+
+    def test_resume_restores_saved_model_when_downloaded(self, monkeypatch):
+        monkeypatch.setenv("OLLAMA_MODEL", "current-model")
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["current-model", "saved-model"])
+        sid = self._seed_session(self._OLD, model="saved-model")
+        self._run_chat(monkeypatch, [], extra_argv=["--resume", sid])
+        import os
+
+        assert os.environ["OLLAMA_MODEL"] == "saved-model"
+
+    def test_resume_keeps_current_model_when_saved_one_missing(self, monkeypatch, capsys):
+        monkeypatch.setenv("OLLAMA_MODEL", "current-model")
+        monkeypatch.setattr("agent.llm_stub.list_models", lambda: ["current-model"])
+        sid = self._seed_session(self._OLD, model="gone-model")
+        self._run_chat(monkeypatch, [], extra_argv=["--resume", sid])
+        import os
+
+        assert os.environ["OLLAMA_MODEL"] == "current-model"
+        assert "gone-model" in capsys.readouterr().err
+
+    def test_resume_unknown_session_fails(self, monkeypatch, capsys):
+        with pytest.raises(SystemExit) as exc:
+            self._run_chat(monkeypatch, [], extra_argv=["--resume", "nope"])
+        assert exc.value.code == 1
+        assert "No session" in capsys.readouterr().err
+
+    def test_resume_session_in_use_fails(self, monkeypatch, capsys):
+        from agent import sessions
+
+        busy = sessions.Session.create()
+        busy.save(self._OLD, model="m")
+        try:
+            with pytest.raises(SystemExit) as exc:
+                self._run_chat(monkeypatch, [], extra_argv=["--resume", busy.id])
+            assert exc.value.code == 1
+            assert "open in another" in capsys.readouterr().err
+        finally:
+            busy.close()
+
+    def test_resume_with_nothing_saved_fails(self, monkeypatch, capsys):
+        with pytest.raises(SystemExit):
+            self._run_chat(monkeypatch, [], extra_argv=["--resume"])
+        assert "No saved session" in capsys.readouterr().err
+
+
+class TestSessionsSubcommand:
+    @pytest.fixture(autouse=True)
+    def _isolated_sessions(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("agent.sessions.SESSIONS_DIR", str(tmp_path / "sessions"))
+
+    def _run(self, argv):
+        import run_agent
+
+        with patch.object(sys, "argv", ["codebud", "sessions", *argv]):
+            run_agent.main()
+
+    def test_no_sessions(self, capsys):
+        self._run([])
+        assert "No saved sessions" in capsys.readouterr().out
+
+    def test_lists_sessions_with_resume_reference(self, capsys):
+        from agent import sessions
+
+        s = sessions.Session.create()
+        s.set_name("work")
+        s.save([{"role": "user", "content": "list the python files"}], model="m")
+        s.close()
+
+        self._run([])
+        out = capsys.readouterr().out
+        assert s.id in out
+        assert "work" in out
+        assert "list the python files" in out
+
+    def test_json_output(self, capsys):
+        from agent import sessions
+
+        s = sessions.Session.create()
+        s.save([{"role": "user", "content": "x"}], model="m")
+        s.close()
+
+        self._run(["--json"])
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed[0]["id"] == s.id
+        assert parsed[0]["turns"] == 1

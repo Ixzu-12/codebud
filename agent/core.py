@@ -137,6 +137,10 @@ class AgentCore:
         """Return a copy of the conversation history (used by /history in chat mode)."""
         return list(self._history)
 
+    def restore_history(self, history: list[dict[str, str]]) -> None:
+        """Replace the conversation history (used by chat --resume)."""
+        self._history[:] = list(history)
+
     def get_model(self) -> str:
         """Return the active OLLAMA_MODEL, or '' if unset."""
         return os.environ.get("OLLAMA_MODEL", "")
