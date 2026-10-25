@@ -7,6 +7,11 @@
 
 @include version.texi
 
+@dircategory Software development
+@direntry
+* Codebud: (codebud).           Local coding agent powered by Ollama.
+@end direntry
+
 @copying
 This manual documents Codebud @value{VERSION}, a local Cursor-style coding
 agent powered by Ollama and Qwen2.5-Coder.
