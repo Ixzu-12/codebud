@@ -183,3 +183,18 @@ def test_python_dash_m_codebud_runs_the_cli():
     )
     assert result.returncode == 0
     assert "usage: codebud" in result.stdout
+
+
+def test_version_comes_from_the_package_metadata(capsys, monkeypatch):
+    """One source of truth: pyproject's version, via importlib.metadata."""
+    import sys
+    from importlib.metadata import version
+
+    import codebud
+    from codebud.cli import main as run_agent
+
+    monkeypatch.setattr(sys, "argv", ["codebud", "version"])
+    run_agent.main()
+    out = capsys.readouterr().out
+    assert codebud.__version__ == version("codebud")
+    assert f"codebud  {version('codebud')}" in out

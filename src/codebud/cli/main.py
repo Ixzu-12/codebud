@@ -828,7 +828,9 @@ def cmd_version(_args):
     except Exception:
         ollama_ver = "unreachable"
 
-    print("codebud  0.1.0")
+    from codebud import __version__
+
+    print(f"codebud  {__version__}")
     print(f"ollama   {ollama_ver}")
     print(f"model    {model}")
     print(f"python   {sys.version.split()[0]}")
