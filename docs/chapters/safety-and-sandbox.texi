@@ -26,10 +26,13 @@ LLM output
     │
     ▼
 SafetyEngine.validate_step()          @r{(layer 1: policy file check)}
-    │  reject → plan_error
+    │  reject → no plan (chat reply; plan_refused for a mode)
     ▼
 AgentCore._validate_plan()            @r{(same check, defence-in-depth)}
-    │  reject → plan_error
+    │  reject → no plan
+    ▼
+SafetyEngine.may_execute()            @r{(re-check right before each step)}
+    │  reject → step_refused
     ▼
 Executor → tool.run(args)
     │
@@ -55,7 +58,10 @@ through layer 1 and bypass layer 2 entirely.
 @cindex validate_step
 
 @code{SafetyEngine.validate_step(step)} is called by @code{LLMPlanner}
-during plan validation and again by @code{AgentCore} before execution.
+during plan validation, again by @code{AgentCore}, and once more by
+@code{Executor} (through @code{may_execute()}) right before each step runs,
+so a plan made in one agent mode cannot run after switching to a stricter
+one.
 For @code{command} steps it applies one rule:
 
 @quotation
@@ -87,9 +93,11 @@ options are checked, so @code{python3 script.py -c config.toml} is allowed
 @option{--ext-diff} (runs an external diff program)
 @end multitable
 
-When a step fails validation the entire plan is rejected with the error
-@code{"LLM returned malformed plan"}.  The agent never executes a partial
-plan.
+When a step fails validation the entire plan is rejected and the agent
+never executes a partial plan.  A rejection caused only by the agent mode
+is reported as such (@samp{The plan uses tools not allowed in edit mode:
+command.}); any other rejection currently ends in a plain chat reply
+instead of a plan (@pxref{No Plan or an Empty Reply}).
 
 @code{describe_rules()} returns a compact summary of the three policy
 lists, which is embedded in the planner prompt so the model can avoid
@@ -200,7 +208,8 @@ permitting @command{git push} or @command{git reset --hard}.
 
 @item
 Put anything that runs code or changes files in the powerful list, not
-the harmless one; only the powerful list makes @code{auto} mode stop and ask.
+the harmless one; only powerful commands make @code{auto} mode and
+@command{codebud run} (without @option{--yes}) stop and ask.
 
 @item
 After editing, run @command{codebud doctor} to confirm the files parse
@@ -238,10 +247,12 @@ default policy, but if you add it, any @code{sudo} command the model
 proposes will run.
 
 @item
-@strong{Prefix matching is coarse.}  An entry of @code{"python"} allows
-@code{python -c "__import__('os').system('rm -rf /')"}.  The sandbox
-catches @code{"rm -rf /"} as a substring, but other destructive Python
-one-liners would not be caught.
+@strong{Code runners can do anything.}  @code{python -c} is refused, but an
+entry of @code{"python"} still allows @code{python evil.py} --- and the
+model can write @file{evil.py} first with @code{file_write}.  This is why
+@code{python}, @code{python3}, @code{pytest} and @code{ruff} are powerful
+commands that need confirmation (except in @code{full-auto} mode or with
+@code{run --yes}).
 
 @item
 @strong{10-second timeout is short.}  Long operations (building a large

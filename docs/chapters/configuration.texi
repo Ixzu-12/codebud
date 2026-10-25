@@ -61,6 +61,18 @@ unavailable (requires @code{codebud[openai]}).
 @tab @code{0}
 @tab Set to @code{1} to enable the @code{web_search} tool.  When
 @code{0}, the tool reports itself as unavailable to the planner.
+@item @env{XDG_DATA_HOME}
+@tab @file{~/.local/share}
+@tab Codebud keeps its runtime data in @file{$XDG_DATA_HOME/codebud}
+(@pxref{Files and Directories}).
+@item @env{XDG_CONFIG_HOME}
+@tab @file{~/.config}
+@tab Your own policy files go in @file{$XDG_CONFIG_HOME/codebud}
+(@pxref{Policy JSON Files}).
+@item @env{CODEBUD_LEGACY_DATA_DIR}
+@tab @emph{(the checkout's @file{data/})}
+@tab Where versions before October 2026 kept runtime data; copied once into
+the data directory.  Rarely needed (the test suite sets it).
 @end multitable
 
 To see the resolved value of every variable, run:
@@ -100,8 +112,9 @@ saying so.  The OpenAI call is
 non-streaming and uses @code{temperature=0} for deterministic output.
 @end enumerate
 
-If neither backend is configured, @command{codebud} logs a warning and
-returns an empty string to the planner, which triggers a @code{plan_error}.
+If neither backend is configured, @command{codebud} logs a warning; the
+planner gets no plan, and Codebud falls back to a plain chat reply, which
+is then empty (@pxref{No Plan or an Empty Reply}).
 
 @subsection Pointing at a remote Ollama instance
 
@@ -168,8 +181,8 @@ Commands that only read or report.  @xref{Harmless Commands}.
 
 @item powerful_commands.json
 Commands that run code or change files.  They are permitted, but in
-@code{auto} mode each one needs an explicit confirmation.
-@xref{Powerful Commands}.
+@code{auto} mode and in @command{codebud run} (unless @option{--yes}) each
+one needs an explicit confirmation.  @xref{Powerful Commands}.
 
 @item trusted_sequences.json
 Named multi-step sequences that the planner may propose as a unit.
@@ -238,7 +251,9 @@ powerful list.
 change files.  They are permitted, but they are not trusted blindly: in
 @code{auto} mode, where a plan otherwise runs after one approval, Codebud
 stops before each powerful step and asks @samp{Run it? [y/N]}
-(@pxref{Agent Modes}).  In @code{ask} mode every step is confirmed anyway.
+(@pxref{Agent Modes}).  @command{codebud run} asks the same unless it is
+given @option{--yes}.  In @code{ask} mode every step is confirmed anyway;
+@code{full-auto} runs them without asking.
 
 Default content:
 
@@ -303,9 +318,10 @@ Two subcommands help verify your configuration:
 
 @table @command
 @item codebud config
-Prints the resolved value of every environment variable, including
-defaults.  Use this to confirm that your exported variables are
-being read correctly.
+Prints the resolved value of Codebud's environment variables, including
+defaults (except @env{OPENAI_MODEL}), followed by the data directory and
+the policy file in effect for each name.  Use this to confirm that your
+exported variables are being read correctly.
 
 @example
 codebud config
@@ -318,8 +334,15 @@ Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = qwen2.5-coder:3b-instruct-q4_K_M
+  CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
+
+Files:
+  data directory           = /home/you/.local/share/codebud
+  harmless_commands.json   = /home/you/.config/codebud/harmless_commands.json
+  powerful_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/powerful_commands.json
+  trusted_sequences.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/trusted_sequences.json
 @end example
 
 @item codebud doctor
