@@ -155,6 +155,17 @@ class SafetyEngine:
 
         return True
 
+    def is_powerful(self, step: dict[str, Any]) -> bool:
+        """Return whether ``step`` is a command on the powerful list.
+
+        Powerful commands run code or change files (python, pytest, cp,
+        sed, ...); in auto mode they still need an explicit confirmation.
+        """
+        if step.get("tool") != "command":
+            return False
+        words = _split(step.get("args", {}).get("cmd", ""))
+        return bool(words) and any(_starts_with_words(words, e) for e in self.powerful_commands)
+
     def may_execute(self, step: dict[str, Any]) -> tuple[bool, str]:
         """Check, right before execution, that ``step`` may run in this mode.
 

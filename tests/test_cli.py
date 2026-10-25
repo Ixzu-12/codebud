@@ -904,6 +904,9 @@ class FakeChatAgent:
     def context_usage(self):
         return self._usage
 
+    def is_powerful(self, step):
+        return step.get("args", {}).get("cmd", "").startswith("pytest")
+
     def compact_history(self, keep_last=2, on_chunk=None):
         older = self._history[:-keep_last]
         if len(older) < 2:
@@ -1359,3 +1362,21 @@ class TestChatModes(_ChatHarness):
 
         agent = self._run_chat(monkeypatch, [], extra_argv=["--resume", saved["id"]])
         assert agent.get_mode() == "edit"
+
+    def test_auto_mode_stops_for_powerful_steps(self, monkeypatch, capsys):
+        plan = _two_step_plan()
+        plan["plan"][1]["args"]["cmd"] = "pytest -q"
+        agent = FakeChatAgent(plan_by_message={"do it": plan})
+        agent.set_mode("auto")
+        # "y" approves the plan; "n" declines the powerful pytest step.
+        self._run_chat(monkeypatch, ["do it", "y", "n"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 1
+        assert "Powerful command" in capsys.readouterr().err
+
+    def test_auto_mode_runs_powerful_step_when_confirmed(self, monkeypatch):
+        plan = _two_step_plan()
+        plan["plan"][1]["args"]["cmd"] = "pytest -q"
+        agent = FakeChatAgent(plan_by_message={"do it": plan})
+        agent.set_mode("auto")
+        self._run_chat(monkeypatch, ["do it", "y", "y"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 2

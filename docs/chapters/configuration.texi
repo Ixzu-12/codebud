@@ -166,8 +166,9 @@ Codebud --- they are re-read each time @code{AgentCore} is initialised.
 Commands that are always permitted.  @xref{Harmless Commands}.
 
 @item config/powerful_commands.json
-Commands that modify the filesystem or process state.  They are permitted
-but the planner is warned to use them carefully.  @xref{Powerful Commands}.
+Commands that run code or change files.  They are permitted, but in
+@code{auto} mode each one needs an explicit confirmation.
+@xref{Powerful Commands}.
 
 @item config/trusted_sequences.json
 Named multi-step sequences that the planner may propose as a unit.
@@ -183,95 +184,64 @@ warning.  @command{codebud doctor} validates all three files on startup.
 @section Harmless Commands
 @cindex harmless_commands.json
 
-@file{config/harmless_commands.json} contains a JSON array of command
-prefixes that are always permitted.  The @code{SafetyEngine} accepts a
-@code{command} step when its @code{cmd} argument starts with any listed
-prefix.
+@file{config/harmless_commands.json} lists commands that only read or
+report.  A @code{command} step is accepted when its leading words match an
+entry exactly (@pxref{The Safety Engine}): @code{"ls"} allows
+@code{ls -la} but not @code{lsblk}, and @code{"git log"} allows
+@code{git log -n 3} but not @code{git push}.
 
 Default content:
 
 @example
 [
-  "echo",
-  "cat",
-  "ls",
-  "pwd",
-  "whoami",
-  "python",
-  "python3"
+  "echo", "cat", "head", "tail", "ls", "pwd", "whoami", "wc",
+  "find", "diff", "git log", "git status", "git diff", "git show"
 ]
 @end example
 
-To allow additional read-only tools:
+Some arguments are refused even for listed programs, for example
+@code{find -exec} and @code{find -delete} (@pxref{The Safety Engine}).
 
-@example
-[
-  "echo",
-  "cat",
-  "ls",
-  "pwd",
-  "whoami",
-  "python",
-  "python3",
-  "head",
-  "tail",
-  "wc",
-  "file",
-  "stat",
-  "find",
-  "tree",
-  "diff",
-  "git log",
-  "git status",
-  "git diff",
-  "pytest"
-]
-@end example
-
-@strong{Note:} the match is prefix-based.  Adding @code{"git"} permits
-@emph{all} git subcommands, including @command{git push} and
-@command{git reset --hard}.  Be specific: add @code{"git log"},
-@code{"git status"}, and @code{"git diff"} separately rather than the
-bare @code{"git"}.
+@strong{Note:} be specific with multi-word tools.  Adding @code{"git"}
+would permit @emph{all} git subcommands, including @command{git push} and
+@command{git reset --hard}; list @code{"git log"}, @code{"git status"} and
+so on separately instead.  Do not put programs that run code
+(interpreters, test runners, build tools) here; they belong in the
+powerful list.
 
 
 @node Powerful Commands
 @section Powerful Commands
 @cindex powerful_commands.json
 
-@file{config/powerful_commands.json} contains prefixes for commands that
-are permitted but can modify state.  The safety engine allows them exactly
-as it does harmless commands; the separate list is a signal to the planner
-prompt that these commands deserve extra care.
+@file{config/powerful_commands.json} lists commands that run code or
+change files.  They are permitted, but they are not trusted blindly: in
+@code{auto} mode, where a plan otherwise runs after one approval, Codebud
+stops before each powerful step and asks @samp{Run it? [y/N]}
+(@pxref{Agent Modes}).  In @code{ask} mode every step is confirmed anyway.
 
 Default content:
 
 @example
 [
-  "grep",
-  "sed",
-  "awk",
-  "cp",
-  "mv"
+  "grep", "sed", "awk", "cp", "mv",
+  "python", "python3", "pytest", "ruff"
 ]
 @end example
+
+@code{python}, @code{python3} and @code{pytest} execute arbitrary code (a
+script, a test suite's @file{conftest.py}); @code{ruff} rewrites files with
+@option{--fix} or @command{ruff format}.  Inline code (@code{python -c}) is
+refused outright.
 
 Common additions for a developer workflow:
 
 @example
 [
-  "grep",
-  "sed",
-  "awk",
-  "cp",
-  "mv",
-  "mkdir",
-  "touch",
-  "chmod",
-  "pip install",
-  "npm install",
-  "git add",
-  "git commit"
+  "grep", "sed", "awk", "cp", "mv",
+  "python", "python3", "pytest", "ruff",
+  "mkdir", "touch", "chmod",
+  "pip install", "npm install", "git add", "git commit"
 ]
 @end example
 

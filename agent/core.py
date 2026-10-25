@@ -147,6 +147,10 @@ class AgentCore:
         """Replace the conversation history (used by chat --resume)."""
         self._history[:] = list(history)
 
+    def is_powerful(self, step: dict[str, Any]) -> bool:
+        """Return whether ``step`` needs confirmation even in auto mode."""
+        return self.safety.is_powerful(step)
+
     def get_mode(self) -> str:
         """Return the active agent mode (see agent/modes.py)."""
         return self.safety.mode

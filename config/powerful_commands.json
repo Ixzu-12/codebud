@@ -1,8 +1,11 @@
 [
-    "grep",
-    "sed",
-    "awk",
-    "cp",
-    "mv"
-  ]
-  
+  "grep",
+  "sed",
+  "awk",
+  "cp",
+  "mv",
+  "python",
+  "python3",
+  "pytest",
+  "ruff"
+]

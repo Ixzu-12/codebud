@@ -174,42 +174,17 @@ effect the next time @code{AgentCore} is initialised (i.e.@: the next
 
 @subsection Recommended configuration for Python development
 
-@example
-@r{config/harmless_commands.json:}
-[
-  "echo",
-  "cat",
-  "head",
-  "tail",
-  "ls",
-  "pwd",
-  "whoami",
-  "wc",
-  "find",
-  "diff",
-  "python",
-  "python3",
-  "pytest",
-  "ruff",
-  "git log",
-  "git status",
-  "git diff",
-  "git show"
-]
+The defaults already cover a Python workflow: read-only tools and
+@code{git log}/@code{status}/@code{diff}/@code{show} are harmless, and the
+code runners (@code{python}, @code{python3}, @code{pytest}, @code{ruff}) are
+powerful, so @code{auto} mode confirms them.  Typical additions:
 
+@example
 @r{config/powerful_commands.json:}
 [
-  "grep",
-  "sed",
-  "awk",
-  "cp",
-  "mv",
-  "mkdir",
-  "touch",
-  "pip install",
-  "git add",
-  "git commit",
-  "git checkout"
+  "grep", "sed", "awk", "cp", "mv",
+  "python", "python3", "pytest", "ruff",
+  "mkdir", "touch", "pip install", "git add", "git commit"
 ]
 @end example
 
@@ -221,8 +196,8 @@ Add @code{"git log"} rather than @code{"git"} to avoid inadvertently
 permitting @command{git push} or @command{git reset --hard}.
 
 @item
-Add @code{"pytest"} to the harmless list so the test suite can be run
-without the planner wrapping it in a @code{python -m pytest} call.
+Put anything that runs code or changes files in the powerful list, not
+the harmless one; only the powerful list makes @code{auto} mode stop and ask.
 
 @item
 After editing, run @command{codebud doctor} to confirm the files parse

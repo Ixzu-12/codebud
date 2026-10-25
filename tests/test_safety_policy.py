@@ -96,3 +96,24 @@ def test_arguments_that_run_code_or_destroy_are_refused(cmd):
 )
 def test_ordinary_uses_stay_allowed(cmd):
     assert _ok(_dev_engine(), cmd) is True
+
+
+# --- powerful commands (need an explicit y in auto mode) ---
+
+
+def test_is_powerful_for_listed_commands_only():
+    engine = _engine(harmless=["ls"], powerful=["pytest", "cp"])
+    assert engine.is_powerful({"tool": "command", "args": {"cmd": "pytest -q"}}) is True
+    assert engine.is_powerful({"tool": "command", "args": {"cmd": "cp a b"}}) is True
+    assert engine.is_powerful({"tool": "command", "args": {"cmd": "ls -la"}}) is False
+    assert engine.is_powerful({"tool": "file_write", "args": {"path": "a"}}) is False
+
+
+def test_default_policy_treats_code_runners_as_powerful():
+    engine = SafetyEngine()
+    for cmd in ["python script.py", "python3 -m pytest", "pytest -q", "ruff check --fix ."]:
+        step = {"tool": "command", "args": {"cmd": cmd}}
+        assert engine.validate_step(step) is True, cmd
+        assert engine.is_powerful(step) is True, cmd
+    for cmd in ["ls -la", "cat README.md", "git status"]:
+        assert engine.is_powerful({"tool": "command", "args": {"cmd": cmd}}) is False, cmd

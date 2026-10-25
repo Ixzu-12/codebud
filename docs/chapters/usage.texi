@@ -350,8 +350,10 @@ one with @code{/mode} (it is also shown in the session header):
 @multitable @columnfractions .12 .88
 @headitem Mode @tab Behaviour
 @item @code{ask} @tab Default.  Review the plan, then approve each step.
-@item @code{auto} @tab Review the plan once; all its steps then run without
-per-step prompts.  Safety rules still apply.
+@item @code{auto} @tab Review the plan once; its steps then run without
+per-step prompts, except powerful commands (code runners such as
+@code{pytest}, file-changing commands such as @code{cp}), which still ask
+@samp{Run it? [y/N]}.
 @item @code{plan} @tab Plans are shown but never executed.
 @item @code{edit} @tab Only file tools (@code{file_read}, @code{file_write},
 @code{patch}); shell commands are refused.

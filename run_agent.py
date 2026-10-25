@@ -571,7 +571,17 @@ def cmd_chat(args):
                 steps = plan.get("plan", [])
                 for i, step in enumerate(steps, 1):
                     if agent.get_mode() == "auto":
-                        step_approval = "a"  # plan approved once; run all steps
+                        # Plan approved once; only powerful steps (code
+                        # runners, file-changing commands) ask again.
+                        print_step_header(i, step)
+                        if agent.is_powerful(step):
+                            print_warning("Powerful command (runs code or changes files).")
+                            try:
+                                step_approval = input("  Run it? [y/N] ").strip().lower()
+                            except (EOFError, KeyboardInterrupt):
+                                step_approval = "n"
+                        else:
+                            step_approval = "y"
                     else:
                         print_step_header(i, step)
                         try:
