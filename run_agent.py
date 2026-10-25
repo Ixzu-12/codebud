@@ -536,11 +536,14 @@ def cmd_chat(args):
             # --- plan review loop: accept / revise / skip ---
             while True:
                 print_plan(plan, verbose=args.verbose)
-                try:
-                    review = input("  Run this plan? [y/N/r(evise)[: note]] ").strip()
-                except (EOFError, KeyboardInterrupt):
-                    print(file=sys.stderr)
-                    review = "n"
+                if agent.get_mode() == "full-auto":
+                    review = "y"  # unattended: no plan approval
+                else:
+                    try:
+                        review = input("  Run this plan? [y/N/r(evise)[: note]] ").strip()
+                    except (EOFError, KeyboardInterrupt):
+                        print(file=sys.stderr)
+                        review = "n"
 
                 if review.lower() == "n" or review == "":
                     print_status("-- skipped")
@@ -570,7 +573,10 @@ def cmd_chat(args):
                 # y / yes / anything else → proceed to execution
                 steps = plan.get("plan", [])
                 for i, step in enumerate(steps, 1):
-                    if agent.get_mode() == "auto":
+                    if agent.get_mode() == "full-auto":
+                        print_step_header(i, step)
+                        step_approval = "y"  # unattended: no step prompts
+                    elif agent.get_mode() == "auto":
                         # Plan approved once; only powerful steps (code
                         # runners, file-changing commands) ask again.
                         print_step_header(i, step)

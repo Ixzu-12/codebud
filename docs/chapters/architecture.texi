@@ -263,7 +263,10 @@ The engine also enforces the active @dfn{mode} (@file{agent/modes.py}):
 @multitable @columnfractions .12 .88
 @headitem Mode @tab Effect
 @item @code{ask} @tab Default.  No extra restriction.
-@item @code{auto} @tab No extra restriction (chat skips the per-step prompts).
+@item @code{auto} @tab No extra restriction (chat skips the per-step prompts
+except for powerful commands).
+@item @code{full-auto} @tab No extra restriction (chat asks nothing; the
+allow-list and refused arguments still apply).
 @item @code{plan} @tab Plans may be made, but @code{Executor} refuses to run any step.
 @item @code{edit} @tab Only @code{file_read}, @code{file_write} and @code{patch}
 steps are valid; every @code{command} step is rejected.

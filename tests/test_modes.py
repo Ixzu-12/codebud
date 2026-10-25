@@ -55,11 +55,11 @@ def _executor(safety, tool):
 
 
 def test_modes_list_and_default():
-    assert modes.MODES == ("ask", "auto", "plan", "edit")
+    assert modes.MODES == ("ask", "auto", "full-auto", "plan", "edit")
     assert modes.DEFAULT_MODE == "ask"
 
 
-@pytest.mark.parametrize("mode", ["ask", "auto", "plan"])
+@pytest.mark.parametrize("mode", ["ask", "auto", "full-auto", "plan"])
 def test_commands_pass_validation_outside_edit_mode(mode):
     assert _safety(mode).validate_step(_CMD) is True
 
@@ -126,7 +126,7 @@ def test_agent_core_set_mode(tmp_path, monkeypatch):
     assert agent.safety.mode == "edit"
     ok, msg = agent.set_mode("yolo")
     assert ok is False
-    assert "ask, auto, plan, edit" in msg
+    assert "ask, auto, full-auto, plan, edit" in msg
     assert agent.get_mode() == "edit"
 
 
@@ -167,3 +167,10 @@ def test_core_shows_mode_refusal_instead_of_chatting(tmp_path, monkeypatch):
     monkeypatch.setattr(agent.planner, "generate_plan", lambda *a, **kw: refused)
 
     assert agent.handle_user_message("run the tests") == refused
+
+
+def test_full_auto_still_enforces_the_allow_list():
+    engine = _safety("full-auto")
+    assert engine.validate_step({"tool": "command", "args": {"cmd": "rm -rf build"}}) is False
+    assert engine.validate_step({"tool": "command", "args": {"cmd": "find . -delete"}}) is False
+    assert engine.may_execute(_CMD) == (True, "")

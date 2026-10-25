@@ -1317,7 +1317,7 @@ class TestChatModes(_ChatHarness):
         self._run_chat(monkeypatch, ["/mode"])
         err = capsys.readouterr().err
         assert "Mode: ask" in err
-        assert "ask, auto, plan, edit" in err
+        assert "ask, auto, full-auto, plan, edit" in err
 
     def test_mode_command_switches(self, monkeypatch, capsys):
         agent = self._run_chat(monkeypatch, ["/mode edit"])
@@ -1379,4 +1379,13 @@ class TestChatModes(_ChatHarness):
         agent = FakeChatAgent(plan_by_message={"do it": plan})
         agent.set_mode("auto")
         self._run_chat(monkeypatch, ["do it", "y", "y"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 2
+
+    def test_full_auto_runs_everything_without_any_prompt(self, monkeypatch):
+        plan = _two_step_plan()
+        plan["plan"][1]["args"]["cmd"] = "pytest -q"  # powerful, still no prompt
+        agent = FakeChatAgent(plan_by_message={"do it": plan})
+        agent.set_mode("full-auto")
+        # No answers after the request: any prompt would hit EOF and skip/quit.
+        self._run_chat(monkeypatch, ["do it"], agent=agent)
         assert agent.executor.execute_plan.call_count == 2

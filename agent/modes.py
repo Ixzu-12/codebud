@@ -6,14 +6,17 @@ allowed to do, and is enforced by SafetyEngine and Executor rather than
 only described to the model:
 
 - ask  (default) review the plan, then approve each step
-- auto           review the plan once; its steps then run without prompts
+- auto           review the plan once; its steps then run without prompts,
+                 except powerful commands, which still ask
+- full-auto      no prompts at all; the allow-list and refused arguments
+                 still apply
 - plan           plans are shown but never executed
 - edit           only file tools (file_read, file_write, patch); no commands
 """
 
 from typing import Any
 
-MODES = ("ask", "auto", "plan", "edit")
+MODES = ("ask", "auto", "full-auto", "plan", "edit")
 DEFAULT_MODE = "ask"
 
 # Tools permitted in edit mode.

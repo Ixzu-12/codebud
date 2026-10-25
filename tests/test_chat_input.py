@@ -72,7 +72,14 @@ def test_slash_menu_only_for_the_command_word():
 
 
 @pytest.mark.parametrize(
-    "current,expected", [("ask", "auto"), ("auto", "plan"), ("plan", "edit"), ("edit", "ask")]
+    "current,expected",
+    [
+        ("ask", "auto"),
+        ("auto", "full-auto"),
+        ("full-auto", "plan"),
+        ("plan", "edit"),
+        ("edit", "ask"),
+    ],
 )
 def test_next_mode_cycles(current, expected):
     assert chat_input.next_mode(current) == expected
@@ -105,7 +112,7 @@ def test_shift_tab_cycles_the_mode():
         reader = chat_input.ChatInput(agent, interactive=True)
         pipe.send_text("\x1b[Z\x1b[Zhi\r")  # Shift-Tab twice, then a message
         assert reader.read("[1] You: ") == "hi"
-    assert agent.mode == "plan"
+    assert agent.mode == "full-auto"  # ask → auto → full-auto
 
 
 def test_toolbar_is_drawn_on_a_terminal():

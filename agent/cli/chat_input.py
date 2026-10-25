@@ -34,7 +34,7 @@ SLASH_COMMANDS = [
     ("/undo", "remove the last turn from history"),
     ("/compact", "summarise older turns to shrink the conversation history"),
     ("/save", "save the session now; /save <name> also names it for --resume"),
-    ("/mode", "show the agent mode, or /mode <ask|auto|plan|edit> to switch"),
+    ("/mode", "show the agent mode, or /mode <ask|auto|full-auto|plan|edit> to switch"),
     ("/doctor", "run environment health checks"),
     ("/model", "show the active Ollama model, or /model <name> to switch"),
     ("/models", "list downloaded models, marking the active one"),

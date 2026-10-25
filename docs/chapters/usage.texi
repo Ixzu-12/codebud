@@ -303,8 +303,8 @@ Typing @samp{/} opens a menu of slash commands with a short description of
 each; it narrows as you type, and @key{Up}/@key{Down} and @key{Tab} pick an
 entry.
 @item
-@kbd{Shift-Tab} cycles the mode (@code{ask}, @code{auto}, @code{plan},
-@code{edit}); the toolbar updates immediately (@pxref{Agent Modes}).
+@kbd{Shift-Tab} cycles the mode (@code{ask}, @code{auto},
+@code{full-auto}, @code{plan}, @code{edit}); the toolbar updates immediately (@pxref{Agent Modes}).
 @item
 @key{Up} and @key{Down} on an empty line recall earlier input.
 @end itemize
@@ -354,6 +354,10 @@ one with @code{/mode} (it is also shown in the session header):
 per-step prompts, except powerful commands (code runners such as
 @code{pytest}, file-changing commands such as @code{cp}), which still ask
 @samp{Run it? [y/N]}.
+@item @code{full-auto} @tab No prompts at all: the plan runs as soon as it
+is made, powerful commands included.  For when you do not want to be
+interrupted.  The allow-list and refused arguments still apply, so
+commands outside the lists are still rejected.
 @item @code{plan} @tab Plans are shown but never executed.
 @item @code{edit} @tab Only file tools (@code{file_read}, @code{file_write},
 @code{patch}); shell commands are refused.
