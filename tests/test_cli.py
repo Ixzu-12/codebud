@@ -846,8 +846,11 @@ class TestHistorySubcommand:
 class FakeChatAgent:
     """Stand-in for AgentCore driven entirely through its public API."""
 
-    def __init__(self, plan_by_message=None, model="fake-model", set_model_result=None):
+    def __init__(
+        self, plan_by_message=None, model="fake-model", set_model_result=None, usage=(500, 8192)
+    ):
         self._history = []
+        self._usage = usage
         self.executor = MagicMock()
         self.executor.execute_plan = MagicMock(
             return_value={
@@ -881,6 +884,9 @@ class FakeChatAgent:
 
     def get_history(self):
         return list(self._history)
+
+    def context_usage(self):
+        return self._usage
 
     def compact_history(self, keep_last=2, on_chunk=None):
         older = self._history[:-keep_last]
@@ -1083,3 +1089,15 @@ class TestChatSubcommand:
     def test_help_lists_compact(self, monkeypatch, capsys):
         self._run_chat(monkeypatch, ["/help"])
         assert "/compact" in capsys.readouterr().err
+
+    def test_warns_when_context_seventy_percent_full(self, monkeypatch, capsys):
+        agent = FakeChatAgent(usage=(5800, 8192))
+        self._run_chat(monkeypatch, ["one", "n", "/help", "/history"], agent=agent)
+        err = capsys.readouterr().err
+        assert err.count("71% full") == 1  # once after the turn, not per slash command
+        assert "/compact" in err
+
+    def test_no_warning_below_seventy_percent(self, monkeypatch, capsys):
+        agent = FakeChatAgent(usage=(5000, 8192))
+        self._run_chat(monkeypatch, ["one", "n"], agent=agent)
+        assert "% full" not in capsys.readouterr().err

@@ -49,6 +49,11 @@ def print_status(message: str) -> None:
     _err(f"  {_DIM}{message}{_RESET}")
 
 
+def print_warning(message: str) -> None:
+    """Print a yellow warning line to stderr (non-fatal, needs user attention)."""
+    _err(f"  {_YELLOW}{message}{_RESET}")
+
+
 def print_rule() -> None:
     """Print a dim horizontal rule across the terminal to separate chat turns.
 

@@ -326,6 +326,19 @@ no summary, history is left unchanged.  Codebud also drops the oldest turns
 automatically when a prompt would not fit, so @code{/compact} is about keeping
 the gist of older turns rather than preventing errors.
 
+@cindex context warning
+After each turn, @command{chat} estimates the size of the next planning
+prompt.  Once it reaches 70% of the context window, a warning is shown (once
+per turn, not after slash commands):
+
+@example
+  Context 72% full (~5,900 of 8,192 tokens). Use /compact to summarise older turns.
+@end example
+
+With the default @env{CODEBUD_NUM_CTX} of 8,192 tokens and a first-turn
+prompt of about 1,050 tokens, this only appears after a substantial
+conversation.
+
 @code{/model @var{name}} validates the model is downloaded and blocks
 on a live warmup (with the usual spinner) before switching --- if
 either check fails, the active model is left unchanged and the reason

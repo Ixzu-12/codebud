@@ -221,6 +221,9 @@ def cmd_plan(args):
 # ---------------------------------------------------------------------------
 
 
+# chat warns once the next planner prompt reaches this share of num_ctx.
+_CONTEXT_WARN_RATIO = 0.70
+
 _CHAT_HELP = """\
 Slash commands (type /cmd and press Enter):
   /help      — show this message
@@ -246,6 +249,7 @@ def cmd_chat(args):
         print_status,
         print_step_header,
         print_step_result,
+        print_warning,
     )
     from agent.cli.errors import print_error
 
@@ -266,11 +270,23 @@ def cmd_chat(args):
     )
 
     turn = 0
+    checked_turn = 0
     last_plan = None
     last_step_output = None
 
     try:
         while True:
+            # After each completed turn (not after slash commands), warn
+            # if the next planner prompt would fill most of the context.
+            if turn and turn != checked_turn:
+                checked_turn = turn
+                used, total = agent.context_usage()
+                if used >= _CONTEXT_WARN_RATIO * total:
+                    print_warning(
+                        f"Context {round(100 * used / total)}% full "
+                        f"(~{used:,} of {total:,} tokens). "
+                        "Use /compact to summarise older turns."
+                    )
             print_rule()
             try:
                 message = input(f"[{turn + 1}] You: ").strip()

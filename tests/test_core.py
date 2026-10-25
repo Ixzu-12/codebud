@@ -167,3 +167,20 @@ def test_compact_history_keeps_history_when_summary_fails(tmp_path, monkeypatch)
     assert ok is False
     assert "unchanged" in msg
     assert agent.get_history() == _turns(6)
+
+
+# ---------------------------------------------------------------------------
+# context_usage (70% warning in chat)
+# ---------------------------------------------------------------------------
+
+
+def test_context_usage_reports_estimated_prompt_and_window(tmp_path, monkeypatch):
+    monkeypatch.setenv("CODEBUD_NUM_CTX", "8192")
+    agent = _make_agent(tmp_path, monkeypatch)
+
+    used_empty, total = agent.context_usage()
+    agent._history.extend(_turns(6))
+    used_full, _ = agent.context_usage()
+
+    assert total == 8192
+    assert 0 < used_empty < used_full

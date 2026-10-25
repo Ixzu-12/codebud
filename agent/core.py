@@ -33,6 +33,7 @@ from .llm_stub import (
     ModelHeartbeat,
     call_llm_plain,
     list_models,
+    num_ctx,
     prewarm_model,
     summarize_conversation,
     warm_model_sync,
@@ -171,6 +172,14 @@ class AgentCore:
                 os.environ.pop("OLLAMA_MODEL", None)
             return False, f"Failed to warm up '{model}'; kept using the previous model."
         return True, f"Switched to '{model}'."
+
+    def context_usage(self) -> tuple[int, int]:
+        """Return (estimated tokens of the next planner prompt, context window).
+
+        Used by chat to tell the user when the conversation is filling the
+        context window, before the planner has to start dropping old turns.
+        """
+        return self.planner.estimate_prompt_tokens(self._history), num_ctx()
 
     def compact_history(
         self,

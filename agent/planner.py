@@ -182,6 +182,14 @@ User: "order me a pizza"
             )
         return prompt
 
+    def estimate_prompt_tokens(self, history: list[dict[str, str]] | None = None) -> int:
+        """Estimate the size of the next planning prompt for ``history``.
+
+        Uses the same history trimming as a real request, so the number
+        reflects what would actually be sent (minus the next user message).
+        """
+        return estimate_tokens(self._build_prompt("", history=history))
+
     def _render_prompt(self, user_message: str, history: list[dict[str, str]]) -> str:
         """Render the planning prompt for ``user_message`` with ``history``."""
         tool_descriptions = self.tool_registry.describe_tools()
