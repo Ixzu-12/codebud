@@ -382,6 +382,9 @@ class TestModelOverride:
                 seen["model_at_call"] = __import__("os").environ.get("OLLAMA_MODEL")
                 return {"status": "chat_reply", "reply": "ok"}
 
+            def is_powerful(self, step):
+                return False
+
             def close(self):
                 pass
 
@@ -450,6 +453,9 @@ class TestModelOverride:
             def handle_user_message(self, msg, on_chunk=None):
                 return {"status": "chat_reply", "reply": "ok"}
 
+            def is_powerful(self, step):
+                return False
+
             def close(self):
                 pass
 
@@ -500,6 +506,9 @@ class TestSubcommandRouting:
             def handle_user_message(self, msg, on_chunk=None):
                 return _plan_error()
 
+            def is_powerful(self, step):
+                return False
+
             def close(self):
                 pass
 
@@ -516,6 +525,9 @@ class TestSubcommandRouting:
 
             def handle_user_message(self, msg, on_chunk=None):
                 return _plan_error("LLM returned empty output")
+
+            def is_powerful(self, step):
+                return False
 
             def close(self):
                 pass
@@ -542,6 +554,9 @@ class TestSubcommandRouting:
             def handle_user_message(self, msg, on_chunk=None):
                 ran["msg"] = msg
                 return _good_plan()
+
+            def is_powerful(self, step):
+                return False
 
             def close(self):
                 pass
@@ -579,10 +594,59 @@ class TestSubcommandRouting:
             def handle_user_message(self, msg, on_chunk=None):
                 return plan
 
+            def is_powerful(self, step):
+                return step.get("args", {}).get("cmd", "").startswith("pytest")
+
             def close(self):
                 pass
 
         return FakeAgent()
+
+    def _powerful_plan(self):
+        plan = self._two_step_plan()
+        plan["plan"][1]["args"]["cmd"] = "pytest -q"
+        return plan
+
+    def test_run_asks_before_a_powerful_step(self, monkeypatch, capsys):
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+        prompts = []
+        monkeypatch.setattr("builtins.input", lambda p="": prompts.append(p) or "n")
+
+        rc = self._run_main(["run", "do something"])
+        assert agent.executor.execute_plan.call_count == 1  # only the harmless step
+        assert prompts == ["  Run it? [y/N] "]
+        assert "Powerful command" in capsys.readouterr().err
+        assert rc == 0
+
+    def test_run_unattended_powerful_step_fails_with_hint(self, monkeypatch, capsys):
+        """No one to answer (stdin closed): the step is not run and run exits 1."""
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        def eof(_prompt=""):
+            raise EOFError
+
+        monkeypatch.setattr("builtins.input", eof)
+        rc = self._run_main(["run", "do something"])
+        assert agent.executor.execute_plan.call_count == 1
+        assert rc == 1
+        assert "--yes" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("flag", ["--yes", "-y"])
+    def test_run_yes_runs_powerful_steps_without_asking(self, monkeypatch, flag):
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("run_agent._make_agent", lambda: agent)
+        monkeypatch.setattr("run_agent._no_progress", lambda _: True)
+
+        def fail_input(_prompt=""):
+            raise AssertionError("--yes must not prompt")
+
+        monkeypatch.setattr("builtins.input", fail_input)
+        self._run_main(["run", flag, "do something"])
+        assert agent.executor.execute_plan.call_count == 2
 
     def test_run_interactive_approves_each_step(self, monkeypatch):
         """run -i prompts per-step; 'y' each time executes both steps."""
@@ -667,6 +731,9 @@ class TestSubcommandRouting:
             def handle_user_message(self, msg, on_chunk=None):
                 return plan
 
+            def is_powerful(self, step):
+                return False
+
             def close(self):
                 pass
 
@@ -709,6 +776,9 @@ class TestPlanSubcommand:
 
             def handle_user_message(self, msg, on_chunk=None):
                 return plan
+
+            def is_powerful(self, step):
+                return False
 
             def close(self):
                 pass

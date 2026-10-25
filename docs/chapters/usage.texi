@@ -161,7 +161,24 @@ Execute each step in sequence, printing its full standard output
 
 If any step fails, Codebud stops, prints the error, and suggests a fix.
 
+Powerful commands --- code runners such as @code{python} and @code{pytest},
+file-changing commands such as @code{cp} (@pxref{Powerful Commands}) ---
+are not run blindly: @command{run} stops before each one and asks
+@samp{Run it? [y/N]}.  If nobody can answer (standard input is closed, as
+in a script or cron job), the step is not run and @command{run} exits with
+status 1, telling you to use @option{--yes}.
+
 @table @option
+@item --yes / -y
+Run powerful commands without asking.  Use it in scripts once you trust
+the request:
+
+@example
+codebud run --yes "run the test suite"
+@end example
+
+The allow-list and refused arguments still apply (@pxref{The Safety Engine}).
+
 @item --interactive / -i
 Prompt for approval before executing each step, instead of running the
 whole plan automatically:

@@ -109,6 +109,7 @@ def cmd_run(args):
         print_status,
         print_step_header,
         print_step_result,
+        print_warning,
     )
     from agent.cli.errors import print_error
 
@@ -137,8 +138,25 @@ def cmd_run(args):
 
         steps = plan.get("plan", [])
         approve_all = not args.interactive
+        # Without -i, steps run unprompted, except powerful ones (code
+        # runners, file-changing commands), which need a "y" unless --yes.
+        confirm_powerful = not args.interactive and not args.yes
+        unconfirmed = 0
         for i, step in enumerate(steps, 1):
             print_step_header(i, step)
+
+            if confirm_powerful and agent.is_powerful(step):
+                print_warning("Powerful command (runs code or changes files).")
+                try:
+                    answer = input("  Run it? [y/N] ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print(file=sys.stderr)
+                    unconfirmed += 1
+                    print_status("-- not run: no one to confirm")
+                    continue
+                if not answer.startswith("y"):
+                    print_status("-- skipped")
+                    continue
 
             if not approve_all:
                 try:
@@ -163,6 +181,13 @@ def cmd_run(args):
                 err = str(result)
                 print_error(err, label="Execution error")
                 sys.exit(1)
+
+        if unconfirmed:
+            print_warning(
+                f"{unconfirmed} powerful step(s) were not run because no one could confirm "
+                "them. Re-run with --yes to allow powerful commands unattended."
+            )
+            sys.exit(1)
     finally:
         agent.close()
 
@@ -847,6 +872,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "-i",
         action="store_true",
         help="Prompt for approval before executing each step.",
+    )
+    p_run.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Run powerful commands (python, pytest, cp, ...) without asking; for scripts.",
     )
 
     # plan
