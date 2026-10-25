@@ -51,3 +51,5 @@ install-data-hook:
 uninstall-hook:
 	rm -f "$(DESTDIR)$(distinfodir)/METADATA" "$(DESTDIR)$(distinfodir)/INSTALLER"
 	-rmdir "$(DESTDIR)$(distinfodir)" 2>/dev/null
+
+MAINTAINERCLEANFILES = Makefile.in

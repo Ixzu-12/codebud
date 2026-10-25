@@ -74,7 +74,9 @@ help:
 	  '  make dist-python      Python sdist and wheel -> dist/' \
 	  '  make install-link     link .venv/bin/codebud into LINKDIR ($(LINKDIR))' \
 	  '  make uninstall-link   remove that link' \
-	  '  make clean-dev        remove bytecode, tool caches, egg-info (keeps .venv/)'
+	  '  make clean-dev        remove bytecode, tool caches, egg-info (keeps .venv/)' \
+	  '  make maintainer-clean back to a fresh checkout (then run ./bootstrap)' \
+	  '  make clean-venv       remove .venv/'
 
 install-dev:
 	test -x "$(VENVPY)" || "$(PYTHON)" -m venv "$(VENV)"
@@ -109,6 +111,20 @@ uninstall-link:
 clean-local:
 	rm -rf htmlcov .coverage build dist
 
+# ─── Back to a fresh checkout ───────────────────────────────────────────────
+# `make maintainer-clean` (GNU standard: remove everything that can be
+# rebuilt) also removes what ./bootstrap generated, the release tarball and
+# the developer caches. Afterwards run ./bootstrap again. .venv/ is kept;
+# `make clean-venv` removes it.
+
+MAINTAINERCLEANFILES = Makefile.in aclocal.m4 configure configure~ $(DIST_ARCHIVES)
+
+maintainer-clean-local: clean-dev
+	-rm -rf build-aux autom4te.cache
+
+clean-venv:
+	rm -rf $(VENV)
+
 # clean-dev: tidy what developer tools leave in a checkout (bytecode, tool
 # caches, setuptools build metadata). Kept out of `make clean`, which must
 # only remove what make built and must work with a read-only source tree.
@@ -117,4 +133,5 @@ clean-dev:
 	rm -rf .pytest_cache .ruff_cache src/*.egg-info
 	find . -path ./$(VENV) -prune -o -name __pycache__ -type d -prune -exec rm -rf {} +
 
-.PHONY: help install-dev lint format coverage dist-python install-link uninstall-link clean-dev
+.PHONY: help install-dev lint format coverage dist-python install-link uninstall-link \
+        clean-dev clean-venv

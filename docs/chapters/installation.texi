@@ -303,6 +303,7 @@ make && make check
 @item @code{distcheck} @tab Build the tarball and verify it builds, tests, installs and uninstalls cleanly from a read-only copy
 @item @code{clean} @tab Remove what @command{make} built (keeps @file{codebud.info}, which ships in the tarball)
 @item @code{distclean} @tab Also remove what @command{configure} generated
+@item @code{maintainer-clean} @tab Back to a fresh checkout: also remove what @command{./bootstrap} generated, the release tarball and the developer caches (keeps @file{.venv/}); run @command{./bootstrap} again afterwards
 @item @code{help} @tab List the targets
 @item @code{install-dev} @tab Editable install with the @code{dev} group in @file{.venv/}
 @item @code{lint}, @code{format} @tab @command{ruff check}; @command{ruff format} + @command{ruff check --fix}
@@ -310,6 +311,7 @@ make && make check
 @item @code{dist-python} @tab Python sdist and wheel in @file{dist/}
 @item @code{install-link} / @code{uninstall-link} @tab Link @file{.venv/bin/codebud} into @var{LINKDIR} (default @file{~/.local/bin}) / remove the link
 @item @code{clean-dev} @tab Remove bytecode, tool caches and egg-info from the checkout (keeps @file{.venv/})
+@item @code{clean-venv} @tab Remove @file{.venv/}
 @end multitable
 
 @var{LINKDIR} can be overridden: @code{make install-link LINKDIR=/usr/local/bin}.

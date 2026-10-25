@@ -49,6 +49,7 @@ for the full list.
 | `make info` / `html` / `pdf` | Build the manual |
 | `make dist` / `make distcheck` | Build / fully verify the release tarball |
 | `make clean` / `make distclean` | Remove what make / configure produced |
+| `make maintainer-clean` | Back to a fresh checkout (then `./bootstrap`); `make clean-venv` also drops `.venv/` |
 
 For working on codebud itself:
 
