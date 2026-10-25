@@ -114,6 +114,12 @@ def _all_session_data() -> list[dict[str, Any]]:
     return found
 
 
+def validate_name(name: str) -> None:
+    """Raise SessionError unless ``name`` is a valid session name."""
+    if not _NAME_RE.fullmatch(name):
+        raise SessionError(f"Invalid session name '{name}': use letters, digits, '.', '_' or '-'.")
+
+
 class Session:
     """An open chat session. Holds the session's lock until close()."""
 
@@ -187,10 +193,7 @@ class Session:
 
     def set_name(self, name: str) -> None:
         """Give the session a unique, human-friendly name and save it."""
-        if not _NAME_RE.fullmatch(name):
-            raise SessionError(
-                f"Invalid session name '{name}': use letters, digits, '.', '_' or '-'."
-            )
+        validate_name(name)
         for other in _all_session_data():
             if other.get("name") == name and other["id"] != self.id:
                 raise SessionError(f"Session name '{name}' is already used by {other['id']}.")

@@ -231,6 +231,7 @@ Slash commands (type /cmd and press Enter):
   /clear     — wipe conversation history and start fresh
   /undo      — remove the last turn from history
   /compact   — summarise older turns to shrink the conversation history
+  /save      — save the session now; /save <name> also names it for --resume
   /doctor    — run environment health checks
   /model     — show the active Ollama model, or /model <name> to switch
   /models    — list downloaded models, marking the active one
@@ -238,6 +239,42 @@ Slash commands (type /cmd and press Enter):
   /output    — show the full stdout of the last executed step (untruncated)
   quit / exit / q — end the session
 """
+
+
+class _ChatCheckpoint:
+    """Keeps a chat's conversation saved to a session file (agent/sessions.py).
+
+    The session file is created lazily, the first time there is something
+    to save, so a chat that ends without any turns leaves nothing behind.
+    """
+
+    def __init__(self, agent, session=None):
+        self.agent = agent
+        self.session = session
+        self._saved = list(session.history) if session else []
+
+    @property
+    def ref(self) -> str:
+        """The name to pass to --resume: the session's name, else its ID."""
+        return self.session.name or self.session.id
+
+    def save(self, force: bool = False) -> None:
+        """Save the history if it changed (or always, with ``force``)."""
+        from agent import sessions
+
+        history = self.agent.get_history()
+        if history == self._saved and not force:
+            return
+        if self.session is None:
+            if not history and not force:
+                return
+            self.session = sessions.Session.create()
+        self.session.save(history, self.agent.get_model())
+        self._saved = history
+
+    def close(self) -> None:
+        if self.session is not None:
+            self.session.close()
 
 
 def cmd_chat(args):
@@ -269,13 +306,23 @@ def cmd_chat(args):
         file=sys.stderr,
     )
 
+    from agent import sessions
+
     turn = 0
     checked_turn = 0
     last_plan = None
     last_step_output = None
+    checkpoint = _ChatCheckpoint(agent)
+
+    def autosave():
+        try:
+            checkpoint.save()
+        except (sessions.SessionError, OSError) as exc:
+            print_warning(f"Could not save the session: {exc}")
 
     try:
         while True:
+            autosave()
             # After each completed turn (not after slash commands), warn
             # if the next planner prompt would fill most of the context.
             if turn and turn != checked_turn:
@@ -325,6 +372,22 @@ def cmd_chat(args):
                     else:
                         turn = 0
                         print_status("History cleared (nothing left to undo).\n")
+                    continue
+                if cmd == "/save":
+                    parts = message.split(maxsplit=1)
+                    try:
+                        if len(parts) > 1:
+                            sessions.validate_name(parts[1].strip())
+                        checkpoint.save(force=True)
+                        if len(parts) > 1:
+                            checkpoint.session.set_name(parts[1].strip())
+                    except (sessions.SessionError, OSError) as exc:
+                        print_status(f"{exc}\n")
+                        continue
+                    print_status(
+                        f"Session saved: {checkpoint.ref}  "
+                        f"(resume with: codebud chat --resume {checkpoint.ref})\n"
+                    )
                     continue
                 if cmd == "/compact":
                     prog = ProgressIndicator(no_progress=_no_progress(args))
@@ -482,6 +545,13 @@ def cmd_chat(args):
 
             print(file=sys.stderr)
     finally:
+        autosave()
+        if checkpoint.session is not None:
+            print_status(
+                f"Session saved: {checkpoint.ref}  "
+                f"(resume with: codebud chat --resume {checkpoint.ref})"
+            )
+        checkpoint.close()
         agent.close()
 
 

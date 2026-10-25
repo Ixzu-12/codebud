@@ -9,6 +9,8 @@ import json
 import sys
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -908,6 +910,17 @@ class FakeChatAgent:
 
 
 class TestChatSubcommand:
+    @pytest.fixture(autouse=True)
+    def _isolated_sessions(self, tmp_path, monkeypatch):
+        """Keep session checkpoints out of the repo's data/ directory."""
+        self.sessions_dir = tmp_path / "sessions"
+        monkeypatch.setattr("agent.sessions.SESSIONS_DIR", str(self.sessions_dir))
+
+    def _saved_sessions(self):
+        if not self.sessions_dir.exists():
+            return []
+        return [json.loads(p.read_text()) for p in sorted(self.sessions_dir.glob("*.json"))]
+
     def _run_chat(self, monkeypatch, inputs, agent=None, extra_argv=None):
         import run_agent
 
@@ -1101,3 +1114,33 @@ class TestChatSubcommand:
         agent = FakeChatAgent(usage=(5000, 8192))
         self._run_chat(monkeypatch, ["one", "n"], agent=agent)
         assert "% full" not in capsys.readouterr().err
+
+    def test_session_autosaved_after_a_turn(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["one", "n"])
+        saved = self._saved_sessions()
+        assert len(saved) == 1
+        assert [t["content"] for t in saved[0]["history"]] == ["one", "planned"]
+        assert saved[0]["model"] == "fake-model"
+        err = capsys.readouterr().err
+        assert f"codebud chat --resume {saved[0]['id']}" in err
+
+    def test_no_session_file_when_nothing_was_said(self, monkeypatch):
+        self._run_chat(monkeypatch, ["/help", "quit"])
+        assert self._saved_sessions() == []
+
+    def test_save_command_names_the_session(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["one", "n", "/save my-work"])
+        saved = self._saved_sessions()
+        assert saved[0]["name"] == "my-work"
+        err = capsys.readouterr().err
+        assert "my-work" in err
+        assert "codebud chat --resume my-work" in err
+
+    def test_save_command_rejects_bad_name_and_chat_continues(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/save bad/name", "two", "n"])
+        assert "Invalid session name" in capsys.readouterr().err
+        assert [t["content"] for t in agent.get_history()] == ["two", "planned"]
+
+    def test_clear_is_checkpointed(self, monkeypatch):
+        self._run_chat(monkeypatch, ["one", "n", "/clear"])
+        assert self._saved_sessions()[0]["history"] == []

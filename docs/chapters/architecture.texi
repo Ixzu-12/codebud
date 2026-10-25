@@ -17,6 +17,7 @@ they are.
 * Executor::                    Step-by-step execution.
 * Sandbox::                     Controlled command execution.
 * MemoryStore::                 Persistent timeline.
+* Sessions::                    Chat conversation checkpoints.
 * ToolRegistry::                Tool catalogue.
 * LLM Stub::                    Backend-agnostic LLM interface.
 * File Layout::                 Where everything lives on disk.
@@ -358,6 +359,60 @@ started.
 Source: @file{agent/memory.py}
 
 
+@node Sessions
+@section Sessions
+@cindex sessions
+@cindex checkpoints
+@cindex data/sessions
+
+@file{agent/sessions.py} saves each @command{chat} conversation so it can be
+resumed later.  Where @code{MemoryStore} records executed @emph{steps},
+a session records the @emph{conversation}: the history the planner sees,
+plus the active model.  Each session is one JSON file:
+
+@example
+data/sessions/20261025-093012-7f3a.json
+@{
+  "version": 1,
+  "id": "20261025-093012-7f3a",
+  "name": "refactor-memory",
+  "created": "2026-10-25T09:30:12+00:00",
+  "updated": "2026-10-25T09:41:57+00:00",
+  "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+  "history": [ @{"role": "user", "content": "..."@}, ... ]
+@}
+@end example
+
+Several chats may run at the same time, so:
+
+@itemize @bullet
+@item
+The ID is a UTC timestamp plus a random four-hex-digit suffix, and the file
+is reserved with an exclusive create (@code{O_EXCL}); on a collision a new
+suffix is drawn.  Two chats never share an ID, even within the same second.
+
+@item
+A chat holds an exclusive @code{flock} on @file{@var{id}.lock} while the
+session is open.  Opening a session that another chat has open fails with
+@code{SessionInUseError}.
+
+@item
+Every save replaces the file atomically (temporary file, @code{fsync},
+rename), so a crash never leaves a half-written session.
+
+@item
+The format is versioned; a file written by a newer Codebud is refused
+rather than misread.  A corrupt file is reported and skipped when listing.
+@end itemize
+
+@command{chat} creates the session lazily, the first time there is
+something to save, and saves again whenever the history changes (a turn,
+@code{/undo}, @code{/compact}, @code{/clear}) and on exit.
+
+@noindent
+Source: @file{agent/sessions.py}, @file{agent/fsutil.py}
+
+
 @node ToolRegistry
 @section ToolRegistry
 @cindex ToolRegistry
@@ -427,6 +482,8 @@ agent/
 ├── safety.py          SafetyEngine (policy validation)
 ├── sandbox.py         Sandbox (subprocess + timeout)
 ├── memory.py          MemoryStore (timeline persistence)
+├── sessions.py        chat session checkpoints
+├── fsutil.py          atomic_write_text() helper
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
 └── tools/
     ├── tool_registry.py   ToolRegistry
@@ -448,6 +505,7 @@ config/
 
 data/
 ├── memory/entries.jsonl       execution timeline (auto-created)
+├── sessions/<id>.json         chat session checkpoints (auto-created)
 └── embeddings/index.json      embedding index (auto-created)
 
 openclaw/
