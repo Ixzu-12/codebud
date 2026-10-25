@@ -1,5 +1,6 @@
 # Core dependencies
 openai
+prompt_toolkit
 requests
 
 # Optional but recommended

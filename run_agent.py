@@ -236,23 +236,6 @@ def cmd_plan(args):
 # chat warns once the next planner prompt reaches this share of num_ctx.
 _CONTEXT_WARN_RATIO = 0.70
 
-_CHAT_HELP = """\
-Slash commands (type /cmd and press Enter):
-  /help      — show this message
-  /history   — show the conversation history kept in memory
-  /clear     — wipe conversation history and start fresh
-  /undo      — remove the last turn from history
-  /compact   — summarise older turns to shrink the conversation history
-  /save      — save the session now; /save <name> also names it for --resume
-  /mode      — show the agent mode, or /mode <ask|auto|plan|edit> to switch
-  /doctor    — run environment health checks
-  /model     — show the active Ollama model, or /model <name> to switch
-  /models    — list downloaded models, marking the active one
-  /plan      — re-show the last plan (if any)
-  /output    — show the full stdout of the last executed step (untruncated)
-  quit / exit / q — end the session
-"""
-
 
 def _open_session_to_resume(args):
     """Open the session named by --resume, restoring its model if possible.
@@ -325,6 +308,7 @@ class _ChatCheckpoint:
 
 
 def cmd_chat(args):
+    from agent.cli import chat_input
     from agent.cli.display import (
         ProgressIndicator,
         print_assistant_reply,
@@ -367,6 +351,7 @@ def cmd_chat(args):
     last_plan = None
     last_step_output = None
     checkpoint = _ChatCheckpoint(agent, resumed)
+    reader = chat_input.ChatInput(agent)
     if resumed is not None:
         agent.restore_history(resumed.history)
         turn = sum(1 for t in resumed.history if t.get("role") == "user")
@@ -398,7 +383,7 @@ def cmd_chat(args):
                     )
             print_rule()
             try:
-                message = input(f"[{turn + 1}] You: ").strip()
+                message = reader.read(f"[{turn + 1}] You: ").strip()
             except (EOFError, KeyboardInterrupt):
                 print(file=sys.stderr)
                 break
@@ -409,7 +394,7 @@ def cmd_chat(args):
             if message.startswith("/"):
                 cmd = message.split()[0].lower()
                 if cmd == "/help":
-                    print(_CHAT_HELP, file=sys.stderr)
+                    print(chat_input.help_text(), file=sys.stderr)
                     continue
                 if cmd == "/clear":
                     agent.clear_history()

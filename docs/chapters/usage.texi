@@ -283,6 +283,37 @@ then editing a file, then running the tests --- @command{chat} lets
 each turn build on the previous one.  Memory from earlier turns helps
 the planner make better decisions.
 
+@subheading The input line
+@cindex toolbar
+@cindex slash command menu
+
+On a terminal, the @samp{[@var{n}] You:} line has a persistent toolbar at
+the bottom of the screen showing the agent mode, the model and how full
+the context window is:
+
+@example
+[3] You: _
+
+ mode: ask · qwen2.5-coder:3b-instruct-q4_K_M · context 14%   (shift-tab: mode)
+@end example
+
+@itemize @bullet
+@item
+Typing @samp{/} opens a menu of slash commands with a short description of
+each; it narrows as you type, and @key{Up}/@key{Down} and @key{Tab} pick an
+entry.
+@item
+@kbd{Shift-Tab} cycles the mode (@code{ask}, @code{auto}, @code{plan},
+@code{edit}); the toolbar updates immediately (@pxref{Agent Modes}).
+@item
+@key{Up} and @key{Down} on an empty line recall earlier input.
+@end itemize
+
+The toolbar is shown while Codebud waits for your input, not while a plan
+runs.  When standard input or output is not a terminal (for example when
+input is piped in), Codebud reads plain lines without the menu or
+toolbar.
+
 @subheading Slash commands
 
 Any input starting with @samp{/} is handled locally by the REPL and

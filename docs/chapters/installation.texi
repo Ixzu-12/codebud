@@ -181,7 +181,8 @@ pip install -e ".[dev]"
 
 This installs:
 @itemize
-@item @code{openai}, @code{requests}, @code{tiktoken} --- runtime deps
+@item @code{openai}, @code{prompt_toolkit}, @code{requests}, @code{tiktoken} --- runtime deps
+(@code{prompt_toolkit} draws the chat command menu and status toolbar)
 @item @code{pytest}, @code{ruff} --- dev deps
 @item the @command{codebud} CLI entry point (maps to @code{run_agent:main})
 @end itemize
