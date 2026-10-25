@@ -25,8 +25,7 @@ conventions used throughout the codebase.
 @subsection Running the tests
 
 @example
-make test          @r{# run all tests (quiet)}
-make check         @r{# alias for test}
+make check         @r{# run all tests}
 make coverage      @r{# tests + branch coverage → htmlcov/}
 @end example
 
@@ -307,7 +306,8 @@ This pattern is checked as a substring anywhere in the command string.
 
 @table @strong
 @item Virtual environment
-Always @file{.venv/} (not @file{venv/}).  Created by @command{make venv}.
+Always @file{.venv/} (not @file{venv/}).  Created by @command{./bootstrap --dev}
+or @command{make install-dev}.
 
 @item Editable install
 Use @command{make install-dev} (which runs @code{pip install -e . --group dev}).

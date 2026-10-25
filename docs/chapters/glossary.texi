@@ -175,12 +175,6 @@ frontmatter) that teaches an agent such as Claude Code or OpenClaw when and
 how to use a tool.  Codebud ships one and installs it with
 @command{codebud skill install} (@pxref{The skill Subcommand}).
 
-@item Stamp file
-A zero-byte file whose modification time tracks whether a Makefile target
-is up to date.  Codebud uses @file{.venv/.stamp-venv} and
-@file{.venv/.stamp-dev} to avoid re-running @command{pip install} on every
-@command{make test} invocation.
-
 @item Step error
 The response @code{@{"status": "step_error", "error": "..."@}} returned by
 @code{Executor.execute_plan()} when a tool call returns a non-zero exit

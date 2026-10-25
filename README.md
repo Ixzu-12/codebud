@@ -15,44 +15,48 @@ yay -S ollama          # or: paru -S ollama
 sudo systemctl enable --now ollama
 ollama pull qwen2.5-coder:3b-instruct-q4_K_M
 
-# 3. Clone and set up the project
+# 3. Get codebud and install it (GNU Autotools)
 git clone https://github.com/mkhellat/codebud.git
 cd codebud
-make install-dev          # creates .venv/ and installs all dependencies
+./bootstrap               # git checkout only; release tarballs ship ./configure
+./configure               # checks Python 3.10+, requests, prompt_toolkit, ollama
+make && make check
+sudo make install         # or: ./configure --prefix=$HOME/.local && make install
 
 # 4. Run
 export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M
 codebud doctor            # verify the environment
 codebud run "your task"
 
-# 5. Optional: put codebud on PATH, and let other agents use it
-make install-link                     # links into ~/.local/bin
+# 5. Optional: let other agents (Claude Code, OpenClaw) use codebud
 codebud skill install --for claude    # or: --for openclaw
 ```
 
+Alternatively, install it with pip like any Python package:
+`pip install .` (add `"[openai]"` for the optional OpenAI fallback).
+
 ## Build system
 
-The project ships a GNU-standard `Makefile`. Run `make help` to see all targets:
+`./configure && make` follows the GNU Coding Standards; targets are
+GNU/Linux, macOS and FreeBSD (verified so far on Arch Linux). Run `make help`
+for the full list.
 
 | Target | Effect |
 |---|---|
-| `make venv` | Create the virtual environment (`.venv/`) |
-| `make install-dev` | Install with all development dependencies |
-| `make test` | Run the full test suite |
-| `make coverage` | Run tests with branch coverage report |
-| `make lint` | Check code style with ruff |
-| `make format` | Auto-format and auto-fix with ruff |
-| `make docs` | Build all documentation (HTML, PDF, info) |
-| `make dist` | Build source archive and wheel |
-| `make install-link` | Link the `codebud` binary into `~/.local/bin` |
-| `make uninstall` | Remove the binary link and pip-uninstall |
-| `make clean` | Remove build artefacts and caches |
-| `make distclean` | Remove everything not in version control |
+| `make` / `make check` | Build / run the test suite |
+| `make install` / `make uninstall` | Install / remove codebud (prefix: `--prefix`) |
+| `make installcheck` | Check the installed `codebud` runs |
+| `make info` / `html` / `pdf` | Build the manual |
+| `make dist` / `make distcheck` | Build / fully verify the release tarball |
+| `make clean` / `make distclean` | Remove what make / configure produced |
 
-Override `PREFIX` to install elsewhere:
+For working on codebud itself:
 
 ```bash
-make install-link PREFIX=/usr/local
+./bootstrap --dev                          # also creates .venv/ with the dev tools
+./configure PYTHON="$PWD/.venv/bin/python"
+make && make check
+make lint | format | coverage | dist-python | install-link | clean-dev
 ```
 
 ## Documentation
@@ -60,9 +64,9 @@ make install-link PREFIX=/usr/local
 The full manual lives in `docs/` and is written in GNU Texinfo.
 
 ```bash
-make html    # → docs/build/html/codebud.html
-make pdf     # → docs/build/pdf/codebud.pdf
-make info    # → docs/build/info/codebud.info
+make info    # → docs/codebud.info   (installed by make install; read with: info codebud)
+make html    # → docs/codebud.html
+make pdf     # → docs/codebud.pdf
 ```
 
 Topics covered: Installation · Model Management · Usage · Configuration ·

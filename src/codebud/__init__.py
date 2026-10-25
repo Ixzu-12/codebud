@@ -13,14 +13,31 @@ Cursor‑style coding agent:
 - MemoryStore: persists execution snapshots (see memory.py).
 """
 
-from importlib.metadata import PackageNotFoundError, version
+import importlib.metadata
+import re
+from pathlib import Path
 
 from .core import AgentCore
 
-try:
-    # Single source of truth: the version in pyproject.toml.
-    __version__ = version("codebud")
-except PackageNotFoundError:  # running from a source tree that isn't installed
-    __version__ = "0+unknown"
+
+def _find_version() -> str:
+    """Return codebud's version; pyproject.toml is the single source of truth.
+
+    Installed (pip or `make install`), it comes from the package metadata.
+    Run from an uninstalled source tree (e.g. `make check`), it is read from
+    the pyproject.toml beside src/.
+    """
+    try:
+        return importlib.metadata.version("codebud")
+    except importlib.metadata.PackageNotFoundError:
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        try:
+            match = re.search(r'^version = "(.+)"$', pyproject.read_text(), re.M)
+        except OSError:
+            match = None
+        return match.group(1) if match else "0+unknown"
+
+
+__version__ = _find_version()
 
 __all__ = ["AgentCore", "__version__"]

@@ -12,19 +12,24 @@ sudo pacman -S texinfo          # Arch Linux
 
 ## Build
 
+The manual is built by the top-level GNU Autotools build (run `./bootstrap`
+and `./configure` in the repository root first):
+
 ```bash
-cd docs
-make html    # → build/html/codebud.html
-make pdf     # → build/pdf/codebud.pdf
-make info    # → build/info/codebud.info
-make all     # all three
-make clean   # remove build/
+make info    # → docs/codebud.info
+make html    # → docs/codebud.html   (single page)
+make pdf     # → docs/codebud.pdf    (needs TeX)
 ```
 
-## Read online (info)
+`make install` installs the info manual and registers it with
+`install-info`. `docs/version.texi` is generated from the package version
+(single source: `pyproject.toml`).
+
+## Read it
 
 ```bash
-info -f docs/build/info/codebud.info
+info codebud                  # after make install
+info -f docs/codebud.info     # from the build tree
 ```
 
 ## Source layout
@@ -32,12 +37,14 @@ info -f docs/build/info/codebud.info
 ```
 docs/
 ├── codebud.texi          top-level manual
-├── version.texi          version / date stamps
-├── Makefile              build targets
+├── version.texi          generated: version / date (not in git)
+├── Makefile.am           automake input
 └── chapters/
     ├── introduction.texi
     ├── installation.texi
     ├── model-management.texi
+    ├── llm-execution.texi
+    ├── performance-benchmarking.texi
     ├── usage.texi
     ├── configuration.texi
     ├── architecture.texi

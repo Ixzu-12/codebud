@@ -14,7 +14,7 @@ steps are the same in spirit --- substitute your package manager where
 * Installing Ollama::           Getting the local LLM server.
 * Cloning Codebud::             Getting the source code.
 * Python Environment::          Creating the virtual environment and installing deps.
-* Build System::                GNU-standard Makefile targets.
+* Build System::                Building and installing with GNU Autotools.
 * Verifying the Install::       Running a quick sanity check.
 @end menu
 
@@ -153,7 +153,9 @@ src/codebud/    The package (agent, CLI, tools, default policy)
 docs/           This manual (GNU Texinfo)
 scripts/        Developer scripts (benchmark)
 tests/          Pytest test suite
-Makefile        Build targets
+bootstrap       Generates ./configure (GNU Autotools)
+configure.ac    Autoconf input
+Makefile.am     Automake input (also src/ and docs/)
 pyproject.toml  Package metadata (PEP 621)
 @end example
 
@@ -163,7 +165,9 @@ pyproject.toml  Package metadata (PEP 621)
 @cindex virtual environment
 @cindex pip install
 
-Create and activate a virtual environment:
+Instead of @command{make install} (@pxref{Build System}), Codebud can be
+installed with @command{pip} like any Python package.  For development,
+create and activate a virtual environment:
 
 @example
 python -m venv .venv
@@ -213,84 +217,102 @@ source .venv/bin/activate
 
 @node Build System
 @section Build System
-@cindex Makefile
+@cindex Autotools
+@cindex configure
 @cindex build system
 @cindex GNU make
 
-Codebud ships a GNU-standard @file{Makefile} that covers the complete
-developer lifecycle.  Every operation you need --- setting up the
-environment, running tests, building docs, installing the tool, and
-cleaning up --- is a @command{make} target.
+Codebud builds and installs with GNU Autotools.  The generated
+@command{configure} script is portable POSIX @command{sh}; the targets are
+GNU/Linux (Debian/Ubuntu, Fedora/RHEL, Arch), macOS and FreeBSD.  So far the
+build has been verified on Arch Linux only; reports from the other systems
+are welcome.
 
-Run @command{make help} (the default target) to see all available targets
-and the current values of configurable variables:
+@subsection Installing from a checkout
+
+A git checkout needs GNU Autoconf (2.69 or later), Automake (1.16 or later)
+and Texinfo to generate @command{configure}; release tarballs already
+contain it, so skip @command{./bootstrap} there.
 
 @example
-make help
+./bootstrap                  @r{# git checkout only: generates ./configure}
+./configure                  @r{# checks Python, its modules and Ollama}
+make                         @r{# builds the launcher and the info manual}
+make check                   @r{# runs the test suite (needs pytest)}
+sudo make install            @r{# into /usr/local by default}
 @end example
 
-@subsection Developer workflow (first-time setup)
+@command{configure} needs Python 3.10 or later with the @code{requests}
+and @code{prompt_toolkit} modules, and prints the package names for your
+system if they are missing.  It only warns if @command{ollama} is not
+found, since Ollama may run on another machine.
+
+@command{make install} installs:
+
+@itemize
+@item the @file{codebud} package (byte-compiled) with its default policy
+and skill under Python's @file{site-packages} for the prefix;
+@item a small @file{@var{bindir}/codebud} launcher that runs it with the
+configured Python;
+@item the manual as @file{@var{infodir}/codebud.info}, registered with
+@command{install-info}, so @kbd{info codebud} works.
+@end itemize
+
+@command{make uninstall} removes all of it again.
+
+@subsection Configure options
+
+@table @code
+@item --prefix=@var{dir}
+Install under @var{dir} instead of @file{/usr/local}, e.g.@:
+@code{--prefix=$HOME/.local} for a per-user install without
+@command{sudo}.
+@item PYTHON=@var{path}
+Use this Python (and its modules), e.g.@: @code{PYTHON=/usr/bin/python3.12}.
+@item --disable-dependency-check
+Do not require @code{requests} and @code{prompt_toolkit} at configure
+time.  For distribution packages, which build in a clean chroot and declare
+the dependencies themselves.
+@end table
+
+Run @command{./configure --help} for the standard options
+(@option{--bindir}, @option{--infodir}, @dots{}).
+
+@subsection Developer setup
+
+To work on Codebud itself, let @command{bootstrap} also create a virtual
+environment with the development tools (@pxref{Python Environment}) and
+point @command{configure} at it:
 
 @example
-git clone https://github.com/mkhellat/codebud.git
-cd codebud
-make install-dev          @r{# create .venv/ and install all dependencies}
-make test                 @r{# run the full test suite}
-make lint                 @r{# check code style}
-make html                 @r{# build the HTML manual}
+./bootstrap --dev
+./configure PYTHON="$PWD/.venv/bin/python"
+make && make check
 @end example
 
 @subsection Target reference
 
-@multitable @columnfractions .30 .70
+@multitable @columnfractions .28 .72
 @headitem Target @tab Effect
-@item @code{venv} @tab Create the virtual environment (@file{.venv/})
-@item @code{install} @tab Install codebud in editable mode (production deps only)
-@item @code{install-dev} @tab Install with all development dependencies
-@item @code{install-link} @tab Link the venv's @command{codebud} into @file{BINDIR} (default @file{~/.local/bin}) so it is on your @env{PATH}
-@item @code{uninstall} @tab Remove the binary link; @command{pip uninstall} the package
-@item @code{uninstall-link} @tab Remove that link
-@item @code{check} / @code{test} @tab Run the full test suite with @command{pytest}
-@item @code{coverage} @tab Run tests with branch coverage; write @file{htmlcov/index.html}
-@item @code{lint} @tab Check code style with @command{ruff check}
-@item @code{format} @tab Auto-format and auto-fix code with @command{ruff}
-@item @code{docs} @tab Build HTML, PDF, and GNU info documentation
-@item @code{html} @tab Build HTML documentation only
-@item @code{pdf} @tab Build PDF documentation only
-@item @code{info} @tab Build GNU info documentation only
-@item @code{docs-clean} @tab Remove documentation build artefacts
-@item @code{dist} @tab Build source archive (@file{.tar.gz}) and wheel (@file{.whl})
-@item @code{clean} @tab Remove build artefacts and caches (keep @file{.venv/})
-@item @code{distclean} @tab Remove everything not in version control (including @file{.venv/})
+@item @code{all} (default) @tab Build the launcher and the info manual
+@item @code{check} @tab Run the test suite against the source tree
+@item @code{install} / @code{uninstall} @tab Install / remove Codebud
+@item @code{installcheck} @tab Check that the installed @command{codebud} runs and reports this version
+@item @code{info}, @code{html}, @code{pdf} @tab Build the manual (@file{docs/})
+@item @code{dist} @tab Build the release tarball
+@item @code{distcheck} @tab Build the tarball and verify it builds, tests, installs and uninstalls cleanly from a read-only copy
+@item @code{clean} @tab Remove what @command{make} built (keeps @file{codebud.info}, which ships in the tarball)
+@item @code{distclean} @tab Also remove what @command{configure} generated
+@item @code{help} @tab List the targets
+@item @code{install-dev} @tab Editable install with the @code{dev} group in @file{.venv/}
+@item @code{lint}, @code{format} @tab @command{ruff check}; @command{ruff format} + @command{ruff check --fix}
+@item @code{coverage} @tab Tests with branch coverage; report in @file{htmlcov/}
+@item @code{dist-python} @tab Python sdist and wheel in @file{dist/}
+@item @code{install-link} / @code{uninstall-link} @tab Link @file{.venv/bin/codebud} into @var{LINKDIR} (default @file{~/.local/bin}) / remove the link
+@item @code{clean-dev} @tab Remove bytecode, tool caches and egg-info from the checkout (keeps @file{.venv/})
 @end multitable
 
-@subsection Configurable variables
-
-Override any variable on the command line:
-
-@example
-make install-link PREFIX=/usr/local    @r{# link into /usr/local/bin}
-make test PYTHON_INTERP=python3.11     @r{# use a specific interpreter}
-@end example
-
-@table @env
-@item PREFIX
-Installation prefix.  Default: @file{~/.local}.
-@item BINDIR
-Binary installation directory.  Default: @file{$(PREFIX)/bin}.
-@item PYTHON_INTERP
-The @command{python3} interpreter used to create the virtual environment.
-Default: @command{python3}.
-@end table
-
-@subsection Stamp files
-
-The Makefile uses @dfn{stamp files} (@file{.venv/.stamp-venv} and
-@file{.venv/.stamp-dev}) to track whether the virtual environment and its
-dependencies are up to date.  When @file{pyproject.toml} changes, make
-automatically re-runs @command{pip install} on the next @command{make test}
-or @command{make lint} call --- you never need to remember to reinstall
-manually.
+@var{LINKDIR} can be overridden: @code{make install-link LINKDIR=/usr/local/bin}.
 
 
 @node Verifying the Install
@@ -300,7 +322,7 @@ manually.
 @subsection Run the test suite
 
 @example
-pytest -q
+make check
 @end example
 
 All tests should pass.  No Ollama connection is needed for the tests.

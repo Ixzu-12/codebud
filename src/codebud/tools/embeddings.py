@@ -8,7 +8,7 @@ Provides two tools:
    when the Ollama server is not reachable (so tests run offline).
 
 2. EmbeddingSearchTool ("search_embeddings") — load stored embeddings
-   from data/embeddings/index.json, embed the query, compute cosine
+   from the embedding index in the data directory, embed the query, compute cosine
    similarity, and return top-k matches.
 
 Environment variables:

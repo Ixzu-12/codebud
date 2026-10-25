@@ -185,16 +185,34 @@ def test_python_dash_m_codebud_runs_the_cli():
     assert "usage: codebud" in result.stdout
 
 
-def test_version_comes_from_the_package_metadata(capsys, monkeypatch):
-    """One source of truth: pyproject's version, via importlib.metadata."""
+def _pyproject_version():
+    import re
+
+    text = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
+    return re.search(r'^version = "(.+)"$', text, re.M).group(1)
+
+
+def test_version_matches_pyproject(capsys, monkeypatch):
+    """One source of truth: pyproject's version, installed or not."""
     import sys
-    from importlib.metadata import version
 
     import codebud
     from codebud.cli import main as run_agent
 
     monkeypatch.setattr(sys, "argv", ["codebud", "version"])
     run_agent.main()
-    out = capsys.readouterr().out
-    assert codebud.__version__ == version("codebud")
-    assert f"codebud  {version('codebud')}" in out
+    assert codebud.__version__ == _pyproject_version()
+    assert f"codebud  {_pyproject_version()}" in capsys.readouterr().out
+
+
+def test_version_from_source_tree_without_installed_metadata(monkeypatch):
+    """Run from an uninstalled checkout (e.g. make check): read pyproject."""
+    import importlib.metadata
+
+    import codebud
+
+    def not_installed(name):
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", not_installed)
+    assert codebud._find_version() == _pyproject_version()

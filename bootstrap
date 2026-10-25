@@ -1,0 +1,55 @@
+#!/bin/sh
+# bootstrap — generate ./configure and the Makefile.in files (GNU Autotools).
+#
+# Usage:
+#   ./bootstrap          generate configure; then: ./configure && make
+#   ./bootstrap --dev    also create .venv with the development tools, for
+#                        working on codebud itself
+#
+# Needs GNU autoconf (>= 2.69) and automake (>= 1.16); building the manual
+# needs GNU texinfo. Release tarballs ship a ready-made configure, so this is
+# only needed in a git checkout.
+
+set -eu
+
+usage() {
+    sed -n '3,7s/^# \{0,1\}//p' "$0"
+}
+
+dev=no
+for arg in "$@"; do
+    case "$arg" in
+        --dev) dev=yes ;;
+        -h|--help) usage; exit 0 ;;
+        *) printf 'bootstrap: unknown option: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
+    esac
+done
+
+cd "$(dirname "$0")"
+
+for tool in autoreconf autoconf automake; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        printf 'bootstrap: %s not found; install GNU autoconf and automake\n' "$tool" >&2
+        exit 1
+    fi
+done
+
+if [ "$dev" = yes ]; then
+    python=${PYTHON:-python3}
+    if ! command -v "$python" >/dev/null 2>&1; then
+        printf 'bootstrap: %s not found; set PYTHON=/path/to/python3\n' "$python" >&2
+        exit 1
+    fi
+    printf 'bootstrap: creating .venv with the development tools\n'
+    "$python" -m venv .venv
+    .venv/bin/python -m pip install --quiet --upgrade pip setuptools
+    .venv/bin/python -m pip install --quiet -e . --group dev
+fi
+
+autoreconf --install --force
+
+if [ "$dev" = yes ]; then
+    printf '\nNext: ./configure PYTHON="%s/.venv/bin/python" && make && make check\n' "$(pwd)"
+else
+    printf '\nNext: ./configure && make && make check && make install\n'
+fi
