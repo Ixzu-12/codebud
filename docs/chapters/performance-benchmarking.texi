@@ -596,7 +596,7 @@ Usage (from Codebud project root, model must be running):
     export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M
     python scripts/benchmark.py
 
-Requires: requests (already in requirements.txt), agent package on PYTHONPATH.
+Requires: the dev environment (@command{make install-dev}); run from the repository root.
 """
 import json
 import os

@@ -107,7 +107,13 @@ def call_llm(
     if os.environ.get("OPENAI_API_KEY"):
         try:
             from openai import OpenAI
-
+        except ImportError:
+            logger.warning(
+                "OPENAI_API_KEY is set but the OpenAI client is not installed; "
+                "run: pip install 'codebud[openai]'"
+            )
+            return ""
+        try:
             client = OpenAI()
             model = os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
             resp = client.chat.completions.create(

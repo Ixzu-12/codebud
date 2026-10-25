@@ -3,7 +3,9 @@ name = "codebud"
 version = "1.0.0"
 description = "A Cursor-style local coding agent using Ollama — no API key required."
 readme = "README.md"
-license = { text = "GPL-3.0-or-later" }
+# PEP 639: SPDX license expression and the license file(s) to ship.
+license = "GPL-3.0-or-later"
+license-files = ["COPYING"]
 authors = [
     { name = "Mohammadreza Khellat", email = "mkhellat@beavernets.com" },
 ]
@@ -12,25 +14,31 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: BSD :: FreeBSD",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "openai>=1.0",
     "prompt_toolkit>=3.0",
     "requests>=2.28",
-    "tiktoken>=0.5",
 ]
 
+# Optional features users can install: pip install 'codebud[openai]'
 [project.optional-dependencies]
+openai = ["openai>=1.0"]
+
+# PEP 735: tools for working on codebud itself, not installable by users:
+# pip install -e . --group dev
+[dependency-groups]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
@@ -53,7 +61,7 @@ where = ["src"]
 codebud = ["data/policy/*.json"]
 
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77"]  # 77: PEP 639 license expressions
 build-backend = "setuptools.build_meta"
 
 # ─── pytest ───────────────────────────────────────────────────────────────────

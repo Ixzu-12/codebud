@@ -142,3 +142,14 @@ def test_summarize_conversation_sends_turns_and_strips_reply(monkeypatch):
     assert llm_stub.summarize_conversation(turns) == "A short summary."
     assert "User: list the python files" in captured["prompt"]
     assert "Assistant: planned: command(list python files)" in captured["prompt"]
+
+
+def test_openai_fallback_without_the_package_says_how_to_install(monkeypatch, caplog):
+    """openai is an optional extra (codebud[openai]); say so if it's missing."""
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "testkey")
+    monkeypatch.setitem(sys.modules, "openai", None)  # import openai -> ImportError
+
+    caplog.set_level("WARNING")
+    assert llm_stub.call_llm("hello") == ""
+    assert "pip install 'codebud[openai]'" in caplog.text

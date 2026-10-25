@@ -88,7 +88,7 @@ pyproject.toml  PEP 621 package metadata and tool configuration
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `EMBED_MODEL` | same as `OLLAMA_MODEL` | Override model used for embeddings |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
-| `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable |
+| `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable (needs `pip install "codebud[openai]"`) |
 
 Run `codebud config` to see the resolved values of all variables.
 

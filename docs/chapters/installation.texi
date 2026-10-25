@@ -172,19 +172,32 @@ source .venv/bin/activate
 @end example
 
 Your shell prompt will show @samp{(.venv)} when the environment is
-active.  Install Codebud in editable mode together with dev dependencies:
+active.  Install Codebud in editable mode together with the development
+tools (pip 25.1 or later):
 
 @example
-pip install -e ".[dev]"
+pip install -e . --group dev
 @end example
 
 This installs:
 @itemize
-@item @code{openai}, @code{prompt_toolkit}, @code{requests}, @code{tiktoken} --- runtime deps
+@item @code{prompt_toolkit}, @code{requests} --- runtime dependencies
 (@code{prompt_toolkit} draws the chat command menu and status toolbar)
-@item @code{pytest}, @code{ruff} --- dev deps
+@item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build} --- the
+@code{dev} dependency group (PEP 735), for working on Codebud itself
 @item the @command{codebud} CLI entry point (maps to @code{codebud.cli.main:main}); @code{python -m codebud} works too
 @end itemize
+
+The optional OpenAI fallback backend needs the @code{openai} client, which
+is not installed by default:
+
+@example
+pip install -e ".[openai]"        @r{# from a checkout}
+pip install "codebud[openai]"     @r{# from a package index}
+@end example
+
+All dependencies are declared in @file{pyproject.toml}; there is no
+@file{requirements.txt}.
 
 To deactivate the environment later:
 

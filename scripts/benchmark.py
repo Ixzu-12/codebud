@@ -20,7 +20,7 @@ Usage (from Codebud project root, Ollama must be running with model warm):
     # To output raw JSON for each test:
     python scripts/benchmark.py --json
 
-Requirements: requests (already in requirements.txt)
+Requirements: the dev environment (make install-dev); run from the repository root
 The script must be run from the project root so 'agent' is importable.
 """
 

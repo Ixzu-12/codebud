@@ -82,7 +82,7 @@ help:
 
 $(STAMP_VENV): pyproject.toml
 	$(PYTHON_INTERP) -m venv $(VENV)
-	$(PIP) install --quiet --upgrade pip setuptools wheel
+	$(PIP) install --quiet --upgrade pip setuptools
 	@touch $@
 
 venv: $(STAMP_VENV)
@@ -98,7 +98,7 @@ install: $(STAMP_VENV)
 # install-dev: editable install with all development dependencies.
 # Uses a stamp file so repeated calls skip the work when nothing changed.
 $(STAMP_DEV): $(STAMP_VENV) pyproject.toml
-	$(PIP) install --quiet -e ".[dev]"
+	$(PIP) install --quiet -e . --group dev
 	@touch $@
 
 install-dev: $(STAMP_DEV)
@@ -174,7 +174,7 @@ docs-clean:
 
 # ─── Distribution ────────────────────────────────────────────────────────────
 # Produces dist/*.tar.gz (sdist) and dist/*.whl (wheel).
-# Requires the 'build' package (included in [dev] extras).
+# Requires the 'build' package (in the dev dependency group).
 
 dist: $(STAMP_DEV)
 	$(PYTHON) -m build

@@ -305,7 +305,7 @@ This pattern is checked as a substring anywhere in the command string.
 Always @file{.venv/} (not @file{venv/}).  Created by @command{make venv}.
 
 @item Editable install
-Use @command{make install-dev} (which runs @code{pip install -e ".[dev]"}).
+Use @command{make install-dev} (which runs @code{pip install -e . --group dev}).
 This places the @command{codebud} binary in @file{.venv/bin/codebud} and
 makes the @code{codebud} package (in @file{src/codebud/}) importable
 without @code{PYTHONPATH} hacks.

@@ -53,7 +53,7 @@ model for the @code{embed} tool without changing the planning model.
 @item @env{OPENAI_API_KEY}
 @tab @emph{(none)}
 @tab When set, enables the OpenAI fallback backend if Ollama is
-unavailable.
+unavailable (requires @code{codebud[openai]}).
 @item @env{OPENAI_MODEL}
 @tab @code{gpt-3.5-turbo}
 @tab OpenAI model to use when the OpenAI backend is active.
@@ -94,7 +94,9 @@ hardware.
 
 @item
 @strong{OpenAI} (fallback) --- used when @env{OPENAI_API_KEY} is set and
-Ollama is not configured or not reachable.  The OpenAI call is
+Ollama is not configured or not reachable.  Needs the optional client:
+@code{pip install "codebud[openai]"}; without it Codebud logs a warning
+saying so.  The OpenAI call is
 non-streaming and uses @code{temperature=0} for deterministic output.
 @end enumerate
 

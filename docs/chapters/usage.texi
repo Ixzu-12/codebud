@@ -884,7 +884,8 @@ search tools).  Defaults to the value of @env{OLLAMA_MODEL}.
 
 @item OPENAI_API_KEY
 When set, Codebud falls back to the OpenAI API if Ollama is not
-reachable.  The model used is @code{gpt-3.5-turbo} unless overridden
+reachable (install the optional client with
+@code{pip install "codebud[openai]"}).  The model used is @code{gpt-3.5-turbo} unless overridden
 by @env{OPENAI_MODEL}.
 
 @item OPENAI_MODEL
