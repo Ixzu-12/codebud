@@ -14,7 +14,6 @@ PIP            = $(VENV)/bin/pip
 PYTEST         = $(VENV)/bin/pytest
 RUFF           = $(VENV)/bin/ruff
 DOCS_DIR       = docs
-SKILL_DIR      = $(HOME)/.openclaw/skills/codebud
 
 # Stamp files — let make track whether a target is up to date
 STAMP_VENV = $(VENV)/.stamp-venv
@@ -24,8 +23,8 @@ STAMP_DEV  = $(VENV)/.stamp-dev
 .DEFAULT_GOAL := help
 
 # ─── Phony targets ───────────────────────────────────────────────────────────
-.PHONY: all venv install install-dev install-skill \
-        uninstall uninstall-skill \
+.PHONY: all venv install install-dev install-link \
+        uninstall uninstall-link \
         check test coverage lint format \
         docs html pdf info docs-clean \
         dist clean distclean \
@@ -42,11 +41,11 @@ help:
 	  '  make venv            Create the Python virtual environment (.venv/)' \
 	  '  make install         Install codebud in editable mode (dev workflow)' \
 	  '  make install-dev     Install with all development dependencies' \
-	  '  make install-skill   Register the OpenClaw skill; link binary to BINDIR' \
+	  '  make install-link    Link the codebud binary into BINDIR (on your PATH)' \
 	  '' \
 	  'UNINSTALL' \
 	  '  make uninstall       Remove binary link; pip-uninstall the package' \
-	  '  make uninstall-skill Remove the OpenClaw skill registration and binary link' \
+	  '  make uninstall-link  Remove the codebud link from BINDIR' \
 	  '' \
 	  'DEVELOPMENT' \
 	  '  make check           Run the test suite (alias for test)' \
@@ -103,15 +102,12 @@ $(STAMP_DEV): $(STAMP_VENV) pyproject.toml
 
 install-dev: $(STAMP_DEV)
 
-# install-skill: register codebud with the OpenClaw gateway.
-# Copies SKILL.md to the managed skills directory and links the binary.
-install-skill: install
-	@mkdir -p $(SKILL_DIR)
-	cp openclaw/SKILL.md $(SKILL_DIR)/SKILL.md
+# install-link: put the venv's codebud on PATH by linking it into BINDIR.
+# For codebud's skill (Claude Code, OpenClaw, ...): codebud skill install.
+install-link: install
+	@mkdir -p $(BINDIR)
 	ln -sf $(CURDIR)/$(VENV)/bin/codebud $(BINDIR)/codebud
-	@printf 'Skill registered at %s\n' '$(SKILL_DIR)'
-	@printf 'Binary linked at   %s\n' '$(BINDIR)/codebud'
-	@printf "Run 'openclaw skills list' to verify.\n"
+	@printf 'Binary linked at %s\n' '$(BINDIR)/codebud'
 
 
 # ─── Uninstall ───────────────────────────────────────────────────────────────
@@ -121,10 +117,9 @@ uninstall:
 	-rm -f $(BINDIR)/codebud
 	@printf 'codebud removed from %s\n' '$(BINDIR)'
 
-uninstall-skill:
-	-rm -rf $(SKILL_DIR)
+uninstall-link:
 	-rm -f $(BINDIR)/codebud
-	@printf 'OpenClaw skill and binary link removed.\n'
+	@printf 'codebud link removed from %s\n' '$(BINDIR)'
 
 
 # ─── Development ─────────────────────────────────────────────────────────────

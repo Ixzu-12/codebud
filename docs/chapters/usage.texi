@@ -16,6 +16,7 @@ output, and how to get help when something goes wrong.
 * The doctor Subcommand::       Check your environment before running.
 * The history Subcommand::      Past step executions across sessions.
 * The sessions Subcommand::     Saved chat sessions you can resume.
+* The skill Subcommand::        Codebud's skill for other agents.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
 * The version Subcommand::      Show version information.
@@ -117,6 +118,7 @@ Codebud organises its functionality into subcommands:
 @item @command{doctor} @tab Check the environment
 @item @command{history} @tab Show past step executions
 @item @command{sessions} @tab List saved chat sessions
+@item @command{skill} @tab Show or install Codebud's skill for other agents
 @item @command{models} @tab List downloaded Ollama models
 @item @command{config} @tab Show resolved configuration
 @item @command{version} @tab Show version information
@@ -584,6 +586,29 @@ Resume with: codebud chat --resume <id or name>
 
 @samp{(open)} marks a session that another chat currently has open; it
 cannot be resumed until that chat ends.  @xref{Saved Sessions}.
+
+
+@node The skill Subcommand
+@section The @command{skill} Subcommand
+@cindex skill subcommand
+@cindex Claude Code
+@cindex OpenClaw
+
+Codebud ships a @dfn{skill}: a @file{SKILL.md} that teaches another agent,
+such as Claude Code or OpenClaw, when to delegate a coding task to Codebud
+and how to call it (including @code{--no-progress} and @code{--yes} for
+unattended use).
+
+@example
+codebud skill show                       @r{# print it, e.g. to publish it}
+codebud skill install --for claude       @r{# ~/.claude/skills/codebud/}
+codebud skill install --for openclaw     @r{# ~/.openclaw/skills/codebud/}
+codebud skill install --dir @var{path}       @r{# any other directory}
+@end example
+
+Installing again is harmless when the installed copy is identical.  If it
+differs --- an older version, or one you edited --- Codebud refuses and
+leaves it alone; add @option{--force} to replace it.
 
 
 @node The models Subcommand

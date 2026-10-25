@@ -119,7 +119,8 @@ Run Codebud on their own machine for everyday coding tasks.
 Understand the architecture well enough to add new tools or tune the
 planner prompt.
 @item
-Integrate Codebud into the OpenClaw browser UI.
+Let other agents (Claude Code, OpenClaw, @dots{}) delegate tasks to
+Codebud through its skill (@pxref{The skill Subcommand}).
 @end itemize
 
 @noindent

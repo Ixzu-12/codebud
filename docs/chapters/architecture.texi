@@ -151,10 +151,6 @@ one instance and calls @code{handle_user_message()} once per turn.  In
 Generate a plan and return it.  Never executes steps.
 Returns @code{@{"status": "ok", "plan": [...]@}} or
 @code{@{"status": "plan_error", "error": "..."@}}.
-
-@item regenerate(payload)
-Re-plan using the last user message.  Called by OpenClaw when the user
-clicks @emph{Regenerate}.
 @end table
 
 @noindent
@@ -516,10 +512,12 @@ src/codebud/                   the package
 ├── paths.py           data, config and policy file locations
 ├── fsutil.py          atomic_write_text() helper
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
+├── skill.py           codebud skill show/install
 ├── data/policy/       default policy, shipped as package data
 │   ├── harmless_commands.json
 │   ├── powerful_commands.json
 │   └── trusted_sequences.json
+├── data/skill/SKILL.md  skill for other agents (package data)
 ├── cli/
 │   ├── main.py            CLI entry point (the codebud command)
 │   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
@@ -539,6 +537,4 @@ src/codebud/                   the package
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
 └── embeddings/index.json      embedding index (auto-created)
 
-openclaw/
-└── SKILL.md           skill definition (OpenClaw, Claude Code, ...)
 @end example

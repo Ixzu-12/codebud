@@ -151,7 +151,6 @@ The repository layout:
 @example
 src/codebud/    The package (agent, CLI, tools, default policy)
 docs/           This manual (GNU Texinfo)
-openclaw/       Skill definition (OpenClaw, Claude Code, ...)
 scripts/        Developer scripts (benchmark)
 tests/          Pytest test suite
 Makefile        Build targets
@@ -248,9 +247,9 @@ make html                 @r{# build the HTML manual}
 @item @code{venv} @tab Create the virtual environment (@file{.venv/})
 @item @code{install} @tab Install codebud in editable mode (production deps only)
 @item @code{install-dev} @tab Install with all development dependencies
-@item @code{install-skill} @tab Register the OpenClaw skill; link @command{codebud} binary to @file{BINDIR}
+@item @code{install-link} @tab Link the venv's @command{codebud} into @file{BINDIR} (default @file{~/.local/bin}) so it is on your @env{PATH}
 @item @code{uninstall} @tab Remove the binary link; @command{pip uninstall} the package
-@item @code{uninstall-skill} @tab Remove the OpenClaw skill registration and binary link
+@item @code{uninstall-link} @tab Remove that link
 @item @code{check} / @code{test} @tab Run the full test suite with @command{pytest}
 @item @code{coverage} @tab Run tests with branch coverage; write @file{htmlcov/index.html}
 @item @code{lint} @tab Check code style with @command{ruff check}
@@ -270,7 +269,7 @@ make html                 @r{# build the HTML manual}
 Override any variable on the command line:
 
 @example
-make install-skill PREFIX=/usr/local   @r{# install to /usr/local/bin}
+make install-link PREFIX=/usr/local    @r{# link into /usr/local/bin}
 make test PYTHON_INTERP=python3.11     @r{# use a specific interpreter}
 @end example
 
@@ -329,20 +328,24 @@ codebud run "list files in the current directory"
 @end example
 
 You will see a live spinner while the model processes the prompt, then a
-numbered plan summary, then the output of each step.  On a CPU-only laptop,
-the planning stage takes 4--6 minutes for the 3B model --- the spinner
-keeps moving the whole time so you know it is not frozen
-(@pxref{Progress Output}).
+numbered plan summary, then the output of each step.  On a CPU-only laptop
+the first request of a session takes about 30 seconds to plan with the 3B
+model, and later requests about 8 seconds, because Ollama reuses the cached
+start of the prompt; the spinner keeps moving the whole time so you know it
+is not frozen (@pxref{Progress Output}).
 
-@subsection Register the OpenClaw skill (optional)
+@subsection Install the skill for other agents (optional)
 
-If you have the OpenClaw gateway installed and want to use Codebud from
-the browser UI:
+Codebud ships a skill that teaches other agents, such as Claude Code or
+OpenClaw, when and how to call it.  Install it where your agent looks for
+skills:
 
 @example
-make install-skill
-openclaw skills list   @r{# should show codebud as ready}
+codebud skill install --for claude     @r{# ~/.claude/skills/codebud/}
+codebud skill install --for openclaw   @r{# ~/.openclaw/skills/codebud/}
 @end example
+
+@xref{The skill Subcommand}.
 
 @subsection Troubleshooting
 

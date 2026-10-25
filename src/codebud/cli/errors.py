@@ -68,14 +68,9 @@ _RULES: list[tuple[str, str, str]] = [
         "Wait a little longer, or switch to the 1.5B model for faster (but less accurate) results.",
     ),
     (
-        "No previous user message",
-        "There is nothing to regenerate — no request has been sent yet.",
-        "Send a request first with `codebud run`.",
-    ),
-    (
         "step is not safe",
         "A plan step was blocked by the safety engine.",
-        "Rephrase the request, or review config/harmless_commands.json.",
+        "Rephrase the request, or adjust the policy (see `codebud config` for the files in effect).",
     ),
     (
         "not safe",

@@ -43,21 +43,26 @@ network access use @code{unittest.mock.patch} to replace @code{call_llm}.
 
 @example
 tests/
-├── test_cli.py                 66 tests — subcommand routing, doctor,
-│                               display, chat REPL, history, model flags
-├── test_core.py                 7 tests — AgentCore model selection
-├── test_llm_stub.py             9 tests — Ollama path, OpenAI path,
-│                               fallback
-├── test_memory.py               8 tests — MemoryStore JSON Lines
-│                               storage, corrupt lines, crash safety,
-│                               concurrent writers, legacy migration
-├── test_planner.py             24 tests — prompt content, retry logic,
-│                               step validation
-├── test_safety_executor_patcher.py
-│                               20 tests — safety policy, executor
-│                               dispatch, file patching
-└── test_openclaw_skill.py      10 tests — SKILL.md content, binary
-                                availability, openclaw integration
+├── conftest.py                  isolates XDG and legacy data dirs per test
+├── test_chat_input.py           / menu, toolbar, Shift-Tab (prompt_toolkit)
+├── test_cli.py                  subcommands, doctor, display, chat REPL,
+│                                history, sessions, modes, run --yes
+├── test_core.py                 AgentCore: models, /compact, context usage
+├── test_fsutil.py               atomic_write_text()
+├── test_llm_stub.py             Ollama/OpenAI paths, warmup, summaries
+├── test_memory.py               MemoryStore JSON Lines, crash safety,
+│                                concurrent writers, legacy migration
+├── test_modes.py                mode enforcement (SafetyEngine, Executor)
+├── test_num_ctx.py              explicit, constant num_ctx on every request
+├── test_ollama_proxy.py         local Ollama reachable despite HTTP_PROXY
+├── test_paths.py                XDG/.codebud lookup, migration, version,
+│                                python -m codebud
+├── test_planner.py              prompt content, retry, context budget
+├── test_safety_executor_patcher.py  safety policy, executor, patching
+├── test_safety_policy.py        whole-word matching, refused arguments,
+│                                powerful commands
+├── test_sessions.py             session files, IDs, locking
+└── test_skill.py                SKILL.md content, codebud skill
 @end example
 
 @subsection Test conventions

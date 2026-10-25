@@ -12,16 +12,10 @@ Cursor-style coding agent. It coordinates:
 - Sandbox execution
 - Regeneration logic
 
-The AgentCore exposes two public methods:
+AgentCore.handle_user_message(message) returns a plan, a chat reply or an
+error; the CLI drives everything else through its public methods.
 
-1. handle_user_message(message: str)
-   → returns a plan or a plan_error
-
-2. regenerate(payload: dict)
-   → regenerates a plan based on the same user message
-
-This file contains NO UI logic and NO OpenClaw logic.
-It is purely the internal agent brain.
+This file contains no UI logic. It is purely the internal agent brain.
 """
 
 import os
@@ -56,7 +50,6 @@ class AgentCore:
     - Validate the plan
     - Execute steps (when requested)
     - Store memory snapshots
-    - Regenerate plans
     """
 
     def __init__(self):
@@ -244,35 +237,6 @@ class AgentCore:
             return True
         self._history.clear()
         return False
-
-    def regenerate(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """
-        Called when OpenClaw requests plan regeneration.
-
-        Steps:
-        1. Use the last user message
-        2. Ask the LLM planner for a new plan
-        3. Validate and return it
-        """
-        if not self.last_user_message:
-            return {"status": "plan_error", "error": "No previous user message to regenerate from"}
-
-        plan_output = self.planner.generate_plan(self.last_user_message)
-
-        if plan_output.get("status") != "ok":
-            return {
-                "status": "plan_error",
-                "error": plan_output.get("error", "Unknown planning error"),
-            }
-
-        if not self._validate_plan(plan_output):
-            return {"status": "plan_error", "error": "Planner returned malformed plan"}
-
-        return plan_output
-
-    # ----------------------------------------------------------------------
-    # Internal helpers
-    # ----------------------------------------------------------------------
 
     def _validate_plan(self, plan_output: dict[str, Any]) -> bool:
         """

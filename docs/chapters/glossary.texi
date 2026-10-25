@@ -166,14 +166,14 @@ using @code{shlex.split()}.
 
 @item SafetyEngine
 The @code{SafetyEngine} class in @file{src/codebud/safety.py}.  It loads the
-three policy JSON files and applies prefix-based validation to every
+three policy JSON files and applies whole-word validation to every
 @code{command} step in a plan.
 
-@item Skill (OpenClaw)
-A @file{SKILL.md} file that teaches the OpenClaw agent how to invoke a
-CLI tool.  The OpenClaw gateway discovers skills from
-@file{~/.openclaw/skills/} and injects their Markdown content into its
-agent's context.
+@item Skill
+A @file{SKILL.md} file (Markdown with a @code{name}/@code{description}
+frontmatter) that teaches an agent such as Claude Code or OpenClaw when and
+how to use a tool.  Codebud ships one and installs it with
+@command{codebud skill install} (@pxref{The skill Subcommand}).
 
 @item Stamp file
 A zero-byte file whose modification time tracks whether a Makefile target

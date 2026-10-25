@@ -25,8 +25,9 @@ export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M
 codebud doctor            # verify the environment
 codebud run "your task"
 
-# 5. Register the OpenClaw skill (optional — for the browser UI)
-make install-skill
+# 5. Optional: put codebud on PATH, and let other agents use it
+make install-link                     # links into ~/.local/bin
+codebud skill install --for claude    # or: --for openclaw
 ```
 
 ## Build system
@@ -43,7 +44,7 @@ The project ships a GNU-standard `Makefile`. Run `make help` to see all targets:
 | `make format` | Auto-format and auto-fix with ruff |
 | `make docs` | Build all documentation (HTML, PDF, info) |
 | `make dist` | Build source archive and wheel |
-| `make install-skill` | Register the OpenClaw skill; link binary to `~/.local/bin` |
+| `make install-link` | Link the `codebud` binary into `~/.local/bin` |
 | `make uninstall` | Remove the binary link and pip-uninstall |
 | `make clean` | Remove build artefacts and caches |
 | `make distclean` | Remove everything not in version control |
@@ -51,7 +52,7 @@ The project ships a GNU-standard `Makefile`. Run `make help` to see all targets:
 Override `PREFIX` to install elsewhere:
 
 ```bash
-make install-skill PREFIX=/usr/local
+make install-link PREFIX=/usr/local
 ```
 
 ## Documentation
@@ -73,7 +74,6 @@ Troubleshooting · Glossary.
 ```
 src/codebud/    The package: agent, CLI (cli/main.py), tools, default policy
 docs/           GNU Texinfo manual
-openclaw/       Skill definition (OpenClaw, Claude Code, ...) that invokes codebud
 scripts/        Developer scripts (benchmark)
 tests/          Test suite (pytest)
 Makefile        GNU-standard build system

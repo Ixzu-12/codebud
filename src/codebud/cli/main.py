@@ -39,6 +39,7 @@ _KNOWN_SUBCOMMANDS = {
     "doctor",
     "history",
     "sessions",
+    "skill",
     "models",
     "config",
     "version",
@@ -705,6 +706,22 @@ def cmd_sessions(args):
     print(f"\n{_OUT_DIM}Resume with: codebud chat --resume <id or name>{_OUT_RESET}")
 
 
+def cmd_skill(args):
+    """Print codebud's SKILL.md, or install it where an agent finds skills."""
+    from codebud import skill
+
+    if args.skill_action == "show":
+        sys.stdout.write(skill.skill_text())
+        return
+    try:
+        directory = args.dir or skill.target_dir(args.agent)
+        path = skill.install(directory, force=args.force)
+    except skill.SkillError as exc:
+        print(f"codebud: {exc}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Installed codebud's skill: {path}")
+
+
 def cmd_history(args):
     """Show past step executions recorded by MemoryStore (in the data directory).
 
@@ -943,6 +960,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_sessions.add_argument("--json", action="store_true", help="Output raw JSON.")
 
+    # skill
+    p_skill = sub.add_parser("skill", help="Show or install codebud's skill for other agents.")
+    skill_sub = p_skill.add_subparsers(dest="skill_action", required=True)
+    skill_sub.add_parser("show", help="Print the SKILL.md.")
+    p_install = skill_sub.add_parser("install", help="Install the SKILL.md for an agent.")
+    where = p_install.add_mutually_exclusive_group(required=True)
+    where.add_argument(
+        "--for",
+        dest="agent",
+        choices=["claude", "openclaw"],
+        help="Install into that agent's personal skills directory.",
+    )
+    where.add_argument("--dir", help="Install into this directory instead.")
+    p_install.add_argument(
+        "--force", action="store_true", help="Replace an existing copy that differs."
+    )
+
     # models
     sub.add_parser("models", help="List downloaded Ollama models.")
 
@@ -988,6 +1022,7 @@ def main():
         "doctor": cmd_doctor,
         "history": cmd_history,
         "sessions": cmd_sessions,
+        "skill": cmd_skill,
         "models": cmd_models,
         "config": cmd_config,
         "version": cmd_version,
