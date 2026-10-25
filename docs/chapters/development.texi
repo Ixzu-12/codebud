@@ -136,7 +136,7 @@ Follow this five-step checklist to add a new tool.
 @enumerate
 @item
 @strong{Create the tool class.}  Add a new file (or a class to an existing
-file) under @file{agent/tools/}.  The class must have:
+file) under @file{src/codebud/tools/}.  The class must have:
 
 @example
 class MyTool:
@@ -155,7 +155,7 @@ class MyTool:
 @end example
 
 @item
-@strong{Register it.}  In @file{agent/tools/tool_registry.py},
+@strong{Register it.}  In @file{src/codebud/tools/tool_registry.py},
 add an import and a @code{_register} call:
 
 @example
@@ -184,18 +184,18 @@ Test that it returns @code{returncode=1} when required args are missing.
 
 @item
 @strong{Add a few-shot example} to @code{LLMPlanner._FEW_SHOT_EXAMPLES}
-in @file{agent/planner.py} if the new tool represents a common pattern.
+in @file{src/codebud/planner.py} if the new tool represents a common pattern.
 Without an example, the planner will rarely use it.
 @end enumerate
 
 @subsection Checklist summary
 
 @example
-[ ] agent/tools/my_module.py     — class with description, usage_hint, run()
-[ ] agent/tools/tool_registry.py — registered with _register()
-[ ] harmless_commands.json (in ~/.config/codebud/) — updated if needed
-[ ] tests/                       — new test cases pass
-[ ] agent/planner.py             — few-shot example added
+[ ] src/codebud/tools/my_module.py      — class with description, usage_hint, run()
+[ ] src/codebud/tools/tool_registry.py  — registered with _register()
+[ ] ~/.config/codebud/*_commands.json   — policy updated if needed
+[ ] tests/                              — new test cases pass
+[ ] src/codebud/planner.py              — few-shot example added
 @end example
 
 
@@ -205,7 +205,7 @@ Without an example, the planner will rarely use it.
 @cindex few-shot examples
 
 The planner prompt is assembled in @code{LLMPlanner._build_prompt()} in
-@file{agent/planner.py}.  The most effective ways to improve JSON
+@file{src/codebud/planner.py}.  The most effective ways to improve JSON
 reliability are:
 
 @table @strong
@@ -242,7 +242,7 @@ codebud plan "list files in current directory"
 codebud plan "read README.md and summarize it"
 codebud plan "run the tests and tell me which ones fail"
 codebud plan "create hello.py that prints Hello, world"
-codebud plan "refactor agent/planner.py to add a docstring at the top"
+codebud plan "refactor src/codebud/planner.py to add a docstring at the top"
 @end example
 
 The @option{--json} flag lets you inspect the raw plan for each.  Track
@@ -257,7 +257,7 @@ how many plans are correct to measure whether the change helped.
 @subsection Allow a new command
 
 Add the command to @file{harmless_commands.json} (your copy in
-@file{~/.config/codebud/}, or @file{config/} in the source tree to change the
+@file{~/.config/codebud/}, or @file{src/codebud/data/policy/} in the source tree to change the
 shipped default):
 
 @example
@@ -279,7 +279,7 @@ any plan step whose @code{cmd} starts with that prefix.
 @subsection Add a hard block in the Sandbox
 
 Hard blocks cannot be added via config files; they must be edited directly
-in @file{agent/sandbox.py}:
+in @file{src/codebud/sandbox.py}:
 
 @example
 dangerous_patterns = [
@@ -307,8 +307,8 @@ Always @file{.venv/} (not @file{venv/}).  Created by @command{make venv}.
 @item Editable install
 Use @command{make install-dev} (which runs @code{pip install -e ".[dev]"}).
 This places the @command{codebud} binary in @file{.venv/bin/codebud} and
-makes both @code{agent} and @code{run_agent} importable without
-@code{PYTHONPATH} hacks.
+makes the @code{codebud} package (in @file{src/codebud/}) importable
+without @code{PYTHONPATH} hacks.
 
 @item No comments by default
 Comments are reserved for non-obvious constraints or workarounds.  Code

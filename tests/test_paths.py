@@ -14,7 +14,7 @@ directory codebud is started from:
 import json
 from pathlib import Path
 
-from agent import paths
+from codebud import paths
 
 
 def test_data_dir_follows_xdg(tmp_path, monkeypatch):
@@ -61,7 +61,7 @@ def test_policy_file_precedence(tmp_path, monkeypatch):
 
 def test_policy_loads_from_any_working_directory(tmp_path, monkeypatch):
     """The bug: run outside the checkout, the policy loaded empty."""
-    from agent.safety import SafetyEngine
+    from codebud.safety import SafetyEngine
 
     monkeypatch.chdir(tmp_path)
     engine = SafetyEngine()
@@ -70,7 +70,7 @@ def test_policy_loads_from_any_working_directory(tmp_path, monkeypatch):
 
 
 def test_project_policy_overrides_defaults(tmp_path, monkeypatch):
-    from agent.safety import SafetyEngine
+    from codebud.safety import SafetyEngine
 
     (tmp_path / ".codebud").mkdir()
     (tmp_path / ".codebud" / "harmless_commands.json").write_text(json.dumps(["ls", "tree"]))
@@ -81,7 +81,7 @@ def test_project_policy_overrides_defaults(tmp_path, monkeypatch):
 
 
 def test_memory_and_sessions_live_in_the_data_dir(tmp_path, monkeypatch):
-    from agent import memory, sessions
+    from codebud import memory, sessions
 
     monkeypatch.chdir(tmp_path)
     memory.MemoryStore().add_snapshot({"tool": "command"}, {"returncode": 0})
@@ -132,7 +132,7 @@ def test_packaged_policy_dir_has_the_default_files():
 def test_config_subcommand_shows_data_dir_and_policy_source(tmp_path, monkeypatch, capsys):
     import sys
 
-    import run_agent
+    from codebud.cli import main as run_agent
 
     (tmp_path / ".codebud").mkdir()
     (tmp_path / ".codebud" / "harmless_commands.json").write_text('["ls"]')
@@ -164,10 +164,22 @@ def test_child_processes_see_the_isolated_legacy_dir(tmp_path):
     import sys
 
     out = subprocess.run(
-        [sys.executable, "-c", "from agent import paths; print(paths.legacy_data_dir())"],
+        [sys.executable, "-c", "from codebud import paths; print(paths.legacy_data_dir())"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
     assert out == str(paths.legacy_data_dir())
     assert out != str(paths._SOURCE_ROOT / "data")
+
+
+def test_python_dash_m_codebud_runs_the_cli():
+    """`python -m codebud` replaces the old `python run_agent.py` entry."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "codebud", "--help"], capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    assert "usage: codebud" in result.stdout

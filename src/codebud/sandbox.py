@@ -1,5 +1,5 @@
 """
-agent/sandbox.py
+codebud/sandbox.py
 
 This module defines the Sandbox class, which provides a safe environment
 for executing shell commands. It ensures:

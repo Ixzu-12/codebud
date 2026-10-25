@@ -15,7 +15,7 @@ from prompt_toolkit.document import Document
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 
-from agent.cli import chat_input
+from codebud.cli import chat_input
 
 
 class _Agent:

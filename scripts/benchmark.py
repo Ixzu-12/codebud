@@ -32,9 +32,9 @@ import time
 
 import requests
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "src")
 
-from agent.llm_stub import num_ctx, ollama_proxies  # noqa: E402
+from codebud.llm_stub import num_ctx, ollama_proxies  # noqa: E402
 
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "")
@@ -197,10 +197,10 @@ def main():
 
     # Build the planning prompt
     try:
-        from agent.planner import LLMPlanner
-        from agent.safety import SafetyEngine
-        from agent.sandbox import Sandbox
-        from agent.tools.tool_registry import ToolRegistry
+        from codebud.planner import LLMPlanner
+        from codebud.safety import SafetyEngine
+        from codebud.sandbox import Sandbox
+        from codebud.tools.tool_registry import ToolRegistry
 
         sandbox = Sandbox()
         registry = ToolRegistry(sandbox)
@@ -208,7 +208,7 @@ def main():
         planner = LLMPlanner(registry, safety)
         planning_prompt = planner._build_prompt(args.prompt)
     except ImportError as exc:
-        print(f"ERROR: cannot import agent package: {exc}")
+        print(f"ERROR: cannot import the codebud package: {exc}")
         print("  Run from the project root with the venv active.")
         sys.exit(1)
 

@@ -1,5 +1,5 @@
 """
-run_agent.py
+codebud/cli/main.py
 
 Codebud CLI entry point.
 
@@ -30,7 +30,7 @@ import json
 import os
 import sys
 
-from agent.modes import MODES
+from codebud.modes import MODES
 
 _KNOWN_SUBCOMMANDS = {
     "run",
@@ -50,7 +50,7 @@ _KNOWN_SUBCOMMANDS = {
 
 
 def _make_agent():
-    from agent.core import AgentCore
+    from codebud.core import AgentCore
 
     return AgentCore()
 
@@ -70,8 +70,8 @@ def _apply_model_override(args) -> bool:
     if not requested:
         return True
 
-    from agent.cli.display import ProgressIndicator
-    from agent.llm_stub import list_models, warm_model_sync
+    from codebud.cli.display import ProgressIndicator
+    from codebud.llm_stub import list_models, warm_model_sync
 
     available = list_models()
     if not available:
@@ -103,7 +103,7 @@ def _apply_model_override(args) -> bool:
 
 
 def cmd_run(args):
-    from agent.cli.display import (
+    from codebud.cli.display import (
         ProgressIndicator,
         print_plan,
         print_status,
@@ -111,7 +111,7 @@ def cmd_run(args):
         print_step_result,
         print_warning,
     )
-    from agent.cli.errors import print_error
+    from codebud.cli.errors import print_error
 
     if not _apply_model_override(args):
         sys.exit(1)
@@ -198,13 +198,13 @@ def cmd_run(args):
 
 
 def cmd_plan(args):
-    from agent.cli.display import (
+    from codebud.cli.display import (
         ProgressIndicator,
         print_plan,
         print_step_header,
         print_step_result,
     )
-    from agent.cli.errors import print_error
+    from codebud.cli.errors import print_error
 
     if args.execute and args.json:
         print("--execute and --json cannot be combined.", file=sys.stderr)
@@ -268,8 +268,8 @@ def _open_session_to_resume(args):
     Exits with status 1 if there is no such session or it is open in
     another chat. An explicit --model wins over the session's saved model.
     """
-    from agent import sessions
-    from agent.cli.display import print_warning
+    from codebud import sessions
+    from codebud.cli.display import print_warning
 
     ref = args.resume or sessions.most_recent_available()
     if ref is None:
@@ -283,7 +283,7 @@ def _open_session_to_resume(args):
 
     saved = session.model
     if saved and not getattr(args, "model", None) and saved != os.environ.get("OLLAMA_MODEL"):
-        from agent.llm_stub import list_models
+        from codebud.llm_stub import list_models
 
         if saved in list_models():
             os.environ["OLLAMA_MODEL"] = saved
@@ -314,7 +314,7 @@ class _ChatCheckpoint:
 
     def save(self, force: bool = False) -> None:
         """Save the history if it changed (or always, with ``force``)."""
-        from agent import sessions
+        from codebud import sessions
 
         history = self.agent.get_history()
         mode = self.agent.get_mode()
@@ -333,8 +333,8 @@ class _ChatCheckpoint:
 
 
 def cmd_chat(args):
-    from agent.cli import chat_input
-    from agent.cli.display import (
+    from codebud.cli import chat_input
+    from codebud.cli.display import (
         ProgressIndicator,
         print_assistant_reply,
         print_plan,
@@ -344,7 +344,7 @@ def cmd_chat(args):
         print_step_result,
         print_warning,
     )
-    from agent.cli.errors import print_error
+    from codebud.cli.errors import print_error
 
     try:
         import readline as _rl  # noqa: F401 — enables arrow-key history and Ctrl+R in input()
@@ -356,7 +356,7 @@ def cmd_chat(args):
     if not _apply_model_override(args):
         sys.exit(1)
 
-    from agent import sessions
+    from codebud import sessions
 
     resumed = _open_session_to_resume(args) if args.resume is not None else None
 
@@ -482,7 +482,7 @@ def cmd_chat(args):
                     print_status(f"{msg}\n")
                     continue
                 if cmd == "/doctor":
-                    from agent.cli.doctor import run_doctor
+                    from codebud.cli.doctor import run_doctor
 
                     run_doctor()
                     continue
@@ -501,13 +501,13 @@ def cmd_chat(args):
                     print_status(f"{msg}\n")
                     continue
                 if cmd == "/models":
-                    from agent.llm_stub import list_models
+                    from codebud.llm_stub import list_models
 
                     names = list_models()
                     if not names:
                         print_status("Cannot reach Ollama to list models.\n")
                         continue
-                    from agent.cli.display import _GREEN, _RESET
+                    from codebud.cli.display import _GREEN, _RESET
 
                     active = agent.get_model()
                     for name in names:
@@ -667,7 +667,7 @@ def cmd_chat(args):
 
 
 def cmd_doctor(_args):
-    from agent.cli.doctor import run_doctor
+    from codebud.cli.doctor import run_doctor
 
     sys.exit(run_doctor())
 
@@ -679,8 +679,8 @@ def cmd_doctor(_args):
 
 def cmd_sessions(args):
     """List saved chat sessions, most recently updated first."""
-    from agent import sessions
-    from agent.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_GREEN, _OUT_RESET
+    from codebud import sessions
+    from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_GREEN, _OUT_RESET
 
     found = sessions.list_sessions()
     shown = found[: args.limit] if args.limit else found
@@ -711,8 +711,8 @@ def cmd_history(args):
     This is persisted, cross-session execution history (MemoryStore), distinct
     from the in-session conversation history shown by /history in `chat`.
     """
-    from agent.cli.display import _OUT_CYAN, _OUT_DIM, _OUT_GREEN, _OUT_RED, _OUT_RESET
-    from agent.memory import MemoryStore
+    from codebud.cli.display import _OUT_CYAN, _OUT_DIM, _OUT_GREEN, _OUT_RED, _OUT_RESET
+    from codebud.memory import MemoryStore
 
     store = MemoryStore()
     entries = store.history[-args.limit :] if args.limit else store.history
@@ -749,8 +749,8 @@ def cmd_history(args):
 def cmd_models(_args):
     import requests as _req
 
-    from agent.cli.display import _OUT_BOLD, _OUT_GREEN, _OUT_RESET
-    from agent.llm_stub import ollama_proxies
+    from codebud.cli.display import _OUT_BOLD, _OUT_GREEN, _OUT_RESET
+    from codebud.llm_stub import ollama_proxies
 
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     selected = os.environ.get("OLLAMA_MODEL", "")
@@ -783,8 +783,8 @@ def cmd_models(_args):
 
 
 def cmd_config(_args):
-    from agent.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
-    from agent.llm_stub import num_ctx
+    from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
+    from codebud.llm_stub import num_ctx
 
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     model = os.environ.get("OLLAMA_MODEL", "(not set)")
@@ -800,7 +800,7 @@ def cmd_config(_args):
     print(f"  {_OUT_DIM}OPENAI_API_KEY    {_OUT_RESET} = {openai_key}")
     print(f"  {_OUT_DIM}WEB_SEARCH_ENABLED{_OUT_RESET} = {web_search}")
 
-    from agent.paths import data_dir, policy_file
+    from codebud.paths import data_dir, policy_file
 
     print(f"\n{_OUT_BOLD}Files:{_OUT_RESET}")
     print(f"  {_OUT_DIM}{'data directory':<24}{_OUT_RESET} = {data_dir()}")
@@ -816,7 +816,7 @@ def cmd_config(_args):
 def cmd_version(_args):
     import requests as _req
 
-    from agent.llm_stub import ollama_proxies
+    from codebud.llm_stub import ollama_proxies
 
     model = os.environ.get("OLLAMA_MODEL", "(not set)")
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -969,7 +969,7 @@ def main():
     args = parser.parse_args(argv)
 
     # One-time copy of data written by older versions to the checkout's data/.
-    from agent.paths import data_dir, migrate_legacy_data
+    from codebud.paths import data_dir, migrate_legacy_data
 
     copied = migrate_legacy_data()
     if copied:

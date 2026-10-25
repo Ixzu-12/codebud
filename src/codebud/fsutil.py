@@ -1,5 +1,5 @@
 """
-agent/fsutil.py
+codebud/fsutil.py
 
 Small filesystem helpers shared by the persistence modules (memory,
 sessions).

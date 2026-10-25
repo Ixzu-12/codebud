@@ -172,7 +172,7 @@ Some models wrap their JSON output in markdown code fences:
 Codebud's planner strips these fences automatically before parsing.  If
 you see @code{"error": "LLM returned invalid JSON"} despite the model
 returning something, check that @code{LLMPlanner._strip_code_fence} is
-present in @file{agent/planner.py} --- it may have been removed by a
+present in @file{src/codebud/planner.py} --- it may have been removed by a
 merge or revert.
 
 If the model returns something other than JSON entirely (reasoning text,
@@ -272,7 +272,7 @@ print(r.text[:2000])
 
 Look for @samp{result-link} and @samp{result-snippet} class names.  If
 they have changed, update the regex patterns in
-@file{agent/tools/web_search.py:_ddg_search}.
+@file{src/codebud/tools/web_search.py:_ddg_search}.
 
 
 @node Pytest Cannot Import agent

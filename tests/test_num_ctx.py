@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from agent import llm_stub
+from codebud import llm_stub
 
 
 class _FakeResponse:
@@ -77,7 +77,7 @@ def test_invalid_num_ctx_falls_back_to_default(bad, monkeypatch, caplog):
 
 
 def test_embed_requests_send_the_same_num_ctx(sent, monkeypatch):
-    from agent.tools import embeddings
+    from codebud.tools import embeddings
 
     class _EmbedResponse:
         def raise_for_status(self):
@@ -98,7 +98,7 @@ def test_embed_requests_send_the_same_num_ctx(sent, monkeypatch):
 def test_config_subcommand_shows_resolved_num_ctx(monkeypatch, capsys):
     import sys
 
-    import run_agent
+    from codebud.cli import main as run_agent
 
     monkeypatch.setenv("CODEBUD_NUM_CTX", "12288")
     monkeypatch.setattr(sys, "argv", ["codebud", "config"])

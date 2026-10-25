@@ -39,21 +39,18 @@ dev = [
 ]
 
 [project.scripts]
-codebud = "run_agent:main"
+codebud = "codebud.cli.main:main"
 
 [project.urls]
 Repository   = "https://github.com/mkhellat/codebud"
 Documentation = "https://github.com/mkhellat/codebud/tree/main/docs"
 "Bug Tracker" = "https://github.com/mkhellat/codebud/issues"
 
-[tool.setuptools]
-py-modules = ["run_agent"]
-
 [tool.setuptools.packages.find]
-include = ["agent*"]
+where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["config/*.json", "openclaw/SKILL.md"]
+codebud = ["data/policy/*.json"]
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -62,7 +59,7 @@ build-backend = "setuptools.build_meta"
 # ─── pytest ───────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 testpaths  = ["tests"]
 addopts    = "-q"
 
@@ -86,4 +83,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["agent", "openclaw"]
+known-first-party = ["codebud"]

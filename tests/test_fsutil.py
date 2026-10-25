@@ -9,7 +9,7 @@ import os
 
 import pytest
 
-from agent import fsutil
+from codebud import fsutil
 
 
 def test_writes_new_file(tmp_path):

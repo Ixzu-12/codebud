@@ -12,7 +12,7 @@ import re
 
 import pytest
 
-from agent import sessions
+from codebud import sessions
 
 
 @pytest.fixture(autouse=True)
@@ -182,7 +182,7 @@ def test_session_held_by_another_process_is_refused(sessions_dir):
         [
             sys.executable,
             "-c",
-            "import sys; from agent import sessions; "
+            "import sys; from codebud import sessions; "
             f"sessions.SESSIONS_DIR = {str(sessions_dir)!r}; "
             f"s = sessions.Session.open({s.id!r}); "
             "print('held', flush=True); sys.stdin.read()",

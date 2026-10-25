@@ -10,7 +10,7 @@ to accomplish a goal.  Codebud's agent receives natural-language requests
 and acts on the local filesystem.
 
 @item AgentCore
-The central Python class in @file{agent/core.py} that owns all subsystems
+The central Python class in @file{src/codebud/core.py} that owns all subsystems
 (planner, safety engine, executor, memory, tool registry, sandbox) and
 exposes @code{handle_user_message()} to the CLI.
 
@@ -59,7 +59,7 @@ The file @file{~/.local/share/codebud/embeddings/index.json}.  It stores a list 
 file and returns the entries whose vectors are closest to the query vector.
 
 @item Executor
-The Python class in @file{agent/executor.py} that walks a validated plan
+The Python class in @file{src/codebud/executor.py} that walks a validated plan
 and calls each tool in sequence.  It stops on the first non-zero return
 code and records every completed step in the @code{MemoryStore}.
 
@@ -125,7 +125,7 @@ specifies one tool call: @code{id}, @code{description}, @code{tool},
 and @code{args}.
 
 @item Planner
-@code{LLMPlanner} in @file{agent/planner.py}.  It builds the prompt,
+@code{LLMPlanner} in @file{src/codebud/planner.py}.  It builds the prompt,
 calls the LLM, strips code fences, parses JSON, validates the plan
 structure, and retries once on parse failure.
 
@@ -141,7 +141,7 @@ this can take several minutes.  The @code{ProgressIndicator} shows a
 spinner and elapsed time during this phase.
 
 @item ProgressIndicator
-The class in @file{agent/cli/display.py} that runs a background thread to
+The class in @file{src/codebud/cli/display.py} that runs a background thread to
 display a spinner during prefill and a token counter during generation.
 It writes to @code{stderr} using @code{\r} to update in place without
 scrolling.
@@ -159,13 +159,13 @@ file size and RAM requirement by roughly 8x with modest accuracy
 loss.
 
 @item Sandbox
-The @code{Sandbox} class in @file{agent/sandbox.py}.  It wraps
+The @code{Sandbox} class in @file{src/codebud/sandbox.py}.  It wraps
 @code{subprocess.run()}, enforces a 10-second timeout, blocks a small
 set of hard-coded dangerous patterns, and prevents shell expansion by
 using @code{shlex.split()}.
 
 @item SafetyEngine
-The @code{SafetyEngine} class in @file{agent/safety.py}.  It loads the
+The @code{SafetyEngine} class in @file{src/codebud/safety.py}.  It loads the
 three policy JSON files and applies prefix-based validation to every
 @code{command} step in a plan.
 
@@ -209,7 +209,7 @@ world.  The seven built-in tools are @code{file_write}, @code{file_read},
 @code{search_embeddings}.
 
 @item ToolRegistry
-The @code{ToolRegistry} class in @file{agent/tools/tool_registry.py}.
+The @code{ToolRegistry} class in @file{src/codebud/tools/tool_registry.py}.
 It holds the seven tool instances and provides @code{get()}, @code{has()},
 and @code{describe_tools()} to the planner and executor.
 

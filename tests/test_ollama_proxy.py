@@ -14,8 +14,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from agent import llm_stub
-from agent.cli import doctor
+from codebud import llm_stub
+from codebud.cli import doctor
 
 
 class _FakeOllama(BaseHTTPRequestHandler):
@@ -81,7 +81,7 @@ def test_remote_base_keeps_environment_proxy():
 
 
 def _run_cli(argv, monkeypatch):
-    import run_agent
+    from codebud.cli import main as run_agent
 
     monkeypatch.setattr("sys.argv", ["codebud", *argv])
     try:

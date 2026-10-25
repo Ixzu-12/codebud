@@ -221,7 +221,7 @@ Codebud fires a tiny warm-up request in a background thread as soon as
 @code{AgentCore} is constructed, before the user types anything:
 
 @example
-# agent/llm_stub.py
+# src/codebud/llm_stub.py
 def prewarm_model() -> None:
     model = os.environ.get("OLLAMA_MODEL")
     if not model or not _ollama_available():
@@ -622,13 +622,13 @@ statistics.
 
 @subsection How Codebud receives streaming output
 
-In @file{agent/llm_stub.py}, the @code{_call_ollama()} function iterates over
+In @file{src/codebud/llm_stub.py}, the @code{_call_ollama()} function iterates over
 the NDJSON lines and accumulates the response.  An optional @code{on_chunk}
 callback is called for each fragment so the CLI can update a live progress
 indicator without coupling display logic to the LLM layer:
 
 @example
-# agent/llm_stub.py  (simplified)
+# src/codebud/llm_stub.py  (simplified)
 def _call_ollama(model, prompt, timeout, on_chunk=None):
     r = requests.post(
         f"@{_OLLAMA_BASE@}/api/generate",
@@ -700,7 +700,7 @@ Codebud's @code{ModelHeartbeat} class sends a small real request every
 entire session:
 
 @example
-# agent/llm_stub.py
+# src/codebud/llm_stub.py
 class ModelHeartbeat:
     def __init__(self, interval: float = 240.0):  # 4 minutes
         ...
@@ -1213,23 +1213,23 @@ it.
 
 @multitable @columnfractions .20 .40 .40
 @headitem Phase @tab Codebud code @tab Notes
-@item Pre-warm @tab @code{agent/llm_stub.py::prewarm_model()} @tab Fires in background thread at AgentCore init
+@item Pre-warm @tab @code{src/codebud/llm_stub.py::prewarm_model()} @tab Fires in background thread at AgentCore init
 @item Tokenization @tab Ollama internal (GGUF embedded tokenizer) @tab Codebud does not touch this layer
-@item Prefill @tab @code{agent/llm_stub.py::_call_ollama()} starts the POST request @tab @code{on_chunk} receives nothing during this phase
+@item Prefill @tab @code{src/codebud/llm_stub.py::_call_ollama()} starts the POST request @tab @code{on_chunk} receives nothing during this phase
 @item First token @tab @code{ProgressIndicator.on_chunk()} called for the first time @tab Spinner switches from ``prefill'' to ``generating'' display
 @item Generation @tab @code{_call_ollama()} iterates @code{r.iter_lines()} @tab Each line is one NDJSON token fragment
 @item Streaming @tab @code{on_chunk} callback passed through AgentCore → LLMPlanner → call_llm @tab Decouples display from LLM layer
 @item Done signal @tab @code{chunk.get("done")} breaks the loop @tab Full text assembled from @code{chunks}
 @item JSON parse @tab @code{LLMPlanner._attempt()} calls @code{json.loads()} @tab On failure: strips fences, retries with simpler prompt
-@item Idle / heartbeat @tab @code{agent/llm_stub.py::ModelHeartbeat._ping()} @tab Sends ``hi'' every 4 min to reset keep_alive timer
-@item Unload @tab @code{agent/core.py::AgentCore.close()} stops heartbeat @tab Model unloads naturally after next keep_alive expiry
+@item Idle / heartbeat @tab @code{src/codebud/llm_stub.py::ModelHeartbeat._ping()} @tab Sends ``hi'' every 4 min to reset keep_alive timer
+@item Unload @tab @code{src/codebud/core.py::AgentCore.close()} stops heartbeat @tab Model unloads naturally after next keep_alive expiry
 @end multitable
 
 @noindent
 The complete call chain for a single user request:
 
 @example
-run_agent.py cmd_run / cmd_chat
+codebud/cli/main.py cmd_run / cmd_chat
   → AgentCore.handle_user_message(message, on_chunk=prog.on_chunk)
       → LLMPlanner.generate_plan(message, on_chunk=on_chunk)
           → LLMPlanner._build_prompt(message)   [tokenization input]

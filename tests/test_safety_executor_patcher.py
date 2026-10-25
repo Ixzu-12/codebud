@@ -6,9 +6,9 @@ damage: the safety policy gate, the executor dispatch loop, and the
 file-patching tool.
 """
 
-from agent.executor import Executor
-from agent.safety import SafetyEngine
-from agent.tools.patcher import PatchTool
+from codebud.executor import Executor
+from codebud.safety import SafetyEngine
+from codebud.tools.patcher import PatchTool
 
 # ---------------------------------------------------------------------------
 # Fixtures

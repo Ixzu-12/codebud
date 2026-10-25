@@ -1,5 +1,5 @@
 """
-agent/memory.py
+codebud/memory.py
 
 This module defines the MemoryStore class, which maintains a timeline of
 execution snapshots. Each snapshot records:

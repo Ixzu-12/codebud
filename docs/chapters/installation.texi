@@ -149,14 +149,13 @@ cd codebud
 The repository layout:
 
 @example
-agent/          Core agent (planner, executor, safety, tools, memory)
-config/         Default safety policy (overridable per user/project)
-data/           Embedding index and memory snapshots
+src/codebud/    The package (agent, CLI, tools, default policy)
 docs/           This manual (GNU Texinfo)
-openclaw/       OpenClaw SKILL.md (browser UI integration)
-Makefile        build targets including install-skill
+openclaw/       Skill definition (OpenClaw, Claude Code, ...)
+scripts/        Developer scripts (benchmark)
 tests/          Pytest test suite
-run_agent.py    CLI entry point (also exposed as the codebud binary)
+Makefile        Build targets
+pyproject.toml  Package metadata (PEP 621)
 @end example
 
 
@@ -184,7 +183,7 @@ This installs:
 @item @code{openai}, @code{prompt_toolkit}, @code{requests}, @code{tiktoken} --- runtime deps
 (@code{prompt_toolkit} draws the chat command menu and status toolbar)
 @item @code{pytest}, @code{ruff} --- dev deps
-@item the @command{codebud} CLI entry point (maps to @code{run_agent:main})
+@item the @command{codebud} CLI entry point (maps to @code{codebud.cli.main:main}); @code{python -m codebud} works too
 @end itemize
 
 To deactivate the environment later:

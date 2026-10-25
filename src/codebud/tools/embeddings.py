@@ -1,5 +1,5 @@
 """
-agent/tools/embeddings.py
+codebud/tools/embeddings.py
 
 Provides two tools:
 
@@ -26,8 +26,8 @@ from typing import Any
 
 import requests
 
-from agent import paths
-from agent.llm_stub import num_ctx, ollama_proxies
+from codebud import paths
+from codebud.llm_stub import num_ctx, ollama_proxies
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ Tests for LLMPlanner: prompt content, retry logic, and JSON parsing.
 import json
 from unittest.mock import MagicMock, patch
 
-from agent.planner import LLMPlanner
+from codebud.planner import LLMPlanner
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -142,7 +142,7 @@ class TestRetryLogic:
             call_count[0] += 1
             return good
 
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             result = planner.generate_plan("do something")
 
         assert result["status"] == "ok"
@@ -162,7 +162,7 @@ class TestRetryLogic:
             call_count[0] += 1
             return resp
 
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             result = planner.generate_plan("do something")
 
         assert result["status"] == "ok"
@@ -175,7 +175,7 @@ class TestRetryLogic:
         def fake_llm(prompt, timeout=600.0, on_chunk=None):
             return "not json at all"
 
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             result = planner.generate_plan("do something")
 
         assert result["status"] == "plan_error"
@@ -190,7 +190,7 @@ class TestRetryLogic:
             call_count[0] += 1
             return ""
 
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             result = planner.generate_plan("do something")
 
         assert result["status"] == "plan_error"
@@ -204,7 +204,7 @@ class TestRetryLogic:
         planner = LLMPlanner(_make_registry(), _make_safety())
         fenced = "```json\n" + json.dumps(_good_plan()) + "\n```"
 
-        with patch("agent.planner.call_llm", return_value=fenced):
+        with patch("codebud.planner.call_llm", return_value=fenced):
             result = planner.generate_plan("do something")
 
         assert result["status"] == "ok"
@@ -219,7 +219,7 @@ class TestRetryLogic:
             return json.dumps(_good_plan())
 
         sentinel = lambda t: None  # noqa: E731
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             planner.generate_plan("do something", on_chunk=sentinel)
 
         assert received["on_chunk"] is sentinel
@@ -239,7 +239,7 @@ class TestValidation:
             "status": "ok",
             "plan": [{"id": "step_0", "description": "x", "tool": "nonexistent", "args": {}}],
         }
-        with patch("agent.planner.call_llm", return_value=json.dumps(bad_plan)):
+        with patch("codebud.planner.call_llm", return_value=json.dumps(bad_plan)):
             result = planner.generate_plan("do something")
         assert result["status"] == "plan_error"
 
@@ -250,7 +250,7 @@ class TestValidation:
             "status": "ok",
             "plan": [{"id": "step_0", "description": "x", "tool": "command"}],
         }
-        with patch("agent.planner.call_llm", return_value=json.dumps(bad_plan)):
+        with patch("codebud.planner.call_llm", return_value=json.dumps(bad_plan)):
             result = planner.generate_plan("do something")
         assert result["status"] == "plan_error"
 
@@ -316,7 +316,7 @@ class TestConversationHistory:
             return json.dumps(_good_plan())
 
         history = [{"role": "user", "content": "prior turn content xyz"}]
-        with patch("agent.planner.call_llm", fake_llm):
+        with patch("codebud.planner.call_llm", fake_llm):
             planner.generate_plan("new request", history=history)
 
         assert "prior turn content xyz" in captured["prompt"]
@@ -337,7 +337,7 @@ def _long_history(n=6, size=400):
 class TestContextBudget:
     def test_oldest_history_dropped_to_fit_context(self, monkeypatch):
         """With a small context, the oldest turns go first; the newest stays."""
-        from agent import planner as planner_mod
+        from codebud import planner as planner_mod
 
         monkeypatch.setenv("CODEBUD_NUM_CTX", "2200")
         planner = LLMPlanner(_make_registry(), _make_safety())

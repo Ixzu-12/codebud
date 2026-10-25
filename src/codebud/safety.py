@@ -1,5 +1,5 @@
 """
-agent/safety.py
+codebud/safety.py
 
 This module defines the SafetyEngine class, which validates LLM-generated
 steps before execution. It enforces:

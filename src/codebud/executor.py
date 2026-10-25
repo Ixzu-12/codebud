@@ -1,5 +1,5 @@
 """
-agent/executor.py
+codebud/executor.py
 
 This module defines the Executor class, which runs a Cursor-style linear plan.
 The executor:

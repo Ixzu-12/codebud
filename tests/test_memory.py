@@ -11,7 +11,7 @@ import json
 import warnings
 from datetime import datetime, timedelta
 
-from agent import memory as memory_mod
+from codebud import memory as memory_mod
 
 
 def _store(tmp_path, monkeypatch):

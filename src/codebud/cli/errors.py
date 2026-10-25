@@ -1,5 +1,5 @@
 """
-agent/cli/errors.py
+codebud/cli/errors.py
 
 Maps error strings returned by the planner/executor to beginner-friendly
 explanations and actionable fix hints. Mirrors the Troubleshooting chapter

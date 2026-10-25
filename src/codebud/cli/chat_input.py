@@ -1,5 +1,5 @@
 """
-agent/cli/chat_input.py
+codebud/cli/chat_input.py
 
 Reading the "[N] You:" line in `codebud chat`.
 
@@ -23,7 +23,7 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 
-from agent.modes import MODES
+from codebud.modes import MODES
 
 # Every chat slash command with a one-line description. The single source
 # for /help, the "/" menu and the tests.

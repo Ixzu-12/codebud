@@ -8,7 +8,7 @@ a list entry must match whole leading words, never a string prefix.
 
 import pytest
 
-from agent.safety import SafetyEngine
+from codebud.safety import SafetyEngine
 
 
 def _engine(harmless=None, powerful=None):

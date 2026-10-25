@@ -909,12 +909,14 @@ Before subcommands were introduced, Codebud was invoked as:
 python run_agent.py "your request"
 @end example
 
-Both the old style and the new subcommand style still work:
+The script was later folded into the package, so that form no longer
+exists; @code{python -m codebud} replaces it.  A request without a
+subcommand still maps to @command{run}:
 
 @example
-codebud "your request"          @r{(maps to @command{run})}
-codebud run "your request"      @r{(equivalent)}
-python run_agent.py "your request"  @r{(still works)}
+codebud "your request"              @r{(maps to @command{run})}
+codebud run "your request"          @r{(equivalent)}
+python -m codebud "your request"    @r{(replaces python run_agent.py)}
 @end example
 
 The old interface's step-by-step approval flow is available as

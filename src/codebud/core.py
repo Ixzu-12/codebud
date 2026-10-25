@@ -1,5 +1,5 @@
 """
-agent/core.py
+codebud/core.py
 
 This module defines the AgentCore class, the central orchestrator of the
 Cursor-style coding agent. It coordinates:

@@ -4,16 +4,16 @@ tests/test_core.py
 Unit tests for AgentCore.set_model / get_model (model selection & loading).
 """
 
-from agent import memory as memory_mod
+from codebud import memory as memory_mod
 
 
 def _make_agent(tmp_path, monkeypatch):
-    from agent.core import AgentCore
+    from codebud.core import AgentCore
 
     monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
-    monkeypatch.setattr("agent.core.prewarm_model", lambda: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.start", lambda self: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.stop", lambda self: None)
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
     return AgentCore()
 
 
@@ -33,7 +33,7 @@ def test_set_model_success_updates_env_and_warms(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "old-model")
     agent = _make_agent(tmp_path, monkeypatch)
 
-    monkeypatch.setattr("agent.core.list_models", lambda: ["old-model", "new-model"])
+    monkeypatch.setattr("codebud.core.list_models", lambda: ["old-model", "new-model"])
     chunks = []
     warmed = {}
 
@@ -43,7 +43,7 @@ def test_set_model_success_updates_env_and_warms(tmp_path, monkeypatch):
             on_chunk("x")
         return True
 
-    monkeypatch.setattr("agent.core.warm_model_sync", fake_warm)
+    monkeypatch.setattr("codebud.core.warm_model_sync", fake_warm)
 
     ok, msg = agent.set_model("new-model", on_chunk=chunks.append)
     assert ok is True
@@ -57,7 +57,7 @@ def test_set_model_rejects_not_downloaded(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "old-model")
     agent = _make_agent(tmp_path, monkeypatch)
 
-    monkeypatch.setattr("agent.core.list_models", lambda: ["old-model"])
+    monkeypatch.setattr("codebud.core.list_models", lambda: ["old-model"])
 
     ok, msg = agent.set_model("missing-model")
     assert ok is False
@@ -71,12 +71,12 @@ def test_set_model_never_auto_pulls(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "old-model")
     agent = _make_agent(tmp_path, monkeypatch)
 
-    monkeypatch.setattr("agent.core.list_models", lambda: ["old-model"])
+    monkeypatch.setattr("codebud.core.list_models", lambda: ["old-model"])
 
     def fail_warm(*a, **kw):
         raise AssertionError("warm_model_sync should not be called for an undownloaded model")
 
-    monkeypatch.setattr("agent.core.warm_model_sync", fail_warm)
+    monkeypatch.setattr("codebud.core.warm_model_sync", fail_warm)
 
     ok, _ = agent.set_model("missing-model")
     assert ok is False
@@ -86,8 +86,8 @@ def test_set_model_reverts_on_warmup_failure(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "old-model")
     agent = _make_agent(tmp_path, monkeypatch)
 
-    monkeypatch.setattr("agent.core.list_models", lambda: ["old-model", "new-model"])
-    monkeypatch.setattr("agent.core.warm_model_sync", lambda model, on_chunk=None: False)
+    monkeypatch.setattr("codebud.core.list_models", lambda: ["old-model", "new-model"])
+    monkeypatch.setattr("codebud.core.warm_model_sync", lambda model, on_chunk=None: False)
 
     ok, msg = agent.set_model("new-model")
     assert ok is False
@@ -99,7 +99,7 @@ def test_set_model_reports_unreachable_ollama(tmp_path, monkeypatch):
     monkeypatch.setenv("OLLAMA_MODEL", "old-model")
     agent = _make_agent(tmp_path, monkeypatch)
 
-    monkeypatch.setattr("agent.core.list_models", lambda: [])
+    monkeypatch.setattr("codebud.core.list_models", lambda: [])
 
     ok, msg = agent.set_model("new-model")
     assert ok is False
@@ -128,7 +128,7 @@ def test_compact_history_replaces_older_turns_with_summary(tmp_path, monkeypatch
         seen["turns"] = turns
         return "User listed files, then edited README.md."
 
-    monkeypatch.setattr("agent.core.summarize_conversation", fake_summarize)
+    monkeypatch.setattr("codebud.core.summarize_conversation", fake_summarize)
 
     ok, msg = agent.compact_history(keep_last=2)
 
@@ -150,7 +150,7 @@ def test_compact_history_nothing_to_compact(tmp_path, monkeypatch):
     def fail(*a, **kw):
         raise AssertionError("must not call the model when there is nothing to compact")
 
-    monkeypatch.setattr("agent.core.summarize_conversation", fail)
+    monkeypatch.setattr("codebud.core.summarize_conversation", fail)
 
     ok, msg = agent.compact_history(keep_last=2)
     assert ok is False
@@ -161,7 +161,7 @@ def test_compact_history_nothing_to_compact(tmp_path, monkeypatch):
 def test_compact_history_keeps_history_when_summary_fails(tmp_path, monkeypatch):
     agent = _make_agent(tmp_path, monkeypatch)
     agent._history.extend(_turns(6))
-    monkeypatch.setattr("agent.core.summarize_conversation", lambda turns, on_chunk=None: "  ")
+    monkeypatch.setattr("codebud.core.summarize_conversation", lambda turns, on_chunk=None: "  ")
 
     ok, msg = agent.compact_history(keep_last=2)
     assert ok is False

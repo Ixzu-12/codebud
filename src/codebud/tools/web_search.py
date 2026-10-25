@@ -1,5 +1,5 @@
 """
-agent/tools/web_search.py
+codebud/tools/web_search.py
 
 Implements WebSearchTool using DuckDuckGo Lite (no API key required).
 

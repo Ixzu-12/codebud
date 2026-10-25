@@ -137,7 +137,7 @@ test: $(STAMP_DEV)
 # Run pytest with branch coverage; write an HTML report to htmlcov/.
 coverage: $(STAMP_DEV)
 	$(PYTEST) \
-	  --cov=agent --cov=run_agent \
+	  --cov=codebud \
 	  --cov-branch \
 	  --cov-report=term-missing \
 	  --cov-report=html:htmlcov \

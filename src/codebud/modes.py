@@ -1,5 +1,5 @@
 """
-agent/modes.py
+codebud/modes.py
 
 Agent modes for chat (decision D1). A mode changes what the agent is
 allowed to do, and is enforced by SafetyEngine and Executor rather than

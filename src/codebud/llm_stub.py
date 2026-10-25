@@ -1,5 +1,5 @@
 """
-agent/llm_stub.py
+codebud/llm_stub.py
 
 Stub layer that hides the details of talking to an LLM.  The rest of the
 codebase calls `call_llm(prompt)` and expects a string containing the raw

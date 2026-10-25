@@ -12,7 +12,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolated_codebud_dirs(tmp_path, monkeypatch):
-    from agent import paths
+    from codebud import paths
 
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg-data"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-config"))

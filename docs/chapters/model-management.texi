@@ -349,7 +349,7 @@ unloads models from RAM on demand.
 @example
 # Switch from 3B to 7B
 export OLLAMA_MODEL=qwen2.5-coder:7b-instruct-q4_K_M
-codebud run "refactor agent/planner.py to add retry logic"
+codebud run "refactor src/codebud/planner.py to add retry logic"
 @end example
 
 If the new model has not been pulled yet, pull it first

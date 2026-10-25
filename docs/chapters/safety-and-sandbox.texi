@@ -96,7 +96,7 @@ lists, which is embedded in the planner prompt so the model can avoid
 proposing forbidden commands in the first place.
 
 @noindent
-Source: @file{agent/safety.py}
+Source: @file{src/codebud/safety.py}
 
 
 @node The Sandbox
@@ -141,7 +141,7 @@ just @command{ls} with two odd arguments.  Pipelines are not supported:
 @code{sh} is not on the allow-list.
 
 @noindent
-Source: @file{agent/sandbox.py}
+Source: @file{src/codebud/sandbox.py}
 
 
 @node How a Command Gets Through
@@ -246,7 +246,7 @@ one-liners would not be caught.
 @item
 @strong{10-second timeout is short.}  Long operations (building a large
 project, running a slow test suite) will time out.  Adjust the timeout in
-@file{agent/sandbox.py} if needed.
+@file{src/codebud/sandbox.py} if needed.
 @end itemize
 
 @noindent

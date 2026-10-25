@@ -158,7 +158,7 @@ clicks @emph{Regenerate}.
 @end table
 
 @noindent
-Source: @file{agent/core.py}
+Source: @file{src/codebud/core.py}
 
 
 @node LLMPlanner
@@ -229,7 +229,7 @@ prompt is byte-for-byte unchanged, which keeps Ollama's cached prompt
 prefix valid between turns.
 
 @noindent
-Source: @file{agent/planner.py}
+Source: @file{src/codebud/planner.py}
 
 
 @node SafetyEngine
@@ -258,7 +258,7 @@ second layer of protection for shell commands only.
 @cindex edit mode
 @cindex plan mode
 
-The engine also enforces the active @dfn{mode} (@file{agent/modes.py}):
+The engine also enforces the active @dfn{mode} (@file{src/codebud/modes.py}):
 
 @multitable @columnfractions .12 .88
 @headitem Mode @tab Effect
@@ -282,7 +282,7 @@ adds a line to the planner prompt; in the other modes the prompt is
 unchanged, so Ollama's cached prefix stays valid.
 
 @noindent
-Source: @file{agent/safety.py}
+Source: @file{src/codebud/safety.py}
 
 
 @node Executor
@@ -307,7 +307,7 @@ The executor returns @code{@{"status": "ok", "results": @{step_id: result, ...@}
 when all steps succeed.
 
 @noindent
-Source: @file{agent/executor.py}
+Source: @file{src/codebud/executor.py}
 
 
 @node Sandbox
@@ -338,7 +338,7 @@ shell metacharacters (@code{&&}, @code{|}, @code{>}) are not interpreted.
 @end table
 
 @noindent
-Source: @file{agent/sandbox.py}
+Source: @file{src/codebud/sandbox.py}
 
 
 @node MemoryStore
@@ -384,7 +384,7 @@ started.
 @end itemize
 
 @noindent
-Source: @file{agent/memory.py}
+Source: @file{src/codebud/memory.py}
 
 
 @node Sessions
@@ -393,7 +393,7 @@ Source: @file{agent/memory.py}
 @cindex checkpoints
 @cindex sessions directory
 
-@file{agent/sessions.py} saves each @command{chat} conversation so it can be
+@file{src/codebud/sessions.py} saves each @command{chat} conversation so it can be
 resumed later.  Where @code{MemoryStore} records executed @emph{steps},
 a session records the @emph{conversation}: the history the planner sees,
 plus the active model.  Each session is one JSON file:
@@ -438,7 +438,7 @@ something to save, and saves again whenever the history changes (a turn,
 @code{/undo}, @code{/compact}, @code{/clear}) and on exit.
 
 @noindent
-Source: @file{agent/sessions.py}, @file{agent/fsutil.py}
+Source: @file{src/codebud/sessions.py}, @file{src/codebud/fsutil.py}
 
 
 @node ToolRegistry
@@ -462,7 +462,7 @@ line taken from its @code{usage_hint} attribute.
 @end table
 
 @noindent
-Source: @file{agent/tools/tool_registry.py}
+Source: @file{src/codebud/tools/tool_registry.py}
 
 
 @node LLM Stub
@@ -470,7 +470,7 @@ Source: @file{agent/tools/tool_registry.py}
 @cindex llm_stub.py
 @cindex LLM backends
 
-@file{agent/llm_stub.py} exposes a single public function:
+@file{src/codebud/llm_stub.py} exposes a single public function:
 @code{call_llm(prompt, timeout=600.0, on_chunk=None)}.
 
 It selects a backend in this priority order:
@@ -503,16 +503,29 @@ layer.
 @cindex directory structure
 
 @example
-agent/
+src/codebud/                   the package
+├── __main__.py        python -m codebud
 ├── core.py            AgentCore orchestrator
 ├── planner.py         LLMPlanner (prompt + parse + retry)
 ├── executor.py        Executor (step-by-step runner)
 ├── safety.py          SafetyEngine (policy validation)
+├── modes.py           agent modes (ask, auto, full-auto, plan, edit)
 ├── sandbox.py         Sandbox (subprocess + timeout)
 ├── memory.py          MemoryStore (timeline persistence)
 ├── sessions.py        chat session checkpoints
+├── paths.py           data, config and policy file locations
 ├── fsutil.py          atomic_write_text() helper
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
+├── data/policy/       default policy, shipped as package data
+│   ├── harmless_commands.json
+│   ├── powerful_commands.json
+│   └── trusted_sequences.json
+├── cli/
+│   ├── main.py            CLI entry point (the codebud command)
+│   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
+│   ├── display.py         ProgressIndicator, plan printer, step printer
+│   ├── doctor.py          health checks
+│   └── errors.py          error → fix lookup table
 └── tools/
     ├── tool_registry.py   ToolRegistry
     ├── file_io.py         file_write, file_read
@@ -521,23 +534,11 @@ agent/
     ├── web_search.py      web_search
     └── embeddings.py      embed, search_embeddings
 
-agent/cli/
-├── display.py         ProgressIndicator, plan printer, step printer
-├── doctor.py          health checks
-└── errors.py          error → fix lookup table
-
-config/                        default policy (overridable, see Files and Directories)
-├── harmless_commands.json
-├── powerful_commands.json
-└── trusted_sequences.json
-
 ~/.local/share/codebud/        runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
 └── embeddings/index.json      embedding index (auto-created)
 
 openclaw/
-└── SKILL.md           OpenClaw skill definition
-
-run_agent.py           CLI entry point (codebud binary)
+└── SKILL.md           skill definition (OpenClaw, Claude Code, ...)
 @end example

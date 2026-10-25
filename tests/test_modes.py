@@ -11,9 +11,9 @@ Restrictions are enforced in code, not only described to the model:
 
 import pytest
 
-from agent import modes
-from agent.executor import Executor
-from agent.safety import SafetyEngine
+from codebud import modes
+from codebud.executor import Executor
+from codebud.safety import SafetyEngine
 
 _CMD = {"id": "step_0", "description": "list", "tool": "command", "args": {"cmd": "ls"}}
 _WRITE = {
@@ -96,7 +96,7 @@ def test_ask_mode_executor_runs_steps():
 def test_planner_prompt_mentions_edit_mode_only():
     from unittest.mock import MagicMock
 
-    from agent.planner import LLMPlanner
+    from codebud.planner import LLMPlanner
 
     registry = MagicMock()
     registry.describe_tools.return_value = "- command\n- file_write"
@@ -111,13 +111,13 @@ def test_planner_prompt_mentions_edit_mode_only():
 
 
 def test_agent_core_set_mode(tmp_path, monkeypatch):
-    from agent import memory as memory_mod
-    from agent.core import AgentCore
+    from codebud import memory as memory_mod
+    from codebud.core import AgentCore
 
     monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
-    monkeypatch.setattr("agent.core.prewarm_model", lambda: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.start", lambda self: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.stop", lambda self: None)
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
     agent = AgentCore()
 
     assert agent.get_mode() == "ask"
@@ -134,13 +134,13 @@ def test_edit_mode_refusal_is_reported_as_such(monkeypatch):
     import json
     from unittest.mock import MagicMock
 
-    from agent.planner import LLMPlanner
+    from codebud.planner import LLMPlanner
 
     registry = MagicMock()
     registry.has.return_value = True
     registry.describe_tools.return_value = "- command"
     plan = {"status": "ok", "plan": [_CMD]}
-    monkeypatch.setattr("agent.planner.call_llm", lambda *a, **kw: json.dumps(plan))
+    monkeypatch.setattr("codebud.planner.call_llm", lambda *a, **kw: json.dumps(plan))
 
     result = LLMPlanner(registry, _safety("edit")).generate_plan("run the tests")
 
@@ -150,18 +150,18 @@ def test_edit_mode_refusal_is_reported_as_such(monkeypatch):
 
 
 def test_core_shows_mode_refusal_instead_of_chatting(tmp_path, monkeypatch):
-    from agent import memory as memory_mod
-    from agent.core import AgentCore
+    from codebud import memory as memory_mod
+    from codebud.core import AgentCore
 
     monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
-    monkeypatch.setattr("agent.core.prewarm_model", lambda: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.start", lambda self: None)
-    monkeypatch.setattr("agent.core.ModelHeartbeat.stop", lambda self: None)
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
 
     def no_chat(*a, **kw):
         raise AssertionError("a mode refusal must not fall back to a chat reply")
 
-    monkeypatch.setattr("agent.core.call_llm_plain", no_chat)
+    monkeypatch.setattr("codebud.core.call_llm_plain", no_chat)
     agent = AgentCore()
     refused = {"status": "plan_refused", "error": "not allowed in edit mode: command"}
     monkeypatch.setattr(agent.planner, "generate_plan", lambda *a, **kw: refused)

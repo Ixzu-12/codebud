@@ -1,7 +1,7 @@
 import sys
 import types
 
-from agent import llm_stub
+from codebud import llm_stub
 
 
 def test_no_backend(monkeypatch, caplog):

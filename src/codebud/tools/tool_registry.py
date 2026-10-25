@@ -1,5 +1,5 @@
 """
-agent/tools/tool_registry.py
+codebud/tools/tool_registry.py
 
 This module defines the ToolRegistry class, which stores and manages all
 available tools. It provides:

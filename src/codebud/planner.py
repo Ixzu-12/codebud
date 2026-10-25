@@ -1,5 +1,5 @@
 """
-agent/planner.py
+codebud/planner.py
 
 This module defines the LLMPlanner class, which generates a Cursor-style
 linear plan using an LLM. The planner:

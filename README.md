@@ -71,15 +71,13 @@ Troubleshooting · Glossary.
 ## Project layout
 
 ```
-agent/          Core agent (planner, executor, safety, sandbox, memory, tools)
-config/         Default safety policy (overridable per user/project)
-data/           Embedding index and memory snapshots
+src/codebud/    The package: agent, CLI (cli/main.py), tools, default policy
 docs/           GNU Texinfo manual
-openclaw/       OpenClaw SKILL.md (teaches the OpenClaw gateway to invoke codebud)
+openclaw/       Skill definition (OpenClaw, Claude Code, ...) that invokes codebud
+scripts/        Developer scripts (benchmark)
+tests/          Test suite (pytest)
 Makefile        GNU-standard build system
 pyproject.toml  PEP 621 package metadata and tool configuration
-tests/          Test suite (pytest)
-run_agent.py    CLI entry point (also exposed as the `codebud` binary)
 ```
 
 ## Environment variables

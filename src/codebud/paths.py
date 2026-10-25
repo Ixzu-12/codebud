@@ -1,5 +1,5 @@
 """
-agent/paths.py
+codebud/paths.py
 
 Where codebud keeps its files (decision D5b). Nothing here depends on the
 directory codebud is started from.
@@ -21,10 +21,13 @@ from pathlib import Path
 APP = "codebud"
 PROJECT_DIR_NAME = ".codebud"
 
-_SOURCE_ROOT = Path(__file__).resolve().parent.parent
+_PACKAGE_DIR = Path(__file__).resolve().parent
 
-# Default policy files shipped with codebud.
-PACKAGED_POLICY_DIR = _SOURCE_ROOT / "config"
+# Default policy files shipped inside the package (package data).
+PACKAGED_POLICY_DIR = _PACKAGE_DIR / "data" / "policy"
+
+# The source checkout, when running from one (src/codebud/ -> repo root).
+_SOURCE_ROOT = _PACKAGE_DIR.parent.parent
 
 # Override for where versions before 2026-10-25 kept runtime data; see
 # legacy_data_dir(). Tests set it (and CODEBUD_LEGACY_DATA_DIR) to an empty

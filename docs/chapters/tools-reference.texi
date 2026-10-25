@@ -173,7 +173,7 @@ files.
 @item
 Commands time out after 10 seconds.  Long-running commands (compilation,
 large test suites) may need to be broken into smaller steps or the timeout
-increased by editing @file{agent/sandbox.py}.
+increased by editing @file{src/codebud/sandbox.py}.
 @end itemize
 
 @subsection Example plan steps
@@ -186,7 +186,7 @@ increased by editing @file{agent/sandbox.py}.
 @{ "tool": "command", "args": @{ "cmd": "pytest -q" @} @}
 
 @r{# Search for a function name}
-@{ "tool": "command", "args": @{ "cmd": "grep -rn 'def run' agent/" @} @}
+@{ "tool": "command", "args": @{ "cmd": "grep -rn 'def run' src/codebud/" @} @}
 @end example
 
 

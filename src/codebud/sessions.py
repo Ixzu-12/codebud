@@ -1,5 +1,5 @@
 """
-agent/sessions.py
+codebud/sessions.py
 
 Chat session checkpoints. Each conversation is saved to
 

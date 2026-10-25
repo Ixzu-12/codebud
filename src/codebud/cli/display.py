@@ -1,5 +1,5 @@
 """
-agent/cli/display.py
+codebud/cli/display.py
 
 Terminal display helpers: pretty plan list, streaming progress indicator,
 step results. All output goes to stderr for progress lines so that stdout

@@ -1,5 +1,5 @@
 """
-agent/cli/doctor.py
+codebud/cli/doctor.py
 
 Environment health checks for `codebud doctor`.
 
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-from agent.llm_stub import ollama_proxies
+from codebud.llm_stub import ollama_proxies
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
@@ -45,7 +45,7 @@ def check_python_version() -> CheckResult:
 
 def check_agent_importable() -> CheckResult:
     try:
-        import agent  # noqa: F401
+        import codebud  # noqa: F401
 
         return True, "agent package is importable", ""
     except ImportError:
@@ -98,7 +98,7 @@ def check_model_pulled() -> CheckResult:
 
 def check_config_files() -> CheckResult:
     """Check that the policy files in effect exist and parse."""
-    from agent.paths import policy_file
+    from codebud.paths import policy_file
 
     names = ["harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"]
     for name in names:
