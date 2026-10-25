@@ -21,6 +21,10 @@ from codebud.llm_stub import ollama_proxies
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
+# Linux memory statistics; macOS and FreeBSD have none, so the RAM check is
+# skipped there.
+MEMINFO_PATH = "/proc/meminfo"
+
 # ANSI color helpers — degrade to no-op when stdout isn't a TTY (piped output).
 _IS_TTY = sys.stdout.isatty()
 _BOLD = "\033[1m" if _IS_TTY else ""
@@ -128,11 +132,21 @@ def check_disk_space() -> CheckResult:
     return False, f"Low disk space: {free_gb:.1f} GB free near ~/.ollama/models/", hint
 
 
+def _read_meminfo() -> dict[str, int]:
+    """Parse MEMINFO_PATH ("Name:   123 kB" lines) into {name: kilobytes}."""
+    values = {}
+    with open(MEMINFO_PATH) as f:
+        for line in f:
+            name, _, rest = line.partition(":")
+            fields = rest.split()
+            if fields and fields[0].isdigit():
+                values[name.strip()] = int(fields[0])
+    return values
+
+
 def check_ram() -> CheckResult:
     try:
-        with open("/proc/meminfo") as f:
-            lines = {k: int(v.split()[0]) for k, _, *v in (ln.partition(":") for ln in f)}
-        available_mb = lines.get("MemAvailable", 0) // 1024
+        available_mb = _read_meminfo().get("MemAvailable", 0) // 1024
         model = os.environ.get("OLLAMA_MODEL", "")
         # Rough RAM requirements per model family
         thresholds = {
@@ -150,7 +164,7 @@ def check_ram() -> CheckResult:
             return True, f"Available RAM: {available_mb} MB (need ~{needed_mb} MB)", ""
         hint = (
             f"Close other applications. The selected model needs ~{needed_mb} MB "
-            "of free RAM; only {available_mb} MB is available."
+            f"of free RAM; only {available_mb} MB is available."
         )
         return False, f"Low RAM: {available_mb} MB available, ~{needed_mb} MB needed", hint
     except Exception:
