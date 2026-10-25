@@ -23,6 +23,8 @@ import json
 import os
 from typing import Any
 
+from .modes import DEFAULT_MODE, step_allowed
+
 CONFIG_DIR = "config"
 HARMLESS_PATH = os.path.join(CONFIG_DIR, "harmless_commands.json")
 POWERFUL_PATH = os.path.join(CONFIG_DIR, "powerful_commands.json")
@@ -38,6 +40,9 @@ class SafetyEngine:
     - Validate each step
     - Provide safety descriptions for planner prompt
     """
+
+    # Active agent mode (see agent/modes.py); AgentCore.set_mode() updates it.
+    mode = DEFAULT_MODE
 
     def __init__(self):
         self.harmless_commands = self._load_json(HARMLESS_PATH)
@@ -58,6 +63,9 @@ class SafetyEngine:
         - Trusted sequence validation (optional)
         """
 
+        if not step_allowed(self.mode, step):
+            return False
+
         tool = step.get("tool")
         args = step.get("args", {})
 
@@ -70,6 +78,18 @@ class SafetyEngine:
         # Additional tool-specific safety rules can be added here
 
         return True
+
+    def may_execute(self, step: dict[str, Any]) -> tuple[bool, str]:
+        """Check, right before execution, that ``step`` may run in this mode.
+
+        Re-validating here means a plan made in one mode cannot run after
+        switching to a stricter one. Returns (allowed, reason).
+        """
+        if self.mode == "plan":
+            return False, "plan mode: steps are never executed (switch with /mode ask)"
+        if not self.validate_step(step):
+            return False, f"step refused in {self.mode} mode by the safety policy"
+        return True, ""
 
     def describe_rules(self) -> str:
         """

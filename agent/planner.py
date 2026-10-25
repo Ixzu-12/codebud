@@ -34,6 +34,7 @@ from collections.abc import Callable
 from typing import Any
 
 from .llm_stub import call_llm, num_ctx
+from .modes import prompt_note, step_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,9 @@ class LLMPlanner:
             return None  # signal caller to retry
 
         if not self._validate_plan_structure(plan_json):
+            refused = self._mode_refusal(plan_json)
+            if refused is not None:
+                return refused
             return {"status": "plan_error", "error": "LLM returned malformed plan"}
 
         return plan_json
@@ -195,6 +199,7 @@ User: "order me a pizza"
         tool_descriptions = self.tool_registry.describe_tools()
         safety_rules = self.safety_engine.describe_rules()
         history_block = self._format_history(history)
+        mode_block = prompt_note(getattr(self.safety_engine, "mode", ""))
 
         return f"""\
 You are a precise coding-agent planner. Your ONLY job is to output a JSON plan.
@@ -220,7 +225,7 @@ RESPONSE FORMAT:
 On failure:
 {{"status": "plan_error", "error": "reason"}}
 
-{self._FEW_SHOT_EXAMPLES}{history_block}Now respond to this request. Output JSON only.
+{self._FEW_SHOT_EXAMPLES}{mode_block}{history_block}Now respond to this request. Output JSON only.
 
 USER REQUEST: {user_message}
 """
@@ -259,6 +264,26 @@ Format: {{"status":"ok","plan":[{{"id":"step_0","description":"...","tool":"..."
     # ------------------------------------------------------------------
     # Validation
     # ------------------------------------------------------------------
+
+    def _mode_refusal(self, plan_json: dict[str, Any]) -> dict[str, Any] | None:
+        """Return a plan_refused result if the plan breaks the active mode."""
+        mode = getattr(self.safety_engine, "mode", "")
+        plan = plan_json.get("plan")
+        if not isinstance(plan, list):
+            return None
+        blocked = sorted(
+            {
+                str(step.get("tool"))
+                for step in plan
+                if isinstance(step, dict) and not step_allowed(mode, step)
+            }
+        )
+        if not blocked:
+            return None
+        return {
+            "status": "plan_refused",
+            "error": f"The plan uses tools not allowed in {mode} mode: {', '.join(blocked)}.",
+        }
 
     def _validate_plan_structure(self, plan_json: dict[str, Any]) -> bool:
         """

@@ -39,6 +39,7 @@ from .llm_stub import (
     warm_model_sync,
 )
 from .memory import MemoryStore
+from .modes import MODES
 from .planner import LLMPlanner
 from .safety import SafetyEngine
 from .sandbox import Sandbox
@@ -65,7 +66,7 @@ class AgentCore:
         self.safety = SafetyEngine()
         self.memory = MemoryStore()
         self.planner = LLMPlanner(self.tool_registry, self.safety)
-        self.executor = Executor(self.tool_registry, self.sandbox, self.memory)
+        self.executor = Executor(self.tool_registry, self.sandbox, self.memory, safety=self.safety)
 
         # Store last user message for regeneration
         self.last_user_message = None
@@ -110,6 +111,11 @@ class AgentCore:
             history=self._history[:-1],  # exclude the turn we just appended
         )
 
+        # The active mode forbids this plan: report it rather than chatting.
+        if plan_output.get("status") == "plan_refused":
+            self._history.append({"role": "assistant", "content": plan_output["error"]})
+            return plan_output
+
         # If planner failed, fall back to a plain-text conversational reply
         if plan_output.get("status") != "ok":
             reply = call_llm_plain(message, history=self._history[:-1], on_chunk=on_chunk)
@@ -140,6 +146,17 @@ class AgentCore:
     def restore_history(self, history: list[dict[str, str]]) -> None:
         """Replace the conversation history (used by chat --resume)."""
         self._history[:] = list(history)
+
+    def get_mode(self) -> str:
+        """Return the active agent mode (see agent/modes.py)."""
+        return self.safety.mode
+
+    def set_mode(self, mode: str) -> tuple[bool, str]:
+        """Switch the agent mode; the SafetyEngine enforces it from now on."""
+        if mode not in MODES:
+            return False, f"Unknown mode '{mode}'. Choose one of: {', '.join(MODES)}."
+        self.safety.mode = mode
+        return True, f"Mode: {mode}"
 
     def get_model(self) -> str:
         """Return the active OLLAMA_MODEL, or '' if unset."""

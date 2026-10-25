@@ -14,7 +14,8 @@ The executor:
 
 The executor does NOT:
 - generate plans
-- validate safety rules
+- decide safety rules (it only asks the SafetyEngine, when given one,
+  whether each step may run in the current mode)
 - interact with the LLM
 - handle UI logic
 """
@@ -32,10 +33,11 @@ class Executor:
     - memory_store: stores timeline snapshots
     """
 
-    def __init__(self, tool_registry, sandbox, memory_store):
+    def __init__(self, tool_registry, sandbox, memory_store, safety=None):
         self.tool_registry = tool_registry
         self.sandbox = sandbox
         self.memory = memory_store
+        self.safety = safety
 
     # ------------------------------------------------------------------
     # Public API
@@ -74,6 +76,11 @@ class Executor:
             step_id = step["id"]
             tool_name = step["tool"]
             args = step["args"]
+
+            if self.safety is not None:
+                allowed, reason = self.safety.may_execute(step)
+                if not allowed:
+                    return {"status": "step_refused", "error": reason, "step": step}
 
             tool = self.tool_registry.get(tool_name)
 

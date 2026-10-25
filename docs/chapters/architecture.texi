@@ -253,6 +253,31 @@ All other tool types (@code{file_write}, @code{file_read}, @code{patch},
 unconditionally at the @code{SafetyEngine} level; the Sandbox provides a
 second layer of protection for shell commands only.
 
+@subheading Agent modes
+@cindex modes
+@cindex edit mode
+@cindex plan mode
+
+The engine also enforces the active @dfn{mode} (@file{agent/modes.py}):
+
+@multitable @columnfractions .12 .88
+@headitem Mode @tab Effect
+@item @code{ask} @tab Default.  No extra restriction.
+@item @code{auto} @tab No extra restriction (chat skips the per-step prompts).
+@item @code{plan} @tab Plans may be made, but @code{Executor} refuses to run any step.
+@item @code{edit} @tab Only @code{file_read}, @code{file_write} and @code{patch}
+steps are valid; every @code{command} step is rejected.
+@end multitable
+
+Restrictions are enforced twice: when a plan is validated, and again by
+@code{Executor} right before each step runs (@code{may_execute()}), so a
+plan made in one mode cannot run after switching to a stricter one.  A
+plan rejected only because of the mode comes back as @code{plan_refused}
+(``The plan uses tools not allowed in edit mode: command.'') rather than a
+generic error, and is not turned into a chat reply.  Only @code{edit} mode
+adds a line to the planner prompt; in the other modes the prompt is
+unchanged, so Ollama's cached prefix stays valid.
+
 @noindent
 Source: @file{agent/safety.py}
 
