@@ -59,13 +59,17 @@ during plan validation and again by @code{AgentCore} before execution.
 For @code{command} steps it applies one rule:
 
 @quotation
-The @code{cmd} value must start with a prefix listed in
+The @code{cmd} value, split into words the same way the sandbox splits
+it, must begin with all the words of an entry in
 @file{harmless_commands.json} or @file{powerful_commands.json}.
 @end quotation
 
-Matching is prefix-based: @code{"ls -la"} matches the prefix @code{"ls"};
-@code{"rm important.txt"} does not match any default prefix and is
-rejected.
+Matching is by whole words, not string prefixes: @code{"ls -la"} matches
+the entry @code{"ls"}, and @code{"git log -n 3"} matches @code{"git log"};
+but @code{"lsblk"} does not match @code{"ls"}, @code{"catastrophe"} does not
+match @code{"cat"}, and @code{"git push"} does not match @code{"git log"}.
+A path-qualified program (@code{/bin/ls}) or a command that cannot be
+parsed (unbalanced quotes) is rejected.
 
 When a step fails validation the entire plan is rejected with the error
 @code{"LLM returned malformed plan"}.  The agent never executes a partial
@@ -116,8 +120,9 @@ returns @code{returncode=1} with the message
 @strong{No shell expansion.}  The command string is split with
 @code{shlex.split()} and passed as a list to @code{subprocess.run()}.
 Shell metacharacters (@code{&&}, @code{|}, @code{;}, @code{>}) are treated
-as literal argument characters, not operators.  To run a pipeline, use
-@code{"sh -c 'cmd1 | cmd2'"}.
+as literal argument characters, not operators, so @code{ls; rm -rf ~} is
+just @command{ls} with two odd arguments.  Pipelines are not supported:
+@code{sh} is not on the allow-list.
 
 @noindent
 Source: @file{agent/sandbox.py}
@@ -129,21 +134,17 @@ Source: @file{agent/sandbox.py}
 The following table traces the path of a @code{command} step from LLM
 output to execution.
 
-@multitable @columnfractions .25 .40 .35
+@multitable @columnfractions .25 .20 .55
 @headitem Command @tab Result @tab Reason
-@item @code{ls -la} @tab @kbd{executes} @tab matches @code{"ls"} prefix in harmless list
-@item @code{pytest -q} @tab @kbd{executes}* @tab matches @code{"python"} prefix --- or add @code{"pytest"} to harmless list
-@item @code{cat README.md} @tab @kbd{executes} @tab matches @code{"cat"} prefix
-@item @code{cp foo bar} @tab @kbd{executes} @tab matches @code{"cp"} prefix in powerful list
-@item @code{rm file.txt} @tab @kbd{rejected} @tab no @code{"rm"} prefix in either list
+@item @code{ls -la} @tab @kbd{executes} @tab first word is @code{ls}, a harmless entry
+@item @code{lsblk} @tab @kbd{rejected} @tab @code{lsblk} is not @code{ls}: whole words must match
+@item @code{git log -n 3} @tab @kbd{executes} @tab begins with the words @code{git log}
+@item @code{git push} @tab @kbd{rejected} @tab only @code{git log}, @code{git status}, @code{git diff}, @code{git show} are listed
+@item @code{cp foo bar} @tab @kbd{executes} @tab @code{cp} is a powerful entry
+@item @code{rm file.txt} @tab @kbd{rejected} @tab @code{rm} is in neither list
 @item @code{rm -rf /} @tab @kbd{blocked} @tab hard-coded in Sandbox regardless of policy
-@item @code{sudo pacman -Syu} @tab @kbd{rejected} @tab no @code{"sudo"} prefix in either list
-@item @code{git log} @tab @kbd{rejected}* @tab no @code{"git"} prefix by default --- add it to run git commands
+@item @code{sudo pacman -Syu} @tab @kbd{rejected} @tab @code{sudo} is in neither list
 @end multitable
-
-@emph{*} Default lists do not include @code{"pytest"} or @code{"git"}.
-Add them to @file{harmless_commands.json} for a developer workflow
-(@pxref{Editing the Policy Files}).
 
 
 @node Editing the Policy Files
@@ -212,10 +213,9 @@ After editing, run @command{codebud doctor} to confirm the files parse
 correctly.
 
 @item
-Entries are checked by prefix.  An entry of @code{"python"} also allows
-@code{python3} and @code{python -m pytest} --- they all start with
-@code{"python"}.  This is intentional; add more specific prefixes to
-tighten the policy if needed.
+Entries match whole words.  @code{"python"} allows @code{python script.py}
+but not @code{python3}; list each program you want to allow.  A multi-word
+entry such as @code{"git log"} allows only that subcommand.
 @end itemize
 
 

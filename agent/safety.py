@@ -21,6 +21,7 @@ It does NOT:
 
 import json
 import os
+import shlex
 from typing import Any
 
 from .modes import DEFAULT_MODE, step_allowed
@@ -29,6 +30,20 @@ CONFIG_DIR = "config"
 HARMLESS_PATH = os.path.join(CONFIG_DIR, "harmless_commands.json")
 POWERFUL_PATH = os.path.join(CONFIG_DIR, "powerful_commands.json")
 TRUSTED_SEQ_PATH = os.path.join(CONFIG_DIR, "trusted_sequences.json")
+
+
+def _split(cmd: str) -> list[str]:
+    """Split ``cmd`` like the Sandbox does; [] if it cannot be parsed."""
+    try:
+        return shlex.split(cmd)
+    except ValueError:
+        return []
+
+
+def _starts_with_words(words: list[str], entry: str) -> bool:
+    """Return whether ``words`` begins with all the words of ``entry``."""
+    entry_words = entry.split()
+    return bool(entry_words) and words[: len(entry_words)] == entry_words
 
 
 class SafetyEngine:
@@ -109,21 +124,20 @@ class SafetyEngine:
 
     def _validate_command(self, cmd: str) -> bool:
         """
-        Validate shell commands using harmless/powerful lists.
+        Validate a shell command against the harmless/powerful lists.
+
+        Commands run without a shell (Sandbox uses shlex.split), so they
+        are judged on the same parsed words: a list entry such as "cat" or
+        "git log" must match the command's leading words exactly. A mere
+        string prefix is not enough, so "cat" does not admit "catastrophe".
         """
-
-        # Harmless commands: always allowed
-        for allowed in self.harmless_commands:
-            if cmd.startswith(allowed):
-                return True
-
-        # Powerful commands: allowed only if explicitly listed
-        for allowed in self.powerful_commands:
-            if cmd.startswith(allowed):
-                return True
-
-        # Otherwise: reject
-        return False
+        words = _split(cmd)
+        if not words:
+            return False
+        return any(
+            _starts_with_words(words, entry)
+            for entry in (*self.harmless_commands, *self.powerful_commands)
+        )
 
     def _load_json(self, path: str) -> list[str]:
         """Load a JSON list from disk."""
