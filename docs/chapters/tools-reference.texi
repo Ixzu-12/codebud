@@ -344,7 +344,7 @@ programmatically when building an index.
 @cindex search_embeddings tool
 @cindex semantic search
 
-Embeds the query, loads @file{data/embeddings/index.json}, computes cosine
+Embeds the query, loads @file{~/.local/share/codebud/embeddings/index.json}, computes cosine
 similarity against every stored entry, and returns the top-@var{k} matches.
 
 @subsection Arguments
@@ -379,7 +379,7 @@ vectors vs.@: Ollama's 2048-dimensional vectors), cosine similarity returns
 Clear the index to fix this:
 
 @example
-echo "[]" > data/embeddings/index.json
+echo "[]" > ~/.local/share/codebud/embeddings/index.json
 @end example
 
 Then re-embed your content.  @xref{Embedding Dimension Mismatch}.

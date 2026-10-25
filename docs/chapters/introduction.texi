@@ -45,7 +45,7 @@ first non-zero exit code.
 
 @item
 @strong{Remember.}  Every completed step is appended to an on-disk memory
-timeline (@file{data/memory/entries.jsonl}) so that a future session can
+timeline (@file{~/.local/share/codebud/memory/entries.jsonl}) so that a future session can
 inspect what happened.
 @end enumerate
 

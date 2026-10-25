@@ -123,7 +123,7 @@ this delegates to @code{Sandbox.run_command(cmd)}.
 @item
 @strong{Executor} calls @code{MemoryStore.add_snapshot(step, result)}
 after each completed step.  The snapshot is persisted to
-@file{data/memory/entries.jsonl} immediately.
+@file{~/.local/share/codebud/memory/entries.jsonl} immediately.
 
 @item
 @strong{Executor} stops and returns a @code{step_error} dict if any step
@@ -345,7 +345,7 @@ Source: @file{agent/sandbox.py}
 @section MemoryStore
 @cindex MemoryStore
 @cindex memory timeline
-@cindex data/memory/entries.jsonl
+@cindex entries.jsonl
 
 @code{MemoryStore} maintains a chronological list of execution snapshots.
 Each snapshot contains:
@@ -360,7 +360,7 @@ Each snapshot contains:
 @}
 @end example
 
-Snapshots are stored as JSON Lines in @file{data/memory/entries.jsonl}:
+Snapshots are stored as JSON Lines in @file{~/.local/share/codebud/memory/entries.jsonl}:
 one snapshot per line, appended (and @code{fsync}ed) after every completed
 step.  Earlier lines are never rewritten, so a crash mid-plan cannot lose
 earlier results.
@@ -369,14 +369,14 @@ earlier results.
 @item
 Two codebud processes may record at the same time: appends are
 serialised with an exclusive @code{flock} on
-@file{data/memory/entries.jsonl.lock}.
+@file{~/.local/share/codebud/memory/entries.jsonl.lock}.
 
 @item
 A line that cannot be parsed (for example, a write cut off by a crash) is
 skipped with a warning on standard error and left in the file untouched.
 
 @item
-A legacy @file{data/memory/entries.json} (a single JSON array, used before
+A legacy @file{entries.json} next to it (a single JSON array, used before
 JSON Lines) is converted automatically on first start and kept as
 @file{entries.json.migrated}.  If it cannot be parsed it is renamed to
 @file{entries.json.corrupt-@var{timestamp}} instead, and a new history is
@@ -391,7 +391,7 @@ Source: @file{agent/memory.py}
 @section Sessions
 @cindex sessions
 @cindex checkpoints
-@cindex data/sessions
+@cindex sessions directory
 
 @file{agent/sessions.py} saves each @command{chat} conversation so it can be
 resumed later.  Where @code{MemoryStore} records executed @emph{steps},
@@ -399,7 +399,7 @@ a session records the @emph{conversation}: the history the planner sees,
 plus the active model.  Each session is one JSON file:
 
 @example
-data/sessions/20261025-093012-7f3a.json
+~/.local/share/codebud/sessions/20261025-093012-7f3a.json
 @{
   "version": 1,
   "id": "20261025-093012-7f3a",
@@ -526,12 +526,12 @@ agent/cli/
 ├── doctor.py          health checks
 └── errors.py          error → fix lookup table
 
-config/
+config/                        default policy (overridable, see Files and Directories)
 ├── harmless_commands.json
 ├── powerful_commands.json
 └── trusted_sequences.json
 
-data/
+~/.local/share/codebud/        runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
 └── embeddings/index.json      embedding index (auto-created)

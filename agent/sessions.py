@@ -3,7 +3,7 @@ agent/sessions.py
 
 Chat session checkpoints. Each conversation is saved to
 
-    data/sessions/<id>.json
+    $XDG_DATA_HOME/codebud/sessions/<id>.json   (see agent/paths.py)
 
 after every turn, so it can be resumed later with `codebud chat --resume`.
 This is separate from MemoryStore, which records executed *steps*; a
@@ -28,11 +28,13 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
+from . import paths
 from .fsutil import atomic_write_text
 
 logger = logging.getLogger(__name__)
 
-SESSIONS_DIR = "data/sessions"
+# Overridable for tests; None means the default location in the data dir.
+SESSIONS_DIR: str | None = None
 FORMAT_VERSION = 1
 
 _NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
@@ -62,12 +64,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _dir() -> str:
+    """Return the sessions directory (SESSIONS_DIR, else the data dir's)."""
+    return SESSIONS_DIR or str(paths.data_dir() / "sessions")
+
+
 def _path(session_id: str) -> str:
-    return os.path.join(SESSIONS_DIR, f"{session_id}.json")
+    return os.path.join(_dir(), f"{session_id}.json")
 
 
 def _lock_path(session_id: str) -> str:
-    return os.path.join(SESSIONS_DIR, f"{session_id}.lock")
+    return os.path.join(_dir(), f"{session_id}.lock")
 
 
 def _try_lock(session_id: str):
@@ -101,10 +108,10 @@ def _read(session_id: str) -> dict[str, Any]:
 
 def _all_session_data() -> list[dict[str, Any]]:
     """Return the parsed contents of every readable session file."""
-    if not os.path.isdir(SESSIONS_DIR):
+    if not os.path.isdir(_dir()):
         return []
     found = []
-    for entry in sorted(os.listdir(SESSIONS_DIR)):
+    for entry in sorted(os.listdir(_dir())):
         if not entry.endswith(".json") or entry.startswith("."):
             continue
         try:
@@ -140,7 +147,7 @@ class Session:
     @classmethod
     def create(cls, name: str | None = None) -> "Session":
         """Reserve a new, unique session file and open it."""
-        os.makedirs(SESSIONS_DIR, exist_ok=True)
+        os.makedirs(_dir(), exist_ok=True)
         for _ in range(100):
             session_id = f"{_timestamp()}-{_random_suffix()}"
             try:

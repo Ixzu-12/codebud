@@ -27,9 +27,16 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
+from . import paths
 from .fsutil import atomic_write_text
 
-MEMORY_PATH = "data/memory/entries.jsonl"
+# Overridable for tests; None means the default location in the data dir.
+MEMORY_PATH: str | None = None
+
+
+def _path() -> str:
+    """Return the memory file in use (MEMORY_PATH, else the data dir's)."""
+    return MEMORY_PATH or str(paths.data_dir() / "memory" / "entries.jsonl")
 
 
 class MemoryStore:
@@ -45,7 +52,7 @@ class MemoryStore:
 
     def __init__(self):
         self.history: list[dict[str, Any]] = []
-        os.makedirs(os.path.dirname(MEMORY_PATH), exist_ok=True)
+        os.makedirs(os.path.dirname(_path()), exist_ok=True)
         with self._locked():
             self._migrate_legacy_file()
             self._load()
@@ -76,7 +83,7 @@ class MemoryStore:
         # can never be lost to an interrupted write. The lock keeps lines
         # from two codebud processes from interleaving.
         with self._locked():
-            with open(MEMORY_PATH, "a+b") as f:
+            with open(_path(), "a+b") as f:
                 if f.tell() > 0:
                     f.seek(-1, os.SEEK_END)
                     if f.read(1) != b"\n":
@@ -95,7 +102,7 @@ class MemoryStore:
     @contextmanager
     def _locked(self):
         """Hold an exclusive flock(2) on the memory lock file."""
-        with open(f"{MEMORY_PATH}.lock", "a") as lock:
+        with open(f"{_path()}.lock", "a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             yield
 
@@ -108,7 +115,7 @@ class MemoryStore:
         self.history = []
         skipped = 0
         try:
-            with open(MEMORY_PATH) as f:
+            with open(_path()) as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -125,7 +132,7 @@ class MemoryStore:
             return
         if skipped:
             print(
-                f"codebud: skipped {skipped} unreadable line(s) in {MEMORY_PATH}",
+                f"codebud: skipped {skipped} unreadable line(s) in {_path()}",
                 file=sys.stderr,
             )
 
@@ -136,8 +143,8 @@ class MemoryStore:
         written atomically before the old one is renamed to
         entries.json.migrated, so a crash part-way loses nothing.
         """
-        legacy = os.path.splitext(MEMORY_PATH)[0] + ".json"
-        if legacy == MEMORY_PATH or os.path.exists(MEMORY_PATH):
+        legacy = os.path.splitext(_path())[0] + ".json"
+        if legacy == _path() or os.path.exists(_path()):
             return
         if not os.path.exists(legacy):
             return
@@ -151,7 +158,7 @@ class MemoryStore:
             return
 
         lines = "".join(json.dumps(e) + "\n" for e in entries)
-        atomic_write_text(MEMORY_PATH, lines)
+        atomic_write_text(_path(), lines)
         os.replace(legacy, f"{legacy}.migrated")
 
     def _quarantine_corrupt_file(self, path):

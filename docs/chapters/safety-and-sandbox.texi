@@ -167,10 +167,13 @@ output to execution.
 @section Editing the Policy Files
 @cindex editing policy files
 
-Edit @file{config/harmless_commands.json} and
-@file{config/powerful_commands.json} with any text editor.  Changes take
-effect the next time @code{AgentCore} is initialised (i.e.@: the next
-@command{codebud run} invocation).
+Copy the default @file{harmless_commands.json} or
+@file{powerful_commands.json} to @file{~/.config/codebud/} (for all
+projects) or to a project's @file{.codebud/} (for that project only) and
+edit the copy with any text editor (@pxref{Policy JSON Files}).  Changes
+take effect the next time @code{AgentCore} is initialised (i.e.@: the next
+@command{codebud} invocation); @command{codebud config} shows which file is
+in effect.
 
 @subsection Recommended configuration for Python development
 
@@ -180,7 +183,7 @@ code runners (@code{python}, @code{python3}, @code{pytest}, @code{ruff}) are
 powerful, so @code{auto} mode confirms them.  Typical additions:
 
 @example
-@r{config/powerful_commands.json:}
+@r{~/.config/codebud/powerful_commands.json:}
 [
   "grep", "sed", "awk", "cp", "mv",
   "python", "python3", "pytest", "ruff",

@@ -72,7 +72,7 @@ Troubleshooting · Glossary.
 
 ```
 agent/          Core agent (planner, executor, safety, sandbox, memory, tools)
-config/         Safety policy JSON files
+config/         Default safety policy (overridable per user/project)
 data/           Embedding index and memory snapshots
 docs/           GNU Texinfo manual
 openclaw/       OpenClaw SKILL.md (teaches the OpenClaw gateway to invoke codebud)

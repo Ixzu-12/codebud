@@ -16,7 +16,7 @@ Subcommands
                   --model/-m <name> overrides OLLAMA_MODEL at startup;
                   /model <name> switches mid-session, /models lists available
   doctor          Check the environment (Ollama, model, config, RAM, disk)
-  history         Show past step executions (data/memory/entries.jsonl)
+  history         Show past step executions
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   version         Print version information
@@ -706,7 +706,7 @@ def cmd_sessions(args):
 
 
 def cmd_history(args):
-    """Show past step executions recorded in data/memory/entries.jsonl.
+    """Show past step executions recorded by MemoryStore (in the data directory).
 
     This is persisted, cross-session execution history (MemoryStore), distinct
     from the in-session conversation history shown by /history in `chat`.
@@ -799,6 +799,13 @@ def cmd_config(_args):
     print(f"  {_OUT_DIM}CODEBUD_NUM_CTX   {_OUT_RESET} = {num_ctx()}")
     print(f"  {_OUT_DIM}OPENAI_API_KEY    {_OUT_RESET} = {openai_key}")
     print(f"  {_OUT_DIM}WEB_SEARCH_ENABLED{_OUT_RESET} = {web_search}")
+
+    from agent.paths import data_dir, policy_file
+
+    print(f"\n{_OUT_BOLD}Files:{_OUT_RESET}")
+    print(f"  {_OUT_DIM}{'data directory':<24}{_OUT_RESET} = {data_dir()}")
+    for name in ("harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"):
+        print(f"  {_OUT_DIM}{name:<24}{_OUT_RESET} = {policy_file(name)}")
 
 
 # ---------------------------------------------------------------------------
@@ -960,6 +967,17 @@ def main():
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    # One-time copy of data written by older versions to the checkout's data/.
+    from agent.paths import data_dir, migrate_legacy_data
+
+    copied = migrate_legacy_data()
+    if copied:
+        print(
+            f"codebud: copied {len(copied)} data file(s) from the old data/ directory to "
+            f"{data_dir()}; the originals were left in place.",
+            file=sys.stderr,
+        )
 
     dispatch = {
         "run": cmd_run,

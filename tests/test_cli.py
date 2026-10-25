@@ -136,28 +136,23 @@ class TestDoctorChecks:
     def test_config_files_pass(self, tmp_path, monkeypatch):
         from agent.cli import doctor
 
-        # Point _REPO_ROOT to a temp dir with valid config files
-        config = tmp_path / "config"
-        config.mkdir()
-        (config / "harmless_commands.json").write_text('["ls", "cat"]')
-        (config / "powerful_commands.json").write_text('["rm"]')
-        monkeypatch.setattr(doctor, "_REPO_ROOT", tmp_path)
-
+        monkeypatch.chdir(tmp_path)  # anywhere: the packaged defaults apply
         passed, label, _ = doctor.check_config_files()
         assert passed
+        assert "Policy files OK" in label
 
     def test_config_files_bad_json(self, tmp_path, monkeypatch):
         from agent.cli import doctor
 
-        config = tmp_path / "config"
-        config.mkdir()
-        (config / "harmless_commands.json").write_text("not-json{{{")
-        (config / "powerful_commands.json").write_text("[]")
-        monkeypatch.setattr(doctor, "_REPO_ROOT", tmp_path)
+        project = tmp_path / ".codebud"
+        project.mkdir()
+        (project / "harmless_commands.json").write_text("not-json{{{")
+        monkeypatch.chdir(tmp_path)
 
         passed, label, hint = doctor.check_config_files()
         assert not passed
         assert "JSON" in label or "JSON" in hint
+        assert ".codebud" in label
 
     def test_run_doctor_all_pass(self, monkeypatch, capsys):
         import requests

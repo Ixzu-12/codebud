@@ -2,9 +2,9 @@
 @chapter Configuration
 @cindex configuration
 
-Codebud has no configuration file of its own.  All runtime behaviour is
-controlled through environment variables and through the JSON policy files
-in the @file{config/} directory.  This chapter documents both.
+Codebud has no configuration file of its own.  Runtime behaviour is
+controlled through environment variables and through three JSON policy
+files.  This chapter documents both, and where Codebud keeps its files.
 
 @menu
 * Environment Variables Overview::  Variables that control Codebud.
@@ -15,6 +15,7 @@ in the @file{config/} directory.  This chapter documents both.
 * Powerful Commands::               Commands allowed with care.
 * Trusted Sequences::               Named multi-step sequences.
 * Checking Your Configuration::     Using codebud config.
+* Files and Directories::           Where data and policy files live.
 @end menu
 
 
@@ -155,36 +156,53 @@ prompt is replaced with a notice so the planner knows not to use it.
 @node Policy JSON Files
 @section Policy JSON Files
 @cindex policy files
-@cindex config/ directory
 
-The @file{config/} directory contains three JSON files that the
-@code{SafetyEngine} loads at startup.  You can edit them without restarting
-Codebud --- they are re-read each time @code{AgentCore} is initialised.
+Three JSON files make up the safety policy that the @code{SafetyEngine}
+loads each time @code{AgentCore} starts:
 
 @table @file
-@item config/harmless_commands.json
-Commands that are always permitted.  @xref{Harmless Commands}.
+@item harmless_commands.json
+Commands that only read or report.  @xref{Harmless Commands}.
 
-@item config/powerful_commands.json
+@item powerful_commands.json
 Commands that run code or change files.  They are permitted, but in
 @code{auto} mode each one needs an explicit confirmation.
 @xref{Powerful Commands}.
 
-@item config/trusted_sequences.json
+@item trusted_sequences.json
 Named multi-step sequences that the planner may propose as a unit.
 @xref{Trusted Sequences}.
 @end table
 
-All three files must be valid JSON arrays.  If a file is missing or
-malformed, the @code{SafetyEngine} treats that list as empty and logs a
-warning.  @command{codebud doctor} validates all three files on startup.
+Each file is looked up separately, and the first one found wins:
+
+@enumerate
+@item
+@file{.codebud/@var{name}} in the current project: the nearest
+@file{.codebud/} directory at or above the directory Codebud is started
+from, found the way Git finds @file{.git/}.
+@item
+@file{$XDG_CONFIG_HOME/codebud/@var{name}} (by default
+@file{~/.config/codebud/@var{name}}): your own policy for all projects.
+@item
+The defaults shipped with Codebud.
+@end enumerate
+
+To change the policy, copy a default file to @file{~/.config/codebud/} (or
+a project's @file{.codebud/}) and edit the copy; do not edit the shipped
+defaults.  @command{codebud config} shows which file is in effect for each
+name (@pxref{Checking Your Configuration}).
+
+All three files must be valid JSON arrays.  If a file is malformed, the
+@code{SafetyEngine} treats that list as empty and logs a warning;
+@command{codebud doctor} validates the files in effect.
 
 
 @node Harmless Commands
 @section Harmless Commands
 @cindex harmless_commands.json
 
-@file{config/harmless_commands.json} lists commands that only read or
+@file{harmless_commands.json} lists commands that only read or
 report.  A @code{command} step is accepted when its leading words match an
 entry exactly (@pxref{The Safety Engine}): @code{"ls"} allows
 @code{ls -la} but not @code{lsblk}, and @code{"git log"} allows
@@ -214,7 +232,7 @@ powerful list.
 @section Powerful Commands
 @cindex powerful_commands.json
 
-@file{config/powerful_commands.json} lists commands that run code or
+@file{powerful_commands.json} lists commands that run code or
 change files.  They are permitted, but they are not trusted blindly: in
 @code{auto} mode, where a plan otherwise runs after one approval, Codebud
 stops before each powerful step and asks @samp{Run it? [y/N]}
@@ -254,7 +272,7 @@ block for the most destructive patterns (@pxref{The Sandbox}).
 @section Trusted Sequences
 @cindex trusted_sequences.json
 
-@file{config/trusted_sequences.json} is a JSON array of named
+@file{trusted_sequences.json} is a JSON array of named
 multi-step sequences.  Each entry has a @code{name} and a @code{sequence}
 of command prefixes:
 
@@ -312,3 +330,31 @@ three policy JSON files parse without errors.  Each check prints
 codebud doctor
 @end example
 @end table
+
+
+@node Files and Directories
+@section Files and Directories
+@cindex XDG directories
+@cindex data directory
+@cindex .codebud directory
+
+Codebud's locations do not depend on the directory it is started from.
+
+@multitable @columnfractions .38 .62
+@headitem Location @tab Contents
+@item @file{$XDG_DATA_HOME/codebud/} (default @file{~/.local/share/codebud/})
+@tab Runtime data: @file{memory/entries.jsonl} (execution history),
+@file{sessions/} (chat sessions), @file{embeddings/index.json}.
+@item @file{$XDG_CONFIG_HOME/codebud/} (default @file{~/.config/codebud/})
+@tab Your policy files, overriding the shipped defaults.
+@item @file{.codebud/} in a project
+@tab Policy files for that project, overriding both
+(@pxref{Policy JSON Files}).
+@end multitable
+
+Versions before October 2026 kept runtime data in a @file{data/} directory
+inside the source checkout.  On first start, Codebud copies anything found
+there into the data directory and reports how many files it copied; the
+originals are left in place, and you can delete @file{data/} once you have
+checked the new location.
+

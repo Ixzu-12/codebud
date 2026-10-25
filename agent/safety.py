@@ -20,16 +20,17 @@ It does NOT:
 """
 
 import json
-import os
 import shlex
 from typing import Any
 
 from .modes import DEFAULT_MODE, step_allowed
+from .paths import policy_file
 
-CONFIG_DIR = "config"
-HARMLESS_PATH = os.path.join(CONFIG_DIR, "harmless_commands.json")
-POWERFUL_PATH = os.path.join(CONFIG_DIR, "powerful_commands.json")
-TRUSTED_SEQ_PATH = os.path.join(CONFIG_DIR, "trusted_sequences.json")
+# Policy files, looked up by agent/paths.policy_file(): the project's
+# .codebud/, then the user's config dir, then the defaults shipped with codebud.
+HARMLESS_FILE = "harmless_commands.json"
+POWERFUL_FILE = "powerful_commands.json"
+TRUSTED_SEQ_FILE = "trusted_sequences.json"
 
 
 def _split(cmd: str) -> list[str]:
@@ -121,9 +122,9 @@ class SafetyEngine:
     mode = DEFAULT_MODE
 
     def __init__(self):
-        self.harmless_commands = self._load_json(HARMLESS_PATH)
-        self.powerful_commands = self._load_json(POWERFUL_PATH)
-        self.trusted_sequences = self._load_json(TRUSTED_SEQ_PATH)
+        self.harmless_commands = self._load_json(policy_file(HARMLESS_FILE))
+        self.powerful_commands = self._load_json(policy_file(POWERFUL_FILE))
+        self.trusted_sequences = self._load_json(policy_file(TRUSTED_SEQ_FILE))
 
     # ------------------------------------------------------------------
     # Public API

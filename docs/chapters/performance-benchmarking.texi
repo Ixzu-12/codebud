@@ -396,7 +396,7 @@ SafetyEngine, MemoryStore, LLMPlanner, Executor
 @item @code{_validate_plan_structure()} checking the plan against the schema
 @item @code{AgentCore._validate_plan()} checking safety for each step
 @item @code{Executor.execute_plan()} running @command{say hello} in the sandbox
-@item @code{MemoryStore.add_snapshot()} writing the result to @file{data/memory/entries.jsonl}
+@item @code{MemoryStore.add_snapshot()} writing the result to @file{~/.local/share/codebud/memory/entries.jsonl}
 @end itemize
 
 @noindent

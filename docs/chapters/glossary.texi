@@ -54,7 +54,7 @@ that point in similar directions in high-dimensional space.  Codebud
 generates embeddings with Ollama's @code{/api/embed} endpoint.
 
 @item Embedding index
-The file @file{data/embeddings/index.json}.  It stores a list of
+The file @file{~/.local/share/codebud/embeddings/index.json}.  It stores a list of
 @code{@{text, vector@}} pairs.  The @code{search_embeddings} tool loads this
 file and returns the entries whose vectors are closest to the query vector.
 
@@ -76,7 +76,7 @@ input prompt (prefill), it generates output tokens one at a time.  The
 during this phase.
 
 @item Harmless commands
-Commands listed in @file{config/harmless_commands.json}.  They are
+Commands listed in @file{harmless_commands.json}.  They are
 unconditionally allowed by the @code{SafetyEngine}.
 
 @item JSON plan
@@ -90,7 +90,7 @@ human-like text continuations given a prompt.  Codebud uses Qwen2.5-Coder
 served by Ollama.
 
 @item Memory timeline
-The persistent log in @file{data/memory/entries.jsonl}.  After each
+The persistent log in @file{~/.local/share/codebud/memory/entries.jsonl}.  After each
 executed step, the @code{MemoryStore} appends a snapshot with the
 timestamp, step metadata, and tool output.  The timeline accumulates
 across sessions.
@@ -130,7 +130,7 @@ calls the LLM, strips code fences, parses JSON, validates the plan
 structure, and retries once on parse failure.
 
 @item Powerful commands
-Commands listed in @file{config/powerful_commands.json}.  They are
+Commands listed in @file{powerful_commands.json}.  They are
 permitted by the @code{SafetyEngine} but flagged in the planner prompt as
 commands that modify state and should be used with care.
 

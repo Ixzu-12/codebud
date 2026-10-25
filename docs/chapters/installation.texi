@@ -150,7 +150,7 @@ The repository layout:
 
 @example
 agent/          Core agent (planner, executor, safety, tools, memory)
-config/         Safety policy JSON files
+config/         Default safety policy (overridable per user/project)
 data/           Embedding index and memory snapshots
 docs/           This manual (GNU Texinfo)
 openclaw/       OpenClaw SKILL.md (browser UI integration)

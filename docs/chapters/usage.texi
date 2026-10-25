@@ -396,7 +396,8 @@ by @option{--resume}; an explicit @option{--mode} takes precedence.
 @anchor{Saved Sessions}
 @subheading Saved sessions
 
-Every chat is saved automatically to @file{data/sessions/} after each turn
+Every chat is saved automatically to @file{~/.local/share/codebud/sessions/}
+(@pxref{Files and Directories}) after each turn
 and when it ends; the last line printed tells you how to resume it:
 
 @example
@@ -505,8 +506,8 @@ It checks:
 @item @env{OLLAMA_MODEL} environment variable is set
 @item Ollama server is reachable on @code{http://localhost:11434}
 @item The selected model has been pulled
-@item @file{config/harmless_commands.json} and
-      @file{config/powerful_commands.json} are valid JSON
+@item @file{harmless_commands.json} and
+      @file{powerful_commands.json} are valid JSON
 @item Enough free disk space near @file{~/.ollama/models/}
 @item Enough free RAM for the selected model
 @end enumerate
@@ -553,7 +554,7 @@ shows the conversation turns of the current session only
 (@pxref{The chat Subcommand}).
 
 The entries are stored as JSON Lines in
-@file{data/memory/entries.jsonl}, which @command{history} reads without
+@file{~/.local/share/codebud/memory/entries.jsonl}, which @command{history} reads without
 contacting Ollama.  @xref{MemoryStore}, for the file format and how it is
 kept safe against crashes and concurrent writers.
 

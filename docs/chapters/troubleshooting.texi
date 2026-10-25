@@ -194,8 +194,8 @@ The planner may return:
 
 This can mean a plan step was rejected by the @code{SafetyEngine}.
 The engine blocks any @code{command} step whose @code{cmd} does not
-start with a prefix listed in @file{config/harmless_commands.json} or
-@file{config/powerful_commands.json}.
+start with a prefix listed in @file{harmless_commands.json} or
+@file{powerful_commands.json}.
 
 @strong{To diagnose:}
 
@@ -224,7 +224,7 @@ If the plan contains a @code{command} step with an unexpected @code{cmd},
 either:
 
 @itemize
-@item Add the command prefix to @file{config/harmless_commands.json} if it
+@item Add the command prefix to @file{harmless_commands.json} if it
 is genuinely safe.
 @item Rephrase the request so the planner uses a different tool (e.g.
 @code{file_read} instead of @code{cat}).
@@ -236,14 +236,14 @@ is genuinely safe.
 @cindex embedding dimension mismatch
 
 If you used Codebud before the real Ollama embedding backend was wired up,
-@file{data/embeddings/index.json} may contain 16-dimensional stub vectors.
+@file{~/.local/share/codebud/embeddings/index.json} may contain 16-dimensional stub vectors.
 New embeddings are 2048-dimensional.  Cosine similarity between entries of
 different sizes returns 0.0, making search results incorrect.
 
 @strong{Fix:} clear the index and re-embed your content:
 
 @example
-echo "[]" > data/embeddings/index.json
+echo "[]" > ~/.local/share/codebud/embeddings/index.json
 @end example
 
 Then re-run whatever pipeline populated the index.

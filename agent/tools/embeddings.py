@@ -26,11 +26,19 @@ from typing import Any
 
 import requests
 
+from agent import paths
 from agent.llm_stub import num_ctx, ollama_proxies
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_INDEX_PATH = "data/embeddings/index.json"
+# Overridable for tests; None means the default location in the data dir.
+EMBEDDING_INDEX_PATH: str | None = None
+
+
+def _index_path() -> str:
+    """Return the embedding index file (EMBEDDING_INDEX_PATH, else the data dir's)."""
+    return EMBEDDING_INDEX_PATH or str(paths.data_dir() / "embeddings" / "index.json")
+
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 _DEFAULT_EMBED_MODEL = (
@@ -146,14 +154,14 @@ class EmbeddingSearchTool:
         return {"stdout": json.dumps(top_k, indent=2), "stderr": "", "returncode": 0}
 
     def _ensure_storage(self):
-        os.makedirs(os.path.dirname(EMBEDDING_INDEX_PATH), exist_ok=True)
-        if not os.path.exists(EMBEDDING_INDEX_PATH):
-            with open(EMBEDDING_INDEX_PATH, "w") as f:
+        os.makedirs(os.path.dirname(_index_path()), exist_ok=True)
+        if not os.path.exists(_index_path()):
+            with open(_index_path(), "w") as f:
                 json.dump([], f, indent=2)
 
     def _load_index(self):
         try:
-            with open(EMBEDDING_INDEX_PATH) as f:
+            with open(_index_path()) as f:
                 return json.load(f)
         except Exception:
             return []

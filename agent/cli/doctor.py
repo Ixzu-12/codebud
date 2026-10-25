@@ -20,7 +20,6 @@ import requests
 from agent.llm_stub import ollama_proxies
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # ANSI color helpers — degrade to no-op when stdout isn't a TTY (piped output).
 _IS_TTY = sys.stdout.isatty()
@@ -98,22 +97,23 @@ def check_model_pulled() -> CheckResult:
 
 
 def check_config_files() -> CheckResult:
-    files = [
-        _REPO_ROOT / "config" / "harmless_commands.json",
-        _REPO_ROOT / "config" / "powerful_commands.json",
-    ]
-    for path in files:
+    """Check that the policy files in effect exist and parse."""
+    from agent.paths import policy_file
+
+    names = ["harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"]
+    for name in names:
+        path = policy_file(name)
         if not path.exists():
             return (
                 False,
-                f"Missing config file: {path.name}",
-                f"Ensure {path} exists (check git checkout).",
+                f"Missing policy file: {path}",
+                "Reinstall codebud, or copy the defaults into ~/.config/codebud/.",
             )
         try:
             json.loads(path.read_text())
         except json.JSONDecodeError as exc:
-            return False, f"Invalid JSON in {path.name}: {exc}", f"Fix the JSON in {path}."
-    return True, "Config files OK (harmless_commands.json, powerful_commands.json)", ""
+            return False, f"Invalid JSON in {path}: {exc}", f"Fix the JSON in {path}."
+    return True, f"Policy files OK ({policy_file(names[0]).parent})", ""
 
 
 def check_disk_space() -> CheckResult:

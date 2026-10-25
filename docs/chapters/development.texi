@@ -166,9 +166,8 @@ self._register("my_tool", MyTool())
 
 @item
 @strong{Add to the safety policy} (if the tool runs shell commands).
-Edit @file{config/harmless_commands.json} or
-@file{config/powerful_commands.json} to whitelist any command prefixes
-the tool produces.
+Add the commands the tool produces to @file{harmless_commands.json} or
+@file{powerful_commands.json} (@pxref{Policy JSON Files}).
 
 @item
 @strong{Write tests.}  Add a test class to the appropriate file in
@@ -194,7 +193,7 @@ Without an example, the planner will rarely use it.
 @example
 [ ] agent/tools/my_module.py     — class with description, usage_hint, run()
 [ ] agent/tools/tool_registry.py — registered with _register()
-[ ] config/harmless_commands.json — updated if needed
+[ ] harmless_commands.json (in ~/.config/codebud/) — updated if needed
 [ ] tests/                       — new test cases pass
 [ ] agent/planner.py             — few-shot example added
 @end example
@@ -257,7 +256,9 @@ how many plans are correct to measure whether the change helped.
 
 @subsection Allow a new command
 
-Edit @file{config/harmless_commands.json} to add a prefix:
+Add the command to @file{harmless_commands.json} (your copy in
+@file{~/.config/codebud/}, or @file{config/} in the source tree to change the
+shipped default):
 
 @example
 [
