@@ -71,6 +71,22 @@ match @code{"cat"}, and @code{"git push"} does not match @code{"git log"}.
 A path-qualified program (@code{/bin/ls}) or a command that cannot be
 parsed (unbalanced quotes) is rejected.
 
+@cindex refused arguments
+Some arguments are refused even when the program is listed, because they
+turn it into ``run anything'' or ``delete or overwrite something'':
+
+@multitable @columnfractions .22 .78
+@headitem Program @tab Refused arguments
+@item @command{find} @tab @option{-exec}, @option{-execdir}, @option{-ok},
+@option{-okdir} (run programs), @option{-delete}, @option{-fprint},
+@option{-fprint0}, @option{-fprintf}, @option{-fls} (delete or write files)
+@item @command{python}, @command{python3} @tab @option{-c} (inline code),
+including combined forms such as @option{-Ic}; only the interpreter's own
+options are checked, so @code{python3 script.py -c config.toml} is allowed
+@item @command{git} @tab @option{--output} (writes a file),
+@option{--ext-diff} (runs an external diff program)
+@end multitable
+
 When a step fails validation the entire plan is rejected with the error
 @code{"LLM returned malformed plan"}.  The agent never executes a partial
 plan.

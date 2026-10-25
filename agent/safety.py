@@ -46,6 +46,67 @@ def _starts_with_words(words: list[str], entry: str) -> bool:
     return bool(entry_words) and words[: len(entry_words)] == entry_words
 
 
+# Arguments that turn an allowed program into "run anything" or "delete or
+# overwrite something", refused regardless of the allow-lists.
+_FIND_FORBIDDEN = {
+    "-exec",
+    "-execdir",
+    "-ok",
+    "-okdir",
+    "-delete",
+    "-fprint",
+    "-fprint0",
+    "-fprintf",
+    "-fls",
+}
+_GIT_FORBIDDEN_PREFIXES = ("--output", "--ext-diff")
+_PYTHONS = {"python", "python3"}
+# Python options that take a separate value (the value must not be mistaken
+# for the script name when scanning for -c).
+_PYTHON_VALUE_OPTIONS = {"-W", "-X"}
+
+
+def _python_runs_inline_code(args: list[str]) -> bool:
+    """Return whether the interpreter options in ``args`` include -c.
+
+    Only the interpreter's own options are checked: they end at the first
+    word that is not an option (the script) or after -m, so "-c" passed to
+    a script is not refused.
+    """
+    i = 0
+    while i < len(args):
+        word = args[i]
+        if not word.startswith("-") or word == "-" or word.startswith("--"):
+            if word.startswith("--"):
+                i += 1
+                continue
+            return False
+        flags = word[1:]
+        for pos, flag in enumerate(flags):
+            if flag == "c":
+                return True
+            if flag == "m":
+                return False
+            if f"-{flag}" in _PYTHON_VALUE_OPTIONS:
+                if pos == len(flags) - 1:
+                    i += 1  # value is the next word
+                break  # rest of this word is the option's value
+        i += 1
+    return False
+
+
+def _forbidden_argument(words: list[str]) -> bool:
+    """Return whether ``words`` use an argument this policy always refuses."""
+    program, args = words[0], words[1:]
+    if program == "find":
+        return any(arg in _FIND_FORBIDDEN for arg in args)
+    if program in _PYTHONS:
+        return _python_runs_inline_code(args)
+    if program == "git":
+        return any(arg.startswith(_GIT_FORBIDDEN_PREFIXES) for arg in args)
+    return False
+
+
 class SafetyEngine:
     """
     Validates steps produced by the LLM planner.
@@ -130,9 +191,11 @@ class SafetyEngine:
         are judged on the same parsed words: a list entry such as "cat" or
         "git log" must match the command's leading words exactly. A mere
         string prefix is not enough, so "cat" does not admit "catastrophe".
+        Some arguments are refused even for listed programs (see
+        _forbidden_argument), e.g. find -exec and python -c.
         """
         words = _split(cmd)
-        if not words:
+        if not words or _forbidden_argument(words):
             return False
         return any(
             _starts_with_words(words, entry)
