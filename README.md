@@ -70,7 +70,8 @@ make html    # → docs/codebud.html
 make pdf     # → docs/codebud.pdf
 ```
 
-Topics covered: Installation · Model Management · Usage · Configuration ·
+Topics covered: Introduction · Installation · Model Management ·
+LLM Execution · Performance Benchmarking · Usage · Configuration ·
 Architecture · Tools Reference · Safety & Sandbox · Development ·
 Troubleshooting · Glossary.
 
@@ -81,7 +82,9 @@ src/codebud/    The package: agent, CLI (cli/main.py), tools, default policy
 docs/           GNU Texinfo manual
 scripts/        Developer scripts (benchmark)
 tests/          Test suite (pytest)
-Makefile        GNU-standard build system
+bootstrap       Generates ./configure (GNU Autotools)
+configure.ac    Autoconf input
+Makefile.am     Automake input (also in src/ and docs/)
 pyproject.toml  PEP 621 package metadata and tool configuration
 ```
 
@@ -91,11 +94,15 @@ pyproject.toml  PEP 621 package metadata and tool configuration
 |---|---|---|
 | `OLLAMA_MODEL` | *(required)* | Model name as shown in `codebud models` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `CODEBUD_NUM_CTX` | `8192` | Context window requested from Ollama on every call |
 | `EMBED_MODEL` | same as `OLLAMA_MODEL` | Override model used for embeddings |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
 | `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable (needs `pip install "codebud[openai]"`) |
+| `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the OpenAI fallback |
+| `XDG_DATA_HOME` / `XDG_CONFIG_HOME` | `~/.local/share` / `~/.config` | Where codebud keeps data / your policy files |
 
-Run `codebud config` to see the resolved values of all variables.
+Run `codebud config` to see the resolved values (all but `OPENAI_MODEL`),
+the data directory and the policy files in effect.
 
 ## License
 

@@ -27,8 +27,9 @@ to.  @code{LLMPlanner._strip_code_fence()} removes them before parsing.
 @item Context window
 The maximum number of tokens an LLM can process in a single call --- both
 input (prompt) and output (generated text) combined.  The 3B Qwen model
-has a context window of approximately 32,768 tokens, though Ollama defaults
-to a smaller @code{num_ctx} for speed.
+has a context window of approximately 32,768 tokens.  Ollama loads models
+with a smaller one (@code{num_ctx}) unless asked; Codebud asks for 8,192 on
+every request (@env{CODEBUD_NUM_CTX}).
 
 @item Cosine similarity
 A measure of similarity between two vectors: the cosine of the angle
@@ -54,7 +55,7 @@ that point in similar directions in high-dimensional space.  Codebud
 generates embeddings with Ollama's @code{/api/embed} endpoint.
 
 @item Embedding index
-The file @file{~/.local/share/codebud/embeddings/index.json}.  It stores a list of
+The file @file{$XDG_DATA_HOME/codebud/embeddings/index.json}.  It stores a list of
 @code{@{text, vector@}} pairs.  The @code{search_embeddings} tool loads this
 file and returns the entries whose vectors are closest to the query vector.
 
@@ -65,7 +66,7 @@ code and records every completed step in the @code{MemoryStore}.
 
 @item Few-shot example
 A worked example embedded in the LLM's prompt that demonstrates the
-expected input/output format.  Codebud's planner prompt contains six
+expected input/output format.  Codebud's planner prompt contains five
 examples covering common request patterns.  Few-shot examples are the most
 reliable way to steer a small model toward correct JSON output.
 
@@ -76,8 +77,9 @@ input prompt (prefill), it generates output tokens one at a time.  The
 during this phase.
 
 @item Harmless commands
-Commands listed in @file{harmless_commands.json}.  They are
-unconditionally allowed by the @code{SafetyEngine}.
+Commands listed in @file{harmless_commands.json}: they only read or
+report, and run without confirmation.  Arguments that are always refused
+(@code{find -exec}, @dots{}) still apply.
 
 @item JSON plan
 The structured output produced by the @code{LLMPlanner}: a dict with
@@ -90,7 +92,7 @@ human-like text continuations given a prompt.  Codebud uses Qwen2.5-Coder
 served by Ollama.
 
 @item Memory timeline
-The persistent log in @file{~/.local/share/codebud/memory/entries.jsonl}.  After each
+The persistent log in @file{$XDG_DATA_HOME/codebud/memory/entries.jsonl}.  After each
 executed step, the @code{MemoryStore} appends a snapshot with the
 timestamp, step metadata, and tool output.  The timeline accumulates
 across sessions.
@@ -114,10 +116,12 @@ uses Ollama's @code{/api/generate} endpoint (streaming) and
 @code{/api/embed} endpoint (embeddings).
 
 @item Plan error
-The response @code{@{"status": "plan_error", "error": "..."@}} returned by
-@code{AgentCore.handle_user_message()} when the planner cannot produce a
-valid plan.  Common causes: the model returned empty output, invalid JSON,
-or a plan that failed safety validation.
+The planner's result @code{@{"status": "plan_error", "error": "..."@}} when
+it cannot produce a valid plan.  Common causes: the model returned empty
+output, invalid JSON, or a plan that failed safety validation.
+@code{AgentCore} turns it into a plain chat reply
+(@code{@{"status": "chat_reply"@}}); a plan rejected only because of the
+agent mode is returned as @code{plan_refused} instead.
 
 @item Plan step
 One element of the @code{"plan"} array in a JSON plan.  Each step
@@ -131,13 +135,15 @@ structure, and retries once on parse failure.
 
 @item Powerful commands
 Commands listed in @file{powerful_commands.json}.  They are
-permitted by the @code{SafetyEngine} but flagged in the planner prompt as
-commands that modify state and should be used with care.
+permitted by the @code{SafetyEngine}, but because they run code or change
+files they need an explicit confirmation in @code{auto} mode and in
+@command{codebud run} (unless @option{--yes}).
 
 @item Prefill phase
 The first phase of an LLM call.  The model processes the entire input
-prompt token-by-token before generating any output.  On CPU-only hardware
-this can take several minutes.  The @code{ProgressIndicator} shows a
+prompt before generating any output.  On a CPU-only laptop this takes
+about 30 s for Codebud's first planning request of a session and about 2 s
+afterwards, when Ollama reuses the cached start of the prompt.  The @code{ProgressIndicator} shows a
 spinner and elapsed time during this phase.
 
 @item ProgressIndicator
@@ -148,8 +154,8 @@ scrolling.
 
 @item Prompt
 The text sent to the LLM.  Codebud's planning prompt contains critical
-rules, a tool catalogue, safety rules, a JSON response format, six
-few-shot examples, and the user's request.
+rules, a tool catalogue, safety rules, a JSON response format, five
+few-shot examples, recent conversation history, and the user's request.
 
 @item Quantisation
 A compression technique that reduces model weight precision from 32-bit
@@ -189,7 +195,8 @@ phase on CPU-only hardware.
 @item Token
 The fundamental unit of LLM input and output.  Roughly one word, or
 one to four characters for English text.  Codebud's planning prompts are
-typically 350--400 tokens; generated plans are 50--100 tokens.
+about 1,050 tokens on the first turn of a session; generated plans are
+50--100 tokens.
 
 @item Token rate
 Tokens generated per second during the generation phase.  For the 3B model

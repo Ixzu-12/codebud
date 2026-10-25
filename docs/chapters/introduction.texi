@@ -8,7 +8,9 @@ plain English; Codebud asks a locally-running language model to produce a
 step-by-step plan, validates it against a safety policy, executes each step
 using built-in tools (file I/O, shell commands, unified-diff patching,
 web search, embeddings), and records what happened in a persistent memory
-timeline.  No data leaves your machine.
+timeline.  By default no data leaves your machine: prompts go to a local
+Ollama, unless you point Codebud at a remote one or enable the optional
+OpenAI fallback.
 
 @menu
 * What Codebud Does::           The agent loop in one paragraph.
@@ -72,14 +74,15 @@ search tool (@env{WEB_SEARCH_ENABLED=1}).
 @item CPU-first
 The recommended model (@code{qwen2.5-coder:3b-instruct-q4_K_M}) runs on a
 2018 laptop CPU with 8@tie{}GB RAM.  The streaming LLM interface and live
-progress indicator make the 4--6 minute planning phase bearable
+progress indicator keep the wait visible: planning takes about 30 seconds
+for the first request of a session and about 8 seconds after that
 (@pxref{Progress Output}).
 
 @item Explainability
 The agent never executes without a visible plan.  The @command{plan}
 subcommand lets you inspect what the LLM intends to do before committing.
-The safety policy is a plain JSON file you can read and edit.  Memory is a
-plain JSON file you can inspect at any time.
+The safety policy is plain JSON files you can read and edit.  Memory is a
+plain JSON Lines file you can inspect at any time.
 @end table
 
 

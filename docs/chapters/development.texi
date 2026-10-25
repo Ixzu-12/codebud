@@ -43,6 +43,8 @@ network access use @code{unittest.mock.patch} to replace @code{call_llm}.
 @example
 tests/
 ├── conftest.py                  isolates XDG and legacy data dirs per test
+├── test_build.py                Makefile.am lists every module, data file
+│                                and chapter
 ├── test_chat_input.py           / menu, toolbar, Shift-Tab (prompt_toolkit)
 ├── test_cli.py                  subcommands, doctor, display, chat REPL,
 │                                history, sessions, modes, run --yes
@@ -61,7 +63,8 @@ tests/
 ├── test_safety_policy.py        whole-word matching, refused arguments,
 │                                powerful commands
 ├── test_sessions.py             session files, IDs, locking
-└── test_skill.py                SKILL.md content, codebud skill
+├── test_skill.py                SKILL.md content, codebud skill
+└── test_tools.py                tool and doctor regression tests
 @end example
 
 @subsection Test conventions
@@ -69,7 +72,7 @@ tests/
 @itemize
 @item
 @strong{No live network.}  All LLM calls are mocked with
-@code{patch("agent.planner.call_llm", ...)} or equivalent.
+@code{patch("codebud.planner.call_llm", ...)} or equivalent.
 
 @item
 @strong{No live Ollama required.}  @code{test_llm_stub.py} patches
@@ -208,22 +211,26 @@ Without an example, the planner will rarely use it.
 @cindex planner prompt, tuning
 @cindex few-shot examples
 
-The planner prompt is assembled in @code{LLMPlanner._build_prompt()} in
-@file{src/codebud/planner.py}.  The most effective ways to improve JSON
+The planner prompt text is in @code{LLMPlanner._render_prompt()} in
+@file{src/codebud/planner.py}; @code{_build_prompt()} calls it and trims
+the conversation history to fit the context window.  The most effective ways to improve JSON
 reliability are:
 
 @table @strong
 @item Add or refine few-shot examples
-The class attribute @code{_FEW_SHOT_EXAMPLES} contains six worked examples.
-If the model consistently picks the wrong tool for a specific pattern,
-add an example that shows the correct choice.  The format is:
+The class attribute @code{_FEW_SHOT_EXAMPLES} contains five worked
+examples.  If the model consistently picks the wrong tool for a specific
+pattern, add an example that shows the correct choice.  The format is:
 
 @example
-Example N --- <short description>:
+Example N:
 User: "<user message>"
-Response:
 @{"status": "ok", "plan": [...]@}
 @end example
+
+Every planner prompt starts with the same text, which lets Ollama reuse its
+cache between requests; changing the examples makes the next request of
+each session a little slower once.
 
 @item Add a CRITICAL RULE
 The prompt has a numbered @samp{CRITICAL RULES} section at the top.
@@ -238,8 +245,8 @@ say what the required args are and give a one-line @code{@{"arg": "value"@}}
 example.
 
 @item Test with a fixed battery
-After any prompt change, run the five standard requests from Phase E of the
-development plan:
+After any prompt change, run a fixed set of requests and compare the
+plans, for example:
 
 @example
 codebud plan "list files in current directory"
@@ -266,19 +273,24 @@ shipped default):
 
 @example
 [
-  "echo", "cat", "ls", "pwd", "whoami", "python", "python3",
-  "pytest",
-  "git log", "git status", "git diff"
+  "echo", "cat", "head", "tail", "ls", "pwd", "whoami", "wc",
+  "find", "diff", "git log", "git status", "git diff", "git show",
+  "tree"
 ]
 @end example
+
+Harmless commands only read or report.  A command that runs code or
+changes files (an interpreter, a test runner, a build tool) belongs in
+@file{powerful_commands.json} instead, so it is confirmed before running
+(@pxref{Powerful Commands}).
 
 Save the file.  The change takes effect on the next @command{codebud run}
 invocation without restarting anything.
 
 @subsection Restrict a command
 
-Remove the prefix from the JSON file.  The @code{SafetyEngine} will reject
-any plan step whose @code{cmd} starts with that prefix.
+Remove the entry from the JSON file.  The @code{SafetyEngine} will reject
+any plan step whose command's words begin with that entry.
 
 @subsection Add a hard block in the Sandbox
 
