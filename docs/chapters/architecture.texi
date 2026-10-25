@@ -9,7 +9,7 @@ does, how data flows between them, and why the boundaries are drawn where
 they are.
 
 @menu
-* Component Overview::          The six subsystems and their roles.
+* Component Overview::          The subsystems and their roles.
 * The Agent Loop::              Data flow through a single request.
 * AgentCore::                   The central orchestrator.
 * LLMPlanner::                  Prompt construction and JSON parsing.
@@ -97,7 +97,11 @@ LLM stub.  Tokens stream back from Ollama; each fragment is forwarded to
 @strong{LLMPlanner} strips any Markdown code fences from the raw output
 and attempts @code{json.loads()}.  If parsing fails, it retries once
 with a minimal JSON-only prompt.  If it fails again, it returns
-@code{@{"status": "plan_error", ...@}}.
+@code{@{"status": "plan_error", ...@}}, and @code{AgentCore} asks the model
+for a plain conversational answer instead (@code{call_llm_plain()}),
+returned as @code{@{"status": "chat_reply", "reply": ...@}}.  A plan
+rejected only because of the agent mode comes back as
+@code{plan_refused} and is reported as such.
 
 @item
 @strong{LLMPlanner} validates the parsed JSON:
@@ -111,27 +115,32 @@ passes.
 @code{_validate_plan()} (same checks, defence-in-depth).
 
 @item
-@strong{CLI} receives the validated plan dict and prints it.  In
-@command{run} mode it immediately calls @code{Executor.execute_plan()}.
-In @command{chat} mode it prompts the user for @kbd{y/n/a/q} first.
+@strong{CLI} receives the validated plan dict and prints it, then runs
+the steps one at a time with @code{Executor.execute_plan()}.
+@command{run} asks before each powerful command unless @option{--yes} is
+given (every step with @option{-i}).  @command{chat} first asks
+@samp{Run this plan? [y/N/r(evise)]}, then prompts per step depending on
+the agent mode (@pxref{Agent Modes}).
 
 @item
-@strong{Executor} iterates the step list.  For each step it calls
-@code{ToolRegistry.get(tool_name).run(args)}.  For @code{command} steps
+@strong{Executor} iterates the step list.  For each step it first asks
+@code{SafetyEngine.may_execute(step)} (refusing with @code{step_refused}),
+then calls @code{ToolRegistry.get(tool_name).run(args)}.  For @code{command} steps
 this delegates to @code{Sandbox.run_command(cmd)}.
 
 @item
 @strong{Executor} calls @code{MemoryStore.add_snapshot(step, result)}
 after each completed step.  The snapshot is persisted to
-@file{~/.local/share/codebud/memory/entries.jsonl} immediately.
+@file{$XDG_DATA_HOME/codebud/memory/entries.jsonl} immediately.
 
 @item
 @strong{Executor} stops and returns a @code{step_error} dict if any step
 returns a non-zero @code{returncode} or raises an exception.
 
 @item
-@strong{CLI} prints the final one-line outcome per step (or full stdout
-if @option{--verbose}).
+@strong{CLI} prints each step's outcome: full stdout in @command{run} and
+@command{plan -x}; in @command{chat} a 15-line preview (full with
+@option{--verbose}, or afterwards with @code{/output}).
 @end enumerate
 
 
@@ -149,8 +158,22 @@ one instance and calls @code{handle_user_message()} once per turn.  In
 @table @code
 @item handle_user_message(message, on_chunk=None)
 Generate a plan and return it.  Never executes steps.
-Returns @code{@{"status": "ok", "plan": [...]@}} or
-@code{@{"status": "plan_error", "error": "..."@}}.
+Returns @code{@{"status": "ok", "plan": [...]@}},
+@code{@{"status": "chat_reply", "reply": "..."@}} when no valid plan could
+be made, @code{@{"status": "plan_refused", "error": "..."@}} when the agent
+mode forbids it, or @code{@{"status": "plan_error", ...@}} for a malformed
+plan.
+@item get_history(), clear_history(), undo_last_turn(), restore_history(history)
+Read and change the conversation history (@code{/history}, @code{/clear},
+@code{/undo}, @option{--resume}).
+@item compact_history(keep_last=2, on_chunk=None), context_usage()
+@code{/compact}, and the estimate behind the 70% context warning.
+@item get_mode(), set_mode(mode), is_powerful(step)
+The agent mode and whether a step needs confirmation.
+@item get_model(), set_model(model, on_chunk=None)
+The active model; switching validates and warms it.
+@item close()
+Stop the model heartbeat.
 @end table
 
 @noindent
@@ -167,11 +190,14 @@ Source: @file{src/codebud/core.py}
 
 @subsection Prompt construction
 
-@code{_build_prompt()} assembles a structured prompt with five sections:
+@code{_build_prompt()} trims the conversation history to fit the context
+window and @code{_render_prompt()} assembles the prompt from these
+sections, followed by the agent-mode note (edit mode only), the history and
+the request:
 
 @enumerate
 @item
-@strong{Critical rules} --- five numbered instructions telling the model
+@strong{Critical rules} --- seven numbered instructions telling the model
 to output only JSON and to pick the right tool for each operation (e.g.
 ``use @code{command} not @code{file_read} to list directories'').
 
@@ -181,14 +207,14 @@ which lists each tool name, its description, and its @code{usage_hint}.
 
 @item
 @strong{Safety rules} --- the output of @code{SafetyEngine.describe_rules()},
-which lists the harmless and powerful command prefixes.
+which lists the harmless and powerful commands and the trusted sequences.
 
 @item
 @strong{Response format} --- the exact JSON schema expected.
 
 @item
-@strong{Few-shot examples} --- six worked examples covering: list files,
-read a file, run tests, write a file, a multi-step task, and a
+@strong{Few-shot examples} --- five worked examples covering: list files,
+run tests, write a file, a multi-step read-and-patch task, and a
 @code{plan_error} for unsupported requests.
 @end enumerate
 
@@ -233,16 +259,18 @@ Source: @file{src/codebud/planner.py}
 @cindex SafetyEngine
 @cindex safety validation
 
-@code{SafetyEngine} is consulted at two points: during plan validation
-inside @code{LLMPlanner._validate_plan_structure()} and again inside
-@code{AgentCore._validate_plan()}.  This double-check provides
-defence-in-depth.
+@code{SafetyEngine} is consulted at three points: during plan validation
+inside @code{LLMPlanner._validate_plan_structure()}, again inside
+@code{AgentCore._validate_plan()}, and by @code{Executor} through
+@code{may_execute()} right before each step runs.
 
-@code{validate_step(step)} applies a single rule for @code{command} steps:
-the @code{cmd} value must start with a prefix listed in either
-@file{harmless_commands.json} or @file{powerful_commands.json}.  If not,
-the step is rejected and the whole plan fails validation with
-@code{"LLM returned malformed plan"}.
+For @code{command} steps, @code{validate_step(step)} splits the command
+into words as the sandbox does and requires them to begin with an entry in
+@file{harmless_commands.json} or @file{powerful_commands.json} (whole
+words, not string prefixes); some arguments are refused regardless
+(@code{find -exec}, @code{python -c}, @dots{}; @pxref{The Safety Engine}).
+A rejected step fails the whole plan; Codebud then falls back to a plain
+chat reply.
 
 All other tool types (@code{file_write}, @code{file_read}, @code{patch},
 @code{web_search}, @code{embed}, @code{search_embeddings}) are accepted
@@ -292,8 +320,11 @@ executes each step in sequence.
 For each step:
 
 @enumerate
+@item Ask @code{SafetyEngine.may_execute(step)}; if the mode or policy
+forbids the step, return @code{@{"status": "step_refused"@}} without running it.
 @item Look up the tool instance via @code{ToolRegistry.get(tool_name)}.
-@item Call @code{tool.run(args)}.
+@item Call @code{tool.run(args)}; if it raises, return
+@code{@{"status": "step_error"@}}.
 @item Validate the result dict has @code{stdout}, @code{stderr}, @code{returncode}.
 @item Append a snapshot to @code{MemoryStore}.
 @item If @code{returncode != 0}, return @code{@{"status": "step_error"@}}.
@@ -350,13 +381,15 @@ Each snapshot contains:
 @{
   "timestamp": "2026-04-23T15:30:00.000000+00:00",
   "data": @{
-    "step":   @{ "id": "step_0", "tool": "command", "args": @{...@} @},
-    "result": @{ "stdout": "...", "stderr": "", "returncode": 0 @}
+    "step":   @{ "id": "step_0", "description": "...",
+                "tool": "command", "args": @{...@} @},
+    "result": @{ "stdout": "...", "stderr": "", "returncode": 0,
+                "metadata": @{...@} @}
   @}
 @}
 @end example
 
-Snapshots are stored as JSON Lines in @file{~/.local/share/codebud/memory/entries.jsonl}:
+Snapshots are stored as JSON Lines in @file{$XDG_DATA_HOME/codebud/memory/entries.jsonl}:
 one snapshot per line, appended (and @code{fsync}ed) after every completed
 step.  Earlier lines are never rewritten, so a crash mid-plan cannot lose
 earlier results.
@@ -395,7 +428,7 @@ a session records the @emph{conversation}: the history the planner sees,
 plus the active model.  Each session is one JSON file:
 
 @example
-~/.local/share/codebud/sessions/20261025-093012-7f3a.json
+$XDG_DATA_HOME/codebud/sessions/20261025-093012-7f3a.json
 @{
   "version": 1,
   "id": "20261025-093012-7f3a",
@@ -403,10 +436,12 @@ plus the active model.  Each session is one JSON file:
   "created": "2026-10-25T09:30:12+00:00",
   "updated": "2026-10-25T09:41:57+00:00",
   "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+  "mode": "ask",
   "history": [ @{"role": "user", "content": "..."@}, ... ]
 @}
 @end example
 
+@code{name} is @code{null} until the session is named with @code{/save}.
 Several chats may run at the same time, so:
 
 @itemize @bullet
@@ -430,8 +465,9 @@ rather than misread.  A corrupt file is reported and skipped when listing.
 @end itemize
 
 @command{chat} creates the session lazily, the first time there is
-something to save, and saves again whenever the history changes (a turn,
-@code{/undo}, @code{/compact}, @code{/clear}) and on exit.
+something to save, and saves again whenever the history or the agent mode
+changes (a turn, @code{/undo}, @code{/compact}, @code{/clear}, @code{/mode})
+and on exit.
 
 @noindent
 Source: @file{src/codebud/sessions.py}, @file{src/codebud/fsutil.py}
@@ -466,8 +502,12 @@ Source: @file{src/codebud/tools/tool_registry.py}
 @cindex llm_stub.py
 @cindex LLM backends
 
-@file{src/codebud/llm_stub.py} exposes a single public function:
-@code{call_llm(prompt, timeout=600.0, on_chunk=None)}.
+@file{src/codebud/llm_stub.py} is the only module that talks to a model.
+Its main function is @code{call_llm(prompt, timeout=600.0, on_chunk=None)};
+it also provides @code{call_llm_plain()} (conversational fallback),
+@code{summarize_conversation()} (@code{/compact}), @code{list_models()},
+@code{warm_model_sync()}, @code{prewarm_model()}, @code{ModelHeartbeat},
+@code{num_ctx()} and @code{ollama_proxies()}.
 
 It selects a backend in this priority order:
 
@@ -475,16 +515,19 @@ It selects a backend in this priority order:
 @item
 @strong{Ollama} (preferred) --- if @env{OLLAMA_MODEL} is set and the
 server at @env{OLLAMA_BASE_URL} responds to @code{GET /api/tags}.  Uses
-@code{POST /api/generate} with @code{stream=True} and
-@code{temperature=0}.
+@code{POST /api/generate} with @code{stream=True}, @code{temperature=0}
+and the same @code{num_ctx} on every request; HTTP proxies are bypassed
+for a local server.
 
 @item
-@strong{OpenAI} (fallback) --- if @env{OPENAI_API_KEY} is set.  Uses a
-non-streaming @code{ChatCompletion} call with @code{temperature=0}.
+@strong{OpenAI} (fallback) --- if @env{OPENAI_API_KEY} is set and the
+optional @code{codebud[openai]} extra is installed.  Uses a non-streaming
+@code{client.chat.completions.create()} call with @code{temperature=0}.
 
 @item
 @strong{No-op} --- logs a warning and returns an empty string, which the
-planner converts to @code{plan_error}.
+planner converts to @code{plan_error} and @code{AgentCore} to an (empty)
+chat reply.
 @end enumerate
 
 The @code{on_chunk} callback receives each text fragment from the Ollama
@@ -536,5 +579,8 @@ src/codebud/                   the package
 ├── memory/entries.jsonl       execution timeline (auto-created)
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
 └── embeddings/index.json      embedding index (auto-created)
+
+~/.config/codebud/             your policy files ($XDG_CONFIG_HOME/codebud)
+<project>/.codebud/            a project's policy files (override both)
 
 @end example

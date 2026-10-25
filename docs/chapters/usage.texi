@@ -66,8 +66,10 @@ repeats all four stages across multiple turns using a single persistent
 agent instance.
 
 @strong{Timing:} On CPU-only hardware (for example, an Intel
-i7-8550U laptop), the planning stage takes approximately 4--6 minutes
-for the recommended 3B model.  This is normal.  Codebud shows a live
+i7-8550U laptop), planning with the recommended 3B model takes about
+30 seconds for the first request of a session and about 8 seconds for
+later ones, once Ollama has cached the start of the prompt.  This is
+normal.  Codebud shows a live
 progress indicator so you can see that it is working.
 (@pxref{Progress Output}).
 
@@ -267,8 +269,11 @@ session.
 codebud chat
 @end example
 
-After each plan is shown, @command{chat} walks you through every step
-one at a time.  For each step you can press:
+After each plan is shown, @command{chat} asks
+@samp{Run this plan? [y/N/r(evise)[: note]]}: @kbd{y} runs it, @kbd{n} or
+@key{RET} skips it, and @kbd{r} (optionally @kbd{r: @var{note}}) asks the
+model for a revised plan.  In the default @code{ask} mode it then walks you
+through every step one at a time.  For each step you can press:
 
 @table @kbd
 @item y @key{RET}
@@ -281,7 +286,12 @@ Execute this step and all remaining steps automatically.
 Abort the current plan and return to the prompt.
 @end table
 
-To end the session, type @samp{quit} or press @kbd{Ctrl-D}.
+Other modes change these prompts: @code{auto} runs the steps after the
+plan is approved and asks only before powerful commands, @code{full-auto}
+asks nothing, and @code{plan} never runs anything (@pxref{Agent Modes}).
+
+To end the session, type @samp{quit}, @samp{exit} or @samp{q}, press
+@kbd{Ctrl-D}, or press @key{RET} on an empty line.
 
 On a terminal, a dim horizontal rule is drawn across the full width
 before each @samp{[@var{n}] You:} prompt, so turns are easy to tell
@@ -387,7 +397,9 @@ codebud chat --mode plan
 [1] You: /mode edit
   Mode: edit
 [1] You: run the test suite
+
 Plan error: The plan uses tools not allowed in edit mode: command.
+  Run `codebud doctor` to check your environment.
 @end example
 
 Restrictions are enforced by the safety engine and again just before each
@@ -398,8 +410,9 @@ by @option{--resume}; an explicit @option{--mode} takes precedence.
 @anchor{Saved Sessions}
 @subheading Saved sessions
 
-Every chat is saved automatically to @file{~/.local/share/codebud/sessions/}
-(@pxref{Files and Directories}) after each turn
+Every chat is saved automatically to @file{$XDG_DATA_HOME/codebud/sessions/}
+(by default @file{~/.local/share/codebud/sessions/};
+@pxref{Files and Directories}) after each turn
 and when it ends; the last line printed tells you how to resume it:
 
 @example
@@ -504,14 +517,18 @@ It checks:
 
 @enumerate
 @item Python version (3.10 or later required)
-@item @code{agent} package importable (editable install present)
+@item The @code{codebud} package is importable
 @item @env{OLLAMA_MODEL} environment variable is set
-@item Ollama server is reachable on @code{http://localhost:11434}
+@item The Ollama server is reachable at @env{OLLAMA_BASE_URL}
+(default @code{http://localhost:11434})
 @item The selected model has been pulled
-@item @file{harmless_commands.json} and
-      @file{powerful_commands.json} are valid JSON
+@item The policy files in effect --- @file{harmless_commands.json},
+      @file{powerful_commands.json} and @file{trusted_sequences.json},
+      from the project's @file{.codebud/}, @file{~/.config/codebud/} or
+      the shipped defaults --- exist and are valid JSON
 @item Enough free disk space near @file{~/.ollama/models/}
-@item Enough free RAM for the selected model
+@item Enough free RAM for the selected model (Linux only; skipped where
+      @file{/proc/meminfo} does not exist)
 @end enumerate
 
 Each failed check prints a one-line fix.  Example output when
@@ -545,7 +562,7 @@ codebud history --json      @r{# raw entries, for scripts}
 Example output:
 
 @example
-[1] 2026-08-12T14:29:54.237038  command          ok       list files
+[1] 2026-10-25T09:12:03.418245+00:00  command          ok       list files
 @end example
 
 Each line shows the time (UTC), the tool used, the outcome (@samp{ok} or
@@ -556,7 +573,7 @@ shows the conversation turns of the current session only
 (@pxref{The chat Subcommand}).
 
 The entries are stored as JSON Lines in
-@file{~/.local/share/codebud/memory/entries.jsonl}, which @command{history} reads without
+@file{$XDG_DATA_HOME/codebud/memory/entries.jsonl}, which @command{history} reads without
 contacting Ollama.  @xref{MemoryStore}, for the file format and how it is
 kept safe against crashes and concurrent writers.
 
@@ -661,10 +678,17 @@ Codebud resolved configuration:
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
+
+Files:
+  data directory           = /home/you/.local/share/codebud
+  harmless_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/harmless_commands.json
+  powerful_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/powerful_commands.json
+  trusted_sequences.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/trusted_sequences.json
 @end example
 
 Use this to confirm that your exported variables are actually being
-picked up by the shell.
+picked up by the shell, and to see which policy files are in effect
+(@pxref{Policy JSON Files}).  @env{OPENAI_MODEL} is not shown.
 
 
 @node The version Subcommand
@@ -711,30 +735,31 @@ The display shows a spinning character and an elapsed-time counter:
 | Thinking... 47s (prefill)
 @end example
 
-On a CPU-only laptop, prefill for the 3B model with a typical planning
-prompt takes 200--240 seconds.  @emph{This is normal.}  The model is not
-frozen.
+On a CPU-only laptop, prefill for the 3B model takes about 30 seconds for
+the first planning request of a session and about 2 seconds for later ones
+(Ollama reuses the cached start of the prompt).  @emph{This is normal.}
+The model is not frozen.
 
 @item Generation phase
 The model starts producing tokens.  The display switches to a token
 counter and speed estimate:
 
 @example
-/ Generating... tokens: 42 | 1.1 t/s | 289s elapsed
+/ Generating... tokens: 42 | 10.3 t/s | 34s elapsed
 @end example
 @end table
 
 When the model finishes, a summary line replaces the spinner:
 
 @example
-prefill: 231s | gen: 58s | total: 289s | tokens: 67 | 1.1 t/s
+prefill: 30s | gen: 5s | total: 35s | tokens: 48 | 10.3 t/s
 @end example
 
 @noindent
 The progress indicator is written to standard error, so it does not
 interfere with piped output.  To suppress it entirely, pass
-@option{--no-progress} or pipe stdout to another program (the indicator
-is automatically disabled when stdout is not a terminal).
+@option{--no-progress} (before the subcommand); it is also disabled
+automatically when standard error is not a terminal.
 
 
 @node Reading a Plan
@@ -746,7 +771,7 @@ After the model finishes, Codebud prints a numbered plan summary.
 Example:
 
 @example
-Plan (3 steps):
+Plan (3 steps)
   [1] file_read          read README.md
   [2] command            run pytest -q
   [3] file_write         write test-summary.md
@@ -756,17 +781,17 @@ Each line shows the step number, the tool that will be used, and a
 human-readable description.  The tool names correspond to the built-in
 tools described in @ref{Tools Reference}.
 
-If the model could not produce a valid plan, you will see:
+If the model cannot produce a valid plan, Codebud answers with a plain
+conversational reply instead (@pxref{No Plan or an Empty Reply}).  Errors
+that do reach you are printed with an explanation and a fix when Codebud
+recognises them, for example a plan refused because of the agent mode:
 
 @example
-Plan error: LLM returned invalid JSON
-  What happened: The model's output could not be parsed as JSON.
-  How to fix:    Switch to a larger model for more reliable JSON.
-
-Tip: run `codebud doctor` to check your environment.
+Plan error: The plan uses tools not allowed in edit mode: command.
+  Run `codebud doctor` to check your environment.
 @end example
 
-The inline hint mirrors the @ref{Troubleshooting} chapter.
+The hints mirror the @ref{Troubleshooting} chapter.
 
 
 @node Reading Step Results
@@ -807,8 +832,8 @@ line 15
 @end example
 
 Type @code{/output} to see the rest of the @emph{last} executed step's
-output, or pass @option{--verbose} (or @option{-v}) at chat startup to
-always show full output for every step in the session.
+output, or start the chat with @command{codebud -v chat} to always show
+full output for every step in the session.
 
 
 @node Verbose and JSON Output
@@ -818,14 +843,15 @@ always show full output for every step in the session.
 
 @table @option
 @item --verbose / -v
-In @command{chat}, show the full stdout of each step instead of the
-15-line default preview.  Has no effect on @command{run} or
-@command{plan -x}, which always show full output already
-(@pxref{Reading Step Results}).
+Show each step's arguments in the plan display (@command{run},
+@command{plan}, @command{chat}), and in @command{chat} the full stdout of
+each step instead of the 15-line preview; @command{run} and
+@command{plan -x} always show full output (@pxref{Reading Step Results}).
+Must come before the subcommand: @command{codebud -v chat}.
 
 @item --no-progress
 Suppress the spinner entirely.  Useful when running Codebud from a
-script or when redirecting output.
+script or when redirecting output.  Must come before the subcommand.
 
 @item codebud plan --json "@var{request}"
 Print the raw JSON plan instead of the formatted display.  Useful for
@@ -838,8 +864,9 @@ planner chose.  Cannot be combined with @option{--execute}.
 @section Global Options
 @cindex global options
 
-@option{--no-progress} and @option{--verbose} can be placed before the
-subcommand name:
+@option{--no-progress} and @option{--verbose} belong to @command{codebud}
+itself, so they must come @emph{before} the subcommand name
+(@command{codebud chat -v} is rejected):
 
 @example
 codebud [--no-progress] [--verbose] @var{subcommand} ...
@@ -851,8 +878,8 @@ Disable the live spinner and timing summary.  The agent still runs;
 only the progress display is suppressed.
 
 @item --verbose / -v
-Print full step output instead of one-line summaries.  In
-@command{chat} mode this applies to all steps in the session.
+Show step arguments in plans and, in @command{chat}, full step output
+for every step in the session.
 
 @item --help / -h
 Print a usage summary and exit.
@@ -864,7 +891,7 @@ subcommand name:
 
 @example
 codebud run --model qwen2.5-coder:7b-instruct-q4_K_M "your request"   @r{@i{(correct)}}
-codebud --model qwen2.5-coder:7b-instruct-q4_K_M run "your request"   @r{@i{(error: unrecognized subcommand)}}
+codebud --model qwen2.5-coder:7b-instruct-q4_K_M run "your request"   @r{@i{(error: invalid choice)}}
 @end example
 
 This is deliberate, not an oversight: @command{argparse} lets a
@@ -878,8 +905,8 @@ declared where it is actually read (@command{run}, @command{plan},
 @section Environment Variables
 @cindex environment variables
 
-All Codebud behaviour is controlled through environment variables.
-There are no configuration files to edit.
+Codebud is configured through the environment variables below, plus the
+safety policy files (@pxref{Policy JSON Files}).
 
 @table @env
 @item OLLAMA_MODEL
@@ -921,10 +948,18 @@ Default: @code{gpt-3.5-turbo}.
 Set to @code{1} to enable outbound DuckDuckGo web searches.
 Default: @code{0} (disabled).  When disabled, the @code{web_search}
 tool reports itself as unavailable to the planner.
+
+@item XDG_DATA_HOME
+@itemx XDG_CONFIG_HOME
+Where Codebud keeps its runtime data (@file{$XDG_DATA_HOME/codebud},
+default @file{~/.local/share/codebud}) and your own policy files
+(@file{$XDG_CONFIG_HOME/codebud}, default @file{~/.config/codebud})
+(@pxref{Files and Directories}).
 @end table
 
-The @command{config} subcommand prints the resolved values of all
-these variables (@pxref{The config Subcommand}).
+The @command{config} subcommand prints the resolved values of these
+variables, except @env{OPENAI_MODEL} and the XDG directories, which it shows
+as the paths in use (@pxref{The config Subcommand}).
 
 
 @node Backwards Compatibility
