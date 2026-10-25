@@ -117,3 +117,16 @@ def test_default_policy_treats_code_runners_as_powerful():
         assert engine.is_powerful(step) is True, cmd
     for cmd in ["ls -la", "cat README.md", "git status"]:
         assert engine.is_powerful({"tool": "command", "args": {"cmd": cmd}}) is False, cmd
+
+
+def test_malformed_policy_file_is_reported(tmp_path, monkeypatch, caplog):
+    """A broken JSON file silently became an empty list; now it warns."""
+    (tmp_path / ".codebud").mkdir()
+    (tmp_path / ".codebud" / "harmless_commands.json").write_text("[not json")
+    monkeypatch.chdir(tmp_path)
+    caplog.set_level("WARNING")
+
+    engine = SafetyEngine()
+
+    assert engine.harmless_commands == []
+    assert "harmless_commands.json" in caplog.text

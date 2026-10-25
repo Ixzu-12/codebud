@@ -20,11 +20,14 @@ It does NOT:
 """
 
 import json
+import logging
 import shlex
 from typing import Any
 
 from .modes import DEFAULT_MODE, step_allowed
 from .paths import policy_file
+
+logger = logging.getLogger(__name__)
 
 # Policy files, looked up by agent/paths.policy_file(): the project's
 # .codebud/, then the user's config dir, then the defaults shipped with codebud.
@@ -215,9 +218,10 @@ class SafetyEngine:
         )
 
     def _load_json(self, path: str) -> list[str]:
-        """Load a JSON list from disk."""
+        """Load a JSON list from disk; warn and use [] if it is unusable."""
         try:
             with open(path) as f:
                 return json.load(f)
-        except Exception:
+        except (OSError, ValueError) as exc:
+            logger.warning("Ignoring policy file %s: %s", path, exc)
             return []
