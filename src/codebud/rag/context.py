@@ -18,7 +18,8 @@ import logging
 import os
 from pathlib import Path
 
-from codebud.planner import estimate_tokens
+from codebud.llm_stub import num_ctx
+from codebud.planner import CONTEXT_SHARE, estimate_tokens
 from codebud.rag.indexer import project_root
 from codebud.rag.search import Hit, search
 from codebud.rag.store import DB_NAME, index_dir
@@ -62,6 +63,13 @@ def retrieve(message: str, history: list[dict[str, str]] | None = None) -> list[
     except Exception as exc:  # retrieval must never break planning
         logger.info("Project search skipped: %s", exc)
         return []
+
+
+def context_block(hits: list[Hit]) -> str:
+    """``hits`` formatted within the standard share of the context window."""
+    if not hits:
+        return ""
+    return format_context(hits, int(num_ctx() * CONTEXT_SHARE))
 
 
 def format_context(hits: list[Hit], budget_tokens: int) -> str:

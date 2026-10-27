@@ -35,7 +35,7 @@ from .llm_stub import (
 from .memory import MemoryStore
 from .modes import MODES
 from .planner import LLMPlanner
-from .rag.context import retrieve
+from .rag.context import context_block, retrieve
 from .safety import SafetyEngine
 from .sandbox import Sandbox
 from .tools.tool_registry import ToolRegistry
@@ -117,7 +117,12 @@ class AgentCore:
 
         # If planner failed, fall back to a plain-text conversational reply
         if plan_output.get("status") != "ok":
-            reply = call_llm_plain(message, history=self._history[:-1], on_chunk=on_chunk)
+            reply = call_llm_plain(
+                message,
+                history=self._history[:-1],
+                on_chunk=on_chunk,
+                context_block=context_block(self.last_context),
+            )
             self._history.append({"role": "assistant", "content": reply or "(no reply)"})
             return {"status": "chat_reply", "reply": reply}
 

@@ -134,19 +134,28 @@ def call_llm_plain(
     user_message: str,
     history: list[dict[str, str]] | None = None,
     on_chunk: Callable[[str], None] | None = None,
+    context_block: str = "",
 ) -> str:
     """Send a conversational (non-JSON) prompt to the LLM and return plain text.
 
     Used as a fallback when the planner cannot fulfil the user's request so the
-    agent can still give a helpful natural-language reply.
+    agent can still give a helpful natural-language reply.  ``context_block``
+    is retrieved project context (codebud.rag.context.format_context); the
+    model is asked to cite the files it uses from it.
     """
     history_lines = ""
     if history:
         history_lines = "\n".join(f"{t['role'].capitalize()}: {t['content']}" for t in history[-6:])
         history_lines = f"Conversation so far:\n{history_lines}\n\n"
+    if context_block:
+        context_block += (
+            "When your answer relies on the project context, cite each file you use "
+            "as path:start-end.\n\n"
+        )
 
     prompt = (
-        f"You are a helpful coding assistant.\n\n{history_lines}User: {user_message}\nAssistant:"
+        f"You are a helpful coding assistant.\n\n{history_lines}{context_block}"
+        f"User: {user_message}\nAssistant:"
     )
     return call_llm(prompt, on_chunk=on_chunk)
 

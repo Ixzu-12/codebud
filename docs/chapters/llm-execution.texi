@@ -1281,7 +1281,8 @@ src/codebud/cli/main.py cmd_run / cmd_chat
           → json.loads(full_output)
           → _validate_plan_structure(plan_json)
           [invalid JSON: one retry with _build_retry_prompt()]
-      [planner failed: call_llm_plain() → plain chat reply]
+      [planner failed: call_llm_plain() → plain chat reply,
+       with the same project context]
       → AgentCore._validate_plan(plan_json)
   → for each approved step: Executor.execute_plan(@{"plan": [step]@})
       → ToolRegistry.get(tool).run(args)

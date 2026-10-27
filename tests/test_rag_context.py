@@ -157,3 +157,55 @@ def test_config_shows_codebud_rag(monkeypatch, capsys):
     cmd_config(None)
     line = next(ln for ln in capsys.readouterr().out.splitlines() if "CODEBUD_RAG" in ln)
     assert line.endswith("= 1")
+
+
+# --- plain chat replies (phase 9, D2) ---------------------------------------
+
+
+def _captured_plain_prompt(monkeypatch, **kwargs):
+    from codebud import llm_stub
+
+    sent = []
+    monkeypatch.setattr(
+        llm_stub, "call_llm", lambda prompt, on_chunk=None: sent.append(prompt) or ""
+    )
+    llm_stub.call_llm_plain("how does alpha work?", **kwargs)
+    return sent[0]
+
+
+def test_plain_reply_prompt_is_unchanged_without_context(monkeypatch):
+    prompt = _captured_plain_prompt(monkeypatch)
+    assert prompt == "You are a helpful coding assistant.\n\nUser: how does alpha work?\nAssistant:"
+
+
+def test_plain_reply_sees_the_context_and_is_asked_to_cite_it(monkeypatch):
+    block = context.format_context([_hit()], 1000)
+    prompt = _captured_plain_prompt(monkeypatch, context_block=block)
+    assert block in prompt
+    assert "path:start-end" in prompt
+    assert prompt.index("PROJECT CONTEXT") < prompt.index("User: how does alpha work?")
+
+
+def test_core_gives_the_plain_reply_the_retrieved_context(tmp_path, monkeypatch):
+    from codebud import memory as memory_mod
+    from codebud.core import AgentCore
+
+    monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
+    monkeypatch.setattr("codebud.core.retrieve", lambda message, history=None: [_hit()])
+    seen = {}
+
+    def plain(message, history=None, on_chunk=None, context_block=""):
+        seen["block"] = context_block
+        return "alpha returns 1 (src/a.py:10-11)"
+
+    monkeypatch.setattr("codebud.core.call_llm_plain", plain)
+    agent = AgentCore()
+    monkeypatch.setattr(agent.planner, "generate_plan", lambda *a, **k: {"status": "plan_error"})
+
+    result = agent.handle_user_message("how does alpha work?")
+    assert result == {"status": "chat_reply", "reply": "alpha returns 1 (src/a.py:10-11)"}
+    assert "--- src/a.py:10-11 (alpha)" in seen["block"]
+    agent.close()

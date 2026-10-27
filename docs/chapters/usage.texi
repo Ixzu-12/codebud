@@ -632,9 +632,16 @@ planner name real files: asked to change a function, it reads and patches
 the file that defines it instead of guessing a path.  The context takes at
 most a quarter of the context window, and is the first thing dropped when
 the prompt is full (conversation history is kept).  Plain chat replies,
-given when no plan can be made, do not use it yet.  Set
-@env{CODEBUD_RAG} to @samp{0} to turn it off; without an index, or without
-@code{numpy}, requests simply go ahead without it.
+given when no plan can be made (typically questions about the code), get
+the same context and are asked to cite the files they use as
+@samp{path:start-end}: asked which files are never indexed as secrets, the
+3B model listed them exactly and named @file{src/codebud/rag/files.py},
+where without the context it made up an answer.
+
+The context costs time: on a CPU, its roughly 2,000 extra prompt tokens
+can add half a minute to a cold request.  Set @env{CODEBUD_RAG} to
+@samp{0} to turn it off; without an index, or without @code{numpy},
+requests simply go ahead without it.
 
 Small models make the least of it: in tests the 3B model found the right
 file for ``show me'' requests, but only the 7B model also used the context

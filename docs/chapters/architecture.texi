@@ -102,8 +102,8 @@ LLM stub.  Tokens stream back from Ollama; each fragment is forwarded to
 and attempts @code{json.loads()}.  If parsing fails, it retries once
 with a minimal JSON-only prompt.  If it fails again, it returns
 @code{@{"status": "plan_error", ...@}}, and @code{AgentCore} asks the model
-for a plain conversational answer instead (@code{call_llm_plain()}),
-returned as @code{@{"status": "chat_reply", "reply": ...@}}.  A plan
+for a plain conversational answer instead (@code{call_llm_plain()}, given
+the same project context and asked to cite files from it), returned as @code{@{"status": "chat_reply", "reply": ...@}}.  A plan
 rejected only because of the agent mode comes back as
 @code{plan_refused} and is reported as such.
 

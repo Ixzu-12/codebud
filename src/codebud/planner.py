@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 _OUTPUT_RESERVE_TOKENS = 1024
 
 # Share of the context window retrieved project context may use (D13e).
-_CONTEXT_SHARE = 0.25
+CONTEXT_SHARE = 0.25
 
 # Conservative characters-per-token ratio for estimating prompt size
 # (measured ~3.5 for planner prompts on qwen2.5-coder); erring low means
@@ -184,7 +184,7 @@ User: "order me a pizza"
         window = list(history[-self._HISTORY_WINDOW :]) if history else []
         hits = list(context_hits or [])
         budget = num_ctx() - _OUTPUT_RESERVE_TOKENS
-        context_budget = int(num_ctx() * _CONTEXT_SHARE)
+        context_budget = int(num_ctx() * CONTEXT_SHARE)
 
         def render() -> str:
             block = ""
