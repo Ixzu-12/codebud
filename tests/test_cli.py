@@ -492,6 +492,32 @@ class TestSubcommandRouting:
         captured = capsys.readouterr()
         assert "qwen2.5-coder:3b" in captured.out
 
+    def test_config_shows_openai_model_and_its_default(self, monkeypatch, capsys):
+        """It used to be left out, though it decides the OpenAI model."""
+        monkeypatch.delenv("OPENAI_MODEL", raising=False)
+        self._run_main(["config"])
+        line = next(ln for ln in capsys.readouterr().out.splitlines() if "OPENAI_MODEL" in ln)
+        assert line.endswith("= gpt-3.5-turbo")
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+        self._run_main(["config"])
+        assert "= gpt-4o-mini" in capsys.readouterr().out
+
+    def test_config_shows_every_documented_variable(self, monkeypatch, capsys):
+        self._run_main(["config"])
+        out = capsys.readouterr().out
+        for name in (
+            "OLLAMA_MODEL",
+            "OLLAMA_BASE_URL",
+            "CODEBUD_NUM_CTX",
+            "EMBED_MODEL",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "CODEBUD_RAG",
+            "CODEBUD_RAG_HINTS",
+            "WEB_SEARCH_ENABLED",
+        ):
+            assert name in out, name
+
     def test_run_subcommand_plan_error(self, monkeypatch):
         """run subcommand exits 1 on plan_error."""
 

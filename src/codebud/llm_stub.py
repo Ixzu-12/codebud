@@ -41,6 +41,15 @@ _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 _DEFAULT_NUM_CTX = 8192
 
 
+# Model used when the OpenAI backend is active and OPENAI_MODEL is unset.
+DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo"
+
+
+def openai_model() -> str:
+    """Return the OpenAI model: OPENAI_MODEL, else DEFAULT_OPENAI_MODEL."""
+    return os.environ.get("OPENAI_MODEL") or DEFAULT_OPENAI_MODEL
+
+
 def num_ctx() -> int:
     """Return the context window (tokens) to request from Ollama.
 
@@ -115,7 +124,7 @@ def call_llm(
             return ""
         try:
             client = OpenAI()
-            model = os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
+            model = openai_model()
             resp = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],

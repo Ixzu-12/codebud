@@ -831,8 +831,10 @@ Codebud resolved configuration:
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = all-minilm
   CODEBUD_RAG        = 1
+  CODEBUD_RAG_HINTS  = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
+  OPENAI_MODEL       = gpt-3.5-turbo
   WEB_SEARCH_ENABLED = 0
 
 Files:
@@ -1124,8 +1126,8 @@ default @file{~/.local/share/codebud}) and your own policy files
 @end table
 
 The @command{config} subcommand prints the resolved values of these
-variables, except @env{OPENAI_MODEL} and the XDG directories, which it shows
-as the paths in use (@pxref{The config Subcommand}).
+variables; the XDG directories it shows as the paths in use
+(@pxref{The config Subcommand}).
 
 
 @node Backwards Compatibility

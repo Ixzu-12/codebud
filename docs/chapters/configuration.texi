@@ -345,7 +345,7 @@ Two subcommands help verify your configuration:
 @table @command
 @item codebud config
 Prints the resolved value of Codebud's environment variables, including
-defaults (except @env{OPENAI_MODEL}), followed by the data directory and
+defaults, followed by the data directory and
 the policy file in effect for each name.  Use this to confirm that your
 exported variables are being read correctly.
 
@@ -361,8 +361,10 @@ Codebud resolved configuration:
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = all-minilm
   CODEBUD_RAG        = 1
+  CODEBUD_RAG_HINTS  = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
+  OPENAI_MODEL       = gpt-3.5-turbo
   WEB_SEARCH_ENABLED = 0
 
 Files:
