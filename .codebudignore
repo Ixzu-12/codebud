@@ -1,0 +1,3 @@
+# Files project search (codebud index) must not read.
+# The retrieval eval set: it holds the eval questions verbatim.
+scripts/rag_eval.json

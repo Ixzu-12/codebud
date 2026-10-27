@@ -160,3 +160,56 @@ def test_missing_numpy_names_the_extra(project, monkeypatch, query_vector):
     monkeypatch.setitem(sys.modules, "numpy", None)  # import numpy -> ImportError
     with pytest.raises(search.SearchUnavailable, match=r"codebud\[rag\]"):
         search.search(project, "q")
+
+
+@needs_numpy
+def test_lists_choose_which_rankings_are_fused(project, query_vector, monkeypatch):
+    _fill(
+        project,
+        [
+            (_chunk("vec.py", "unrelated"), [1.0, 0.0, 0.0, 0.0]),
+            (_chunk("kw.py", "PolicyRejected raised here"), [0.0, 0.0, 1.0, 0.0]),
+        ],
+    )
+    assert _paths(search.search(project, "PolicyRejected", top_k=1, lists=("vector",))) == [
+        "vec.py"
+    ]
+    # Keyword-only search does not embed the query at all.
+    monkeypatch.setattr(search, "embed_query", lambda _t: pytest.fail("embedded"))
+    assert _paths(search.search(project, "PolicyRejected", top_k=1, lists=("keyword",))) == [
+        "kw.py"
+    ]
+    with pytest.raises(ValueError, match="unknown"):
+        search.search(project, "q", lists=("nonsense",))
+
+
+@needs_numpy
+def test_test_files_can_be_down_weighted_unless_the_query_is_about_tests(project, query_vector):
+    _fill(
+        project,
+        [
+            (_chunk("tests/test_a.py", "alpha check"), [1.0, 0.0, 0.0, 0.0]),
+            (_chunk("src/a.py", "alpha code"), [0.9, 0.1, 0.0, 0.0]),
+        ],
+    )
+    assert _paths(search.search(project, "zzz", top_k=1, test_weight=1.0)) == ["tests/test_a.py"]
+    assert _paths(search.search(project, "zzz", top_k=1, test_weight=0.5)) == ["src/a.py"]
+    assert _paths(search.search(project, "the zzz tests", top_k=1, test_weight=0.5)) == [
+        "tests/test_a.py"
+    ]
+
+
+@pytest.mark.parametrize(
+    "path, is_test",
+    [
+        ("tests/test_core.py", True),
+        ("pkg/tests/helpers.py", True),
+        ("test_x.py", True),
+        ("src/x_test.py", True),
+        ("src/codebud/core.py", False),
+        ("docs/testing.texi", False),
+        ("src/attest.py", False),
+    ],
+)
+def test_which_paths_count_as_tests(path, is_test):
+    assert search._is_test_path(path) is is_test

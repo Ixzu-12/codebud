@@ -151,7 +151,7 @@ The repository layout:
 @example
 src/codebud/    The package (agent, CLI, tools, default policy)
 docs/           This manual (GNU Texinfo)
-scripts/        Developer scripts (benchmark)
+scripts/        Developer scripts (benchmark, project-search eval)
 tests/          Pytest test suite
 bootstrap       Generates ./configure (GNU Autotools)
 configure.ac    Autoconf input

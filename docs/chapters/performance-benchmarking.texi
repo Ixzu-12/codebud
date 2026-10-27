@@ -30,6 +30,7 @@ session and about 8 s for later ones.
 * Assessment::                What the May numbers meant at the time.
 * October 2026 Results::      Prompt caching, num_ctx, threads: today's numbers.
 * The Measurement Program::   scripts/benchmark.py.
+* Project Search Evaluation:: How well codebud index finds the right files.
 @end menu
 
 
@@ -676,3 +677,63 @@ python scripts/benchmark.py --warm-first    @r{# load the model before timing}
 python scripts/benchmark.py --prompt "..."  @r{# time your own prompt}
 python scripts/benchmark.py --json          @r{# machine-readable results}
 @end example
+
+
+@node Project Search Evaluation
+@section Project Search Evaluation
+@cindex project search, evaluation
+@cindex recall
+@cindex MRR
+
+@file{scripts/rag_eval.py} measures how well project search
+(@pxref{The index Subcommand}) finds the right files.
+@file{scripts/rag_eval.json} holds 32 questions about Codebud's own
+source, each with the files that answer it: 23 @dfn{concept} questions in
+plain words (``how is a file replaced atomically so a crash never leaves
+it half written?'') and 9 @dfn{identifier} questions naming a symbol
+(``where is compact_history defined?'').  For each ranking variant the
+script reports:
+
+@table @asis
+@item recall@@k
+the share of questions with a correct file among the top @var{k} results;
+@item MRR
+the mean reciprocal rank: 1 when a correct file comes first, 1/2 when
+second, @dots{}, 0 when none is found;
+@item ms/q
+the mean search time.
+@end table
+
+Run it from the repository root in the development environment, with
+Ollama running and the index built:
+
+@example
+codebud index
+python scripts/rag_eval.py                  @r{# all variants, k = 5}
+python scripts/rag_eval.py -k 3 --quiet     @r{# top 3, no list of misses}
+python scripts/rag_eval.py --json           @r{# machine-readable results}
+@end example
+
+The repository's @file{.codebudignore} keeps the question file out of the
+index: it holds the questions verbatim, so indexing it would make keyword
+search look far better than it is.
+
+@subheading Results, October 2026
+
+@code{nomic-embed-text}, this repository (95 files, about 1,170 chunks):
+
+@multitable @columnfractions .34 .13 .10 .13 .13 .12
+@headitem Variant @tab recall@@5 @tab MRR @tab concept @tab ident. @tab ms/q
+@item vector only @tab 0.97 @tab 0.75 @tab 0.96 @tab 1.00 @tab 113
+@item keyword (BM25) only @tab 0.91 @tab 0.64 @tab 0.91 @tab 0.89 @tab 4
+@item keyword + symbol names @tab 0.94 @tab 0.71 @tab 0.91 @tab 1.00 @tab 15
+@item hybrid (all three) @tab 0.94 @tab 0.76 @tab 0.91 @tab 1.00 @tab 143
+@end multitable
+
+Embeddings carry the concept questions; keyword and symbol matching are
+nearly free and carry the identifier ones; fusing them gives the best
+ranking (MRR).  Its one extra miss against vectors alone is a concept
+question whose top results were test files: tests mention every name they
+test, so they crowd out the code that defines it.  The questions are few
+and were written by the developers, so small differences mean little.
+
