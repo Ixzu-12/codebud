@@ -18,6 +18,13 @@ _RESET = "\033[0m" if _IS_TTY else ""
 _RULES: list[tuple[str, str, str]] = [
     # (substring to match, explanation, fix command)
     (
+        "over plain http",
+        "The Ollama server is on another machine and plain http would send your "
+        "prompts across the network unencrypted.",
+        "Serve Ollama over https, or tunnel it (ssh -L 11434:localhost:11434 <host>, then "
+        "use http://localhost:11434); or allow it: CODEBUD_ALLOW_REMOTE_HTTP=1.",
+    ),
+    (
         "Ollama is not reachable",
         "The Ollama server did not answer. Codebud never sends prompts elsewhere "
         "unless you chose another backend.",

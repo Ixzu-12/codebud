@@ -139,6 +139,7 @@ search).
 | `CODEBUD_RAG` | `1` | Set to `0` to plan without project context from `codebud index` |
 | `CODEBUD_RAG_HINTS` | `1` | Set to `0` to stop chat from suggesting `/index` |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
+| `CODEBUD_ALLOW_REMOTE_HTTP` | `0` | `1` allows a remote `OLLAMA_BASE_URL` over plain http (else refused) |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the `openai` backend |

@@ -161,9 +161,13 @@ are never sent through a proxy (@pxref{Configuration}).
 @strong{Fix:} add the Ollama host to @env{NO_PROXY}:
 
 @example
-export NO_PROXY=192.168.1.50
+export NO_PROXY=gpu-box.example
 codebud doctor
 @end example
+
+@noindent
+(An SSH tunnel avoids both the proxy and plain http: the URL stays
+@code{localhost}; @pxref{LLM Backend Variables}.)
 
 Versions of Codebud before this fix sent even @code{localhost} requests
 through the proxy; with those, set @code{NO_PROXY=localhost,127.0.0.1}.

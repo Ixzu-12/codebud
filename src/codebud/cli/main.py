@@ -345,11 +345,23 @@ class _ChatCheckpoint:
 
 def _announce_backend() -> None:
     """Say once, on stderr, when prompts are going to leave this machine."""
+    from urllib.parse import urlsplit
+
     from codebud.cli.display import print_warning
-    from codebud.llm_stub import backend, backend_description
+    from codebud.llm_stub import (
+        backend,
+        backend_description,
+        is_remote,
+        ollama_base,
+        remote_http_refusal,
+    )
 
     if backend() == "openai":
         print_warning(f"LLM backend: {backend_description()} (CODEBUD_BACKEND=openai).")
+    elif is_remote(ollama_base()) and not remote_http_refusal(ollama_base()):
+        # (A refused plain-http server gets its own error, not this notice.)
+        host = urlsplit(ollama_base()).hostname
+        print_warning(f"LLM backend: {backend_description()}: prompts are sent to {host}.")
 
 
 def _may_change_files(agent, step: dict) -> bool:

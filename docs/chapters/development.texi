@@ -44,6 +44,8 @@ network access use @code{unittest.mock.patch} to replace @code{call_llm}.
 tests/
 ├── conftest.py                  isolates XDG and legacy data dirs per test;
 │                                embeddings use the offline stub
+├── test_backend.py              explicit backend, no OpenAI fallback,
+│                                llm_unavailable, doctor
 ├── test_build.py                Makefile.am lists every module, data file
 │                                and chapter
 ├── test_chat_input.py           / menu, toolbar, Shift-Tab (prompt_toolkit)
@@ -79,6 +81,8 @@ tests/
 │                                cache invalidation (skips without numpy)
 ├── test_rag_store.py            index store: permissions, model binding,
 │                                replace/remove, keyword search
+├── test_remote_ollama.py        remote Ollama: https notice, plain http
+│                                refused unless allowed
 ├── test_safety_executor_patcher.py  safety policy, executor, patching
 ├── test_safety_policy.py        whole-word matching, refused arguments,
 │                                powerful commands

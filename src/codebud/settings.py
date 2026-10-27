@@ -13,7 +13,7 @@ configuration file. Where a value comes from, highest first:
 4. the default.
 
 Egress settings decide whether data leaves the machine (the backend, the
-Ollama URL, the OpenAI key, web search). A project file
+Ollama URL, plain-http opt-in, the OpenAI key, web search). A project file
 must not set them: cloning a repository must never redirect your prompts.
 Such keys in a project file are ignored with a warning, as are unknown
 keys, values of the wrong type and files that are not valid TOML.
@@ -56,6 +56,7 @@ SETTINGS = [
     Setting("backend", "CODEBUD_BACKEND", "ollama", str, egress=True),
     Setting("model", "OLLAMA_MODEL", None, str),
     Setting("ollama_base_url", "OLLAMA_BASE_URL", "http://localhost:11434", str, egress=True),
+    Setting("allow_remote_http", "CODEBUD_ALLOW_REMOTE_HTTP", False, bool, egress=True),
     Setting("embed_model", "EMBED_MODEL", "all-minilm", str),
     Setting("rag", "CODEBUD_RAG", True, bool),
     Setting("rag_hints", "CODEBUD_RAG_HINTS", True, bool),

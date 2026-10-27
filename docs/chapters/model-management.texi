@@ -340,7 +340,8 @@ OpenAI unless @env{CODEBUD_BACKEND} is @code{openai}.
 @item OLLAMA_BASE_URL
 The base URL of the Ollama server.  Defaults to
 @code{http://localhost:11434}.  Change this only if you are running Ollama
-on a different machine or a non-standard port.
+on a different machine or a non-standard port; for another machine, use
+https or an SSH tunnel (@pxref{LLM Backend Variables}).
 @end table
 
 Example --- run Codebud with the 3B model:

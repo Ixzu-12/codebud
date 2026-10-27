@@ -18,7 +18,14 @@ from pathlib import Path
 
 import requests
 
-from codebud.llm_stub import BACKENDS, backend, backend_description, ollama_base, ollama_proxies
+from codebud.llm_stub import (
+    BACKENDS,
+    backend,
+    backend_description,
+    ollama_base,
+    ollama_proxies,
+    remote_http_refusal,
+)
 from codebud.tools.embeddings import embed_model
 
 # Linux memory statistics; macOS and FreeBSD have none, so the RAM check is
@@ -72,6 +79,13 @@ def check_backend() -> CheckResult:
             False,
             f"LLM backend: {backend_description()}",
             "Set OPENAI_API_KEY, or go back to the local backend: CODEBUD_BACKEND=ollama.",
+        )
+    if chosen == "ollama" and remote_http_refusal(ollama_base()):
+        return (
+            False,
+            f"LLM backend: {backend_description()}, plain http (refused)",
+            "Use https for the remote server, or allow plain http with "
+            "CODEBUD_ALLOW_REMOTE_HTTP=1 (allow_remote_http = true in your config.toml).",
         )
     return True, f"LLM backend: {backend_description()}", ""
 

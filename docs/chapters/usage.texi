@@ -537,8 +537,9 @@ It checks:
 @item Python version (3.10 or later required)
 @item The @code{codebud} package is importable
 @item Which LLM backend gets the prompts, and whether it is local
-(@env{CODEBUD_BACKEND}; fails for an unknown backend, or @code{openai}
-without @env{OPENAI_API_KEY})
+(@env{CODEBUD_BACKEND}; fails for an unknown backend, @code{openai}
+without @env{OPENAI_API_KEY}, or a remote Ollama over plain http that is
+not allowed)
 @item @env{OLLAMA_MODEL} environment variable is set
 @item The Ollama server is reachable at @env{OLLAMA_BASE_URL}
 (default @code{http://localhost:11434})
@@ -1084,7 +1085,13 @@ is downloaded and warm it before changing this variable
 @item OLLAMA_BASE_URL
 The base URL of the Ollama REST API.  Default:
 @code{http://localhost:11434}.  Change this only if Ollama is running
-on a different machine or port.
+on a different machine or port; another machine must be reached over
+https or an SSH tunnel, or allowed with @env{CODEBUD_ALLOW_REMOTE_HTTP}
+(@pxref{LLM Backend Variables}).
+
+@item CODEBUD_ALLOW_REMOTE_HTTP
+Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain http.
+Default: @code{0}.
 
 @item CODEBUD_NUM_CTX
 The context window, in tokens, requested from Ollama on every call.

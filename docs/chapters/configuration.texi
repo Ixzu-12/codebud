@@ -59,6 +59,11 @@ a CPU (@pxref{Project Search Evaluation}).  Models that expect task prefixes
 get them automatically: @code{nomic-embed-text} (@samp{search_document:} /
 @samp{search_query:}) and @code{qwen3-embedding} (an instruction on
 queries).
+@item @env{CODEBUD_ALLOW_REMOTE_HTTP}
+@tab @code{0}
+@tab Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain
+http (prompts unencrypted on the network).  Remote https and local servers
+need nothing (@pxref{LLM Backend Variables}).
 @item @env{CODEBUD_BACKEND}
 @tab @code{ollama}
 @tab Which LLM backend gets the prompts: @code{ollama} or @code{openai}.
@@ -142,6 +147,7 @@ from, highest first:
 @item @code{backend} @tab @env{CODEBUD_BACKEND} @tab @code{"ollama"} / @code{"openai"} (user file only)
 @item @code{model} @tab @env{OLLAMA_MODEL} @tab string
 @item @code{ollama_base_url} @tab @env{OLLAMA_BASE_URL} @tab string (user file only)
+@item @code{allow_remote_http} @tab @env{CODEBUD_ALLOW_REMOTE_HTTP} @tab @code{true} / @code{false} (user file only)
 @item @code{embed_model} @tab @env{EMBED_MODEL} @tab string
 @item @code{rag} @tab @env{CODEBUD_RAG} @tab @code{true} / @code{false}
 @item @code{rag_hints} @tab @env{CODEBUD_RAG_HINTS} @tab @code{true} / @code{false}
@@ -153,8 +159,8 @@ from, highest first:
 
 @cindex egress settings
 @strong{Settings that make data leave the machine} --- the backend, the
-Ollama URL, the OpenAI key and web search --- are accepted only from your
-own file or the environment.  In a project's file they are ignored with a warning: cloning
+Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
+accepted only from your own file or the environment.  In a project's file they are ignored with a warning: cloning
 a repository must never be able to send your prompts somewhere else.  The
 same goes for unknown keys, values of the wrong type and a file that is not
 valid TOML: Codebud warns once and carries on without them.
@@ -212,16 +218,40 @@ A project's @file{.codebud/config.toml} cannot choose the backend
 
 @subsection Pointing at a remote Ollama instance
 
+@cindex remote Ollama
+@cindex CODEBUD_ALLOW_REMOTE_HTTP
 If you run Ollama on a separate machine (for example, a desktop with more
-RAM), change @env{OLLAMA_BASE_URL}:
+RAM), change @env{OLLAMA_BASE_URL}.  Your prompts then leave this machine,
+so Codebud says so when @command{run}, @command{plan} or @command{chat}
+starts, the chat toolbar shows the host next to the model, and
+@command{codebud doctor} reports the backend as remote.
+
+The connection should be encrypted.  Either serve Ollama over https
+(behind a reverse proxy), or tunnel it over SSH and keep the URL local:
 
 @example
-export OLLAMA_BASE_URL=http://192.168.1.50:11434
+ssh -N -L 11434:localhost:11434 desktop &      @r{# Ollama on "desktop"}
+export OLLAMA_BASE_URL=http://localhost:11434  @r{# local end of the tunnel}
 export OLLAMA_MODEL=qwen2.5-coder:7b-instruct-q4_K_M
 codebud run "your task"
 @end example
 
-Codebud does not require the model to be on the same machine as the CLI.
+Codebud refuses a remote server over plain @code{http} --- it would carry
+your code and prompts across the network unencrypted --- for planning,
+chat replies and project search alike:
+
+@example
+Plan error: OLLAMA_BASE_URL http://192.168.1.50:11434 is another machine
+over plain http: prompts would cross the network unencrypted. Use https,
+or allow it with CODEBUD_ALLOW_REMOTE_HTTP=1 (...).
+@end example
+
+@noindent
+On a network you trust, allow it explicitly with
+@env{CODEBUD_ALLOW_REMOTE_HTTP}@code{=1}, or @code{allow_remote_http = true}
+in your own @file{config.toml} (a project's file cannot set it, nor the
+URL; @pxref{Configuration File}).  Codebud does not require the model to
+be on the same machine as the CLI.
 
 @cindex proxy
 @cindex HTTP_PROXY
@@ -237,7 +267,7 @@ For a remote Ollama the usual proxy variables apply.  If the remote host
 must be reached directly, list it in @env{NO_PROXY}:
 
 @example
-export NO_PROXY=192.168.1.50
+export NO_PROXY=gpu-box.example
 @end example
 
 

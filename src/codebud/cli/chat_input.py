@@ -107,10 +107,16 @@ class ChatInput:
         return self._session.prompt(prompt)
 
     def _toolbar(self) -> str:
-        from codebud.llm_stub import backend, openai_model
+        from urllib.parse import urlsplit
 
-        # Prompts going to the cloud must stay visible, not just be chosen once.
-        model = f"☁ OpenAI {openai_model()}" if backend() == "openai" else self.agent.get_model()
+        from codebud.llm_stub import backend, is_remote, ollama_base, openai_model
+
+        # Prompts leaving the machine must stay visible, not just be chosen once.
+        model = self.agent.get_model()
+        if backend() == "openai":
+            model = f"☁ OpenAI {openai_model()}"
+        elif is_remote(ollama_base()):
+            model = f"{model} @ {urlsplit(ollama_base()).hostname}"
         return toolbar_text(self.agent.get_mode(), model, *self._usage, self._rag)
 
     def _build_session(self) -> PromptSession:

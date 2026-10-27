@@ -116,6 +116,29 @@ def ollama_proxies(base: str) -> dict[str, None] | None:
     return None
 
 
+def is_remote(base: str) -> bool:
+    """Whether the URL ``base`` points at another machine."""
+    return not _is_loopback(base)
+
+
+def remote_http_refusal(base: str) -> str | None:
+    """Why prompts must not go to ``base``, or None if they may.
+
+    A remote server over plain http would receive prompts unencrypted, so
+    it needs CODEBUD_ALLOW_REMOTE_HTTP (decision D12a); https and this
+    machine need nothing.
+    """
+    if not is_remote(base) or urlsplit(base).scheme != "http":
+        return None
+    if os.environ.get("CODEBUD_ALLOW_REMOTE_HTTP", "").lower() in ("1", "true", "yes"):
+        return None
+    return (
+        f"OLLAMA_BASE_URL {base} is another machine over plain http: prompts would "
+        "cross the network unencrypted. Use https, or allow it with "
+        "CODEBUD_ALLOW_REMOTE_HTTP=1 (allow_remote_http = true in your config.toml)."
+    )
+
+
 def _is_loopback(base: str) -> bool:
     """Whether the URL ``base`` points at this machine (localhost, 127.x, ::1)."""
     host = urlsplit(base).hostname or ""
@@ -161,6 +184,9 @@ def call_llm(
             "No model to plan with: OLLAMA_MODEL is not set (or `model` in config.toml). "
             "OpenAI is used only when chosen with CODEBUD_BACKEND=openai."
         )
+    refusal = remote_http_refusal(ollama_base())
+    if refusal:
+        raise LLMUnavailable(refusal)
     if not _ollama_available():
         raise LLMUnavailable(
             f"Ollama is not reachable at {ollama_base()}. Prompts are never sent "
