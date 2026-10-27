@@ -4,8 +4,8 @@ codebud/tools/embeddings.py
 Provides two tools:
 
 1. EmbedTool ("embed") — generate a real embedding vector via Ollama's
-   /api/embed endpoint.  Falls back to a deterministic hash-based stub
-   when the Ollama server is not reachable (so tests run offline).
+   /api/embed endpoint.  If the model is unreachable the tool reports an
+   error; it never substitutes fake vectors.
 
 2. EmbeddingSearchTool ("search_embeddings") — load stored embeddings
    from the embedding index in the data directory, embed the query, compute cosine
@@ -16,8 +16,11 @@ Environment variables:
   OLLAMA_MODEL      Model used for text generation (reused for embeddings)
   EMBED_MODEL       Override which model to use for embeddings specifically.
                     Defaults to OLLAMA_MODEL or "qwen2.5-coder:3b-instruct-q4_K_M".
+  CODEBUD_EMBED_STUB  Tests only: "1" uses a deterministic offline stub
+                    instead of Ollama.
 """
 
+import hashlib
 import json
 import logging
 import math
@@ -73,19 +76,41 @@ def ollama_embed(text: str, model: str | None = None) -> list[float]:
     return embeddings[0]
 
 
+class EmbeddingUnavailable(RuntimeError):
+    """The embedding model could not be reached or returned nothing."""
+
+
 def stub_embedding(text: str) -> list[float]:
-    """Deterministic hash-based embedding (16 floats, offline fallback)."""
-    h = abs(hash(text))
-    return [(h % (i + 7)) / 10.0 for i in range(16)]
+    """Deterministic 16-float unit vector from SHA-256 (tests only).
+
+    Unlike hash(), SHA-256 is not salted per process, so the same text
+    always gets the same vector.
+    """
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    raw = [b - 127.5 for b in digest[:16]]
+    norm = math.sqrt(sum(x * x for x in raw)) or 1.0
+    return [x / norm for x in raw]
+
+
+def _stub_enabled() -> bool:
+    return os.environ.get("CODEBUD_EMBED_STUB") == "1"
 
 
 def get_embedding(text: str) -> list[float]:
-    """Get an embedding, using Ollama when available and the stub otherwise."""
+    """Embed text with Ollama (or the stub when CODEBUD_EMBED_STUB=1).
+
+    Raises EmbeddingUnavailable when the model cannot be used; callers must
+    not invent vectors, since mixing them with real ones corrupts an index.
+    """
+    if _stub_enabled():
+        return stub_embedding(text)
     try:
         return ollama_embed(text)
     except Exception as exc:
-        logger.debug("Ollama embed unavailable (%s), using stub", exc)
-        return stub_embedding(text)
+        raise EmbeddingUnavailable(
+            f"Embedding model unavailable ({_DEFAULT_EMBED_MODEL} at {_OLLAMA_BASE}): {exc}. "
+            f"Start Ollama and run: ollama pull {_DEFAULT_EMBED_MODEL}"
+        ) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +120,7 @@ def get_embedding(text: str) -> list[float]:
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     if len(a) != len(b):
-        # Dimension mismatch (e.g. mixing stub and real vectors in index)
+        # Dimension mismatch (e.g. vectors from different models in one index)
         return 0.0
     dot = sum(x * y for x, y in zip(a, b, strict=True))
     norm_a = math.sqrt(sum(x * x for x in a))
@@ -111,7 +136,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 class EmbedTool:
-    """Generate an embedding vector for text using Ollama (or stub fallback)."""
+    """Generate an embedding vector for text using Ollama."""
 
     description = "Generate an embedding vector for text."
     usage_hint = 'Required: "text" (str). Embeds text for later semantic search.'
@@ -121,7 +146,10 @@ class EmbedTool:
         if not text:
             return {"stdout": "", "stderr": "Missing required argument: text", "returncode": 1}
 
-        vector = get_embedding(text)
+        try:
+            vector = get_embedding(text)
+        except EmbeddingUnavailable as exc:
+            return {"stdout": "", "stderr": str(exc), "returncode": 1}
         return {"stdout": json.dumps(vector), "stderr": "", "returncode": 0}
 
 
@@ -142,7 +170,10 @@ class EmbeddingSearchTool:
         if not query:
             return {"stdout": "", "stderr": "Missing required argument: query", "returncode": 1}
 
-        query_vec = get_embedding(query)
+        try:
+            query_vec = get_embedding(query)
+        except EmbeddingUnavailable as exc:
+            return {"stdout": "", "stderr": str(exc), "returncode": 1}
 
         scored = []
         for entry in self.index:

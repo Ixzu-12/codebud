@@ -5,6 +5,7 @@ Every test runs with its own XDG data/config directories and no legacy data
 directory, so nothing can read or write the user's real
 ~/.local/share/codebud, ~/.config/codebud or the checkout's old data/ --
 including codebud processes that tests start (they inherit the environment).
+Embeddings use the deterministic offline stub (CODEBUD_EMBED_STUB=1).
 """
 
 import pytest
@@ -20,3 +21,5 @@ def _isolated_codebud_dirs(tmp_path, monkeypatch):
     # (e.g. tests/test_paths.py runs `python -m codebud`) is isolated as well.
     monkeypatch.setenv("CODEBUD_LEGACY_DATA_DIR", str(tmp_path / "no-legacy-data"))
     monkeypatch.setattr(paths, "LEGACY_DATA_DIR", None)
+    # Embeddings use the deterministic offline stub, never a live Ollama.
+    monkeypatch.setenv("CODEBUD_EMBED_STUB", "1")

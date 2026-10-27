@@ -246,9 +246,11 @@ are in effect (@pxref{Policy JSON Files}).
 @section Embedding Dimension Mismatch
 @cindex embedding dimension mismatch
 
-If you used Codebud before the real Ollama embedding backend was wired up,
+Older Codebud versions silently fell back to 16-dimensional stub vectors
+whenever Ollama was unreachable, so
 @file{$XDG_DATA_HOME/codebud/embeddings/index.json} (by default under
-@file{~/.local/share}) may contain 16-dimensional stub vectors.
+@file{~/.local/share}) may contain them.  Current versions report an
+error instead.
 New embeddings are 2048-dimensional.  Cosine similarity between entries of
 different sizes returns 0.0, making search results incorrect.
 

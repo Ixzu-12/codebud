@@ -316,8 +316,11 @@ This is the only network call Codebud makes that goes outside your machine
 @cindex embeddings
 
 Generates a floating-point embedding vector for a piece of text using the
-Ollama embedding endpoint.  Falls back to a deterministic stub when Ollama
-is unreachable (so the tool still works in tests and offline scenarios).
+Ollama embedding endpoint.  If the embedding model is unreachable, the
+tool fails with an error naming the model and the @command{ollama pull}
+command to fetch it; it never substitutes made-up vectors, which would
+corrupt the index.  (The test suite sets @env{CODEBUD_EMBED_STUB} to
+@samp{1} to use a deterministic offline stub instead.)
 
 @subsection Arguments
 
@@ -394,8 +397,9 @@ score is included.
 
 @subsection Dimension mismatch
 
-If the index was built with a different model (e.g.@: the stub's 16-dimensional
-vectors vs.@: Ollama's 2048-dimensional vectors), cosine similarity returns
+If the index was built with a different model (e.g.@: 16-dimensional
+vectors written by Codebud versions that fell back to a stub, vs.@:
+Ollama's 2048-dimensional vectors), cosine similarity returns
 @code{0.0} for all comparisons and the search result is meaningless.
 Clear the index to fix this:
 

@@ -42,13 +42,15 @@ network access use @code{unittest.mock.patch} to replace @code{call_llm}.
 
 @example
 tests/
-├── conftest.py                  isolates XDG and legacy data dirs per test
+├── conftest.py                  isolates XDG and legacy data dirs per test;
+│                                embeddings use the offline stub
 ├── test_build.py                Makefile.am lists every module, data file
 │                                and chapter
 ├── test_chat_input.py           / menu, toolbar, Shift-Tab (prompt_toolkit)
 ├── test_cli.py                  subcommands, doctor, display, chat REPL,
 │                                history, sessions, modes, run --yes
 ├── test_core.py                 AgentCore: models, /compact, context usage
+├── test_embeddings.py           deterministic stub, no silent fallback
 ├── test_fsutil.py               atomic_write_text()
 ├── test_llm_stub.py             Ollama/OpenAI paths, warmup, summaries
 ├── test_memory.py               MemoryStore JSON Lines, crash safety,
