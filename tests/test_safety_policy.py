@@ -225,3 +225,18 @@ def test_plan_with_non_object_args_is_malformed(monkeypatch):
     monkeypatch.setattr(planner_mod, "call_llm", lambda prompt, on_chunk=None: json.dumps(plan))
     result = planner_mod.LLMPlanner(registry, _engine())._attempt("prompt")
     assert result == {"status": "plan_error", "error": "LLM returned malformed plan"}
+
+
+def test_confirmation_reasons():
+    from codebud.safety import POWERFUL_REASON
+
+    engine = _engine(harmless=["ls"], powerful=["pytest"])
+    search = {"tool": "web_search", "args": {"query": "codebud releases"}}
+    assert engine.confirmation_reason(search) == (
+        'Web search: sends "codebud releases" to DuckDuckGo.'
+    )
+    assert engine.confirmation_reason({"tool": "command", "args": {"cmd": "pytest"}}) == (
+        POWERFUL_REASON
+    )
+    assert engine.confirmation_reason({"tool": "command", "args": {"cmd": "ls"}}) is None
+    assert engine.confirmation_reason({"tool": "file_read", "args": {"path": "a"}}) is None

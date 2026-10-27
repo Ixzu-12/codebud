@@ -101,6 +101,9 @@ def print_step_header(index: int, step: dict[str, Any]) -> None:
     tool = step.get("tool", "?")
     desc = step.get("description", "")
     _err(f"{_BOLD}Step {index} — {tool}:{_RESET} {desc}")
+    if tool == "web_search":
+        # Data leaving the machine is always shown, even in full-auto.
+        _err(f'  query: "{step.get("args", {}).get("query", "")}"')
 
 
 _PREVIEW_LINES = 15

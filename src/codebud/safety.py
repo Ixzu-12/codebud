@@ -115,6 +115,21 @@ def _forbidden_argument(words: list[str]) -> str | None:
     return None
 
 
+POWERFUL_REASON = "Powerful command (runs code or changes files)."
+
+
+def egress_reason(step: dict[str, Any]) -> str | None:
+    """Why ``step`` sends data off the machine, or None.
+
+    Such steps need a confirmation like powerful commands (phase 8, A3),
+    except in full-auto mode, where they run unattended (user decision).
+    """
+    if step.get("tool") == "web_search":
+        query = step.get("args", {}).get("query", "")
+        return f'Web search: sends "{query}" to DuckDuckGo.'
+    return None
+
+
 class SafetyEngine:
     """
     Validates steps produced by the LLM planner.
@@ -165,6 +180,16 @@ class SafetyEngine:
             return False
         words = _split(step.get("args", {}).get("cmd", ""))
         return bool(words) and any(_starts_with_words(words, e) for e in self.powerful_commands)
+
+    def confirmation_reason(self, step: dict[str, Any]) -> str | None:
+        """Why ``step`` needs an explicit "y" in auto mode and `run`, or None.
+
+        Powerful commands run code or change files; egress steps (web
+        search) send data off the machine.
+        """
+        if self.is_powerful(step):
+            return POWERFUL_REASON
+        return egress_reason(step)
 
     def may_execute(self, step: dict[str, Any]) -> tuple[bool, str]:
         """Check, right before execution, that ``step`` may run in this mode.

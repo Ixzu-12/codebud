@@ -107,9 +107,9 @@ codebud --no-progress run "read README.md and summarise it"
 ```
 
 Powerful commands — ones that run code or change files (`python`, `pytest`,
-`ruff`, `cp`, `mv`, `sed`, ...) — need confirmation. Without a terminal,
-`run` skips them and exits 1. Pass `--yes` only after the user agrees to
-unattended powerful steps:
+`ruff`, `cp`, `mv`, `sed`, ...) — and web searches need confirmation.
+Without a terminal, `run` skips them and exits 1. Pass `--yes` only after
+the user agrees to unattended powerful steps and searches:
 
 ```bash
 codebud --no-progress run --yes "run the test suite and report failures"
@@ -136,7 +136,7 @@ codebud sessions                 # list saved sessions
 ```
 
 Modes: `ask` approves the plan and each step; `auto` approves the plan once
-(powerful steps still ask); `full-auto` asks nothing; `plan` never executes;
+(powerful steps and web searches still ask); `full-auto` asks nothing; `plan` never executes;
 `edit` allows only file tools, no shell commands.
 
 ## Other commands

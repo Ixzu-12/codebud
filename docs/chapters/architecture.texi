@@ -125,8 +125,9 @@ passes.
 @item
 @strong{CLI} receives the validated plan dict and prints it, then runs
 the steps one at a time with @code{Executor.execute_plan()}.
-@command{run} asks before each powerful command unless @option{--yes} is
-given (every step with @option{-i}).  @command{chat} first asks
+@command{run} asks before each powerful command and web search unless
+@option{--yes} is given (every step with @option{-i};
+@code{AgentCore.confirmation_reason(step)} says which steps and why).  @command{chat} first asks
 @samp{Run this plan? [y/N/r(evise)]}, then prompts per step depending on
 the agent mode (@pxref{Agent Modes}).
 

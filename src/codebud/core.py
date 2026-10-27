@@ -161,8 +161,12 @@ class AgentCore:
         self._history[:] = list(history)
 
     def is_powerful(self, step: dict[str, Any]) -> bool:
-        """Return whether ``step`` needs confirmation even in auto mode."""
+        """Return whether ``step`` runs code or changes files."""
         return self.safety.is_powerful(step)
+
+    def confirmation_reason(self, step: dict[str, Any]) -> str | None:
+        """Why ``step`` needs a "y" in auto mode and `run` (None: it does not)."""
+        return self.safety.confirmation_reason(step)
 
     def get_rag(self) -> bool:
         """Whether requests get project context from the index."""

@@ -7,7 +7,7 @@ Subcommands
 -----------
   run "<msg>"     Plan + execute a request (default when no subcommand given)
                   --interactive/-i prompts for approval before each step
-                  --yes/-y runs powerful commands without asking
+                  --yes/-y runs powerful commands and web searches without asking
                   --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   plan "<msg>"    Plan only — print the plan without executing
                   --execute/-x also runs the steps and prints full output
@@ -150,14 +150,16 @@ def cmd_run(args):
         steps = plan.get("plan", [])
         approve_all = not args.interactive
         # Without -i, steps run unprompted, except powerful ones (code
-        # runners, file-changing commands), which need a "y" unless --yes.
-        confirm_powerful = not args.interactive and not args.yes
+        # runners, file-changing commands) and web searches (data leaves
+        # the machine), which need a "y" unless --yes.
+        confirm_some = not args.interactive and not args.yes
         unconfirmed = 0
         for i, step in enumerate(steps, 1):
             print_step_header(i, step)
 
-            if confirm_powerful and agent.is_powerful(step):
-                print_warning("Powerful command (runs code or changes files).")
+            reason = agent.confirmation_reason(step) if confirm_some else None
+            if reason:
+                print_warning(reason)
                 try:
                     answer = input("  Run it? [y/N] ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
@@ -195,8 +197,8 @@ def cmd_run(args):
 
         if unconfirmed:
             print_warning(
-                f"{unconfirmed} powerful step(s) were not run because no one could confirm "
-                "them. Re-run with --yes to allow powerful commands unattended."
+                f"{unconfirmed} step(s) were not run because no one could confirm them "
+                "(powerful commands, web search). Re-run with --yes to allow them unattended."
             )
             sys.exit(1)
     finally:
@@ -733,10 +735,12 @@ def cmd_chat(args):
                         step_approval = "y"  # unattended: no step prompts
                     elif agent.get_mode() == "auto":
                         # Plan approved once; only powerful steps (code
-                        # runners, file-changing commands) ask again.
+                        # runners, file-changing commands) and web searches
+                        # ask again. (full-auto runs them unattended.)
                         print_step_header(i, step)
-                        if agent.is_powerful(step):
-                            print_warning("Powerful command (runs code or changes files).")
+                        reason = agent.confirmation_reason(step)
+                        if reason:
+                            print_warning(reason)
                             try:
                                 step_approval = input("  Run it? [y/N] ").strip().lower()
                             except (EOFError, KeyboardInterrupt):
@@ -1131,7 +1135,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--yes",
         "-y",
         action="store_true",
-        help="Run powerful commands (python, pytest, cp, ...) without asking; for scripts.",
+        help="Run powerful commands (python, pytest, cp, ...) and web searches without asking.",
     )
 
     # plan

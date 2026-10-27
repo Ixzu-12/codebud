@@ -170,14 +170,15 @@ If any step fails, Codebud stops, prints the error, and suggests a fix.
 Powerful commands --- code runners such as @code{python} and @code{pytest},
 file-changing commands such as @code{cp} (@pxref{Powerful Commands}) ---
 are not run blindly: @command{run} stops before each one and asks
-@samp{Run it? [y/N]}.  If nobody can answer (standard input is closed, as
-in a script or cron job), the step is not run and @command{run} exits with
-status 1, telling you to use @option{--yes}.
+@samp{Run it? [y/N]}.  So do web searches, which send their query to
+DuckDuckGo (the query is shown).  If nobody can answer (standard input is
+closed, as in a script or cron job), the step is not run and @command{run}
+exits with status 1, telling you to use @option{--yes}.
 
 @table @option
 @item --yes / -y
-Run powerful commands without asking.  Use it in scripts once you trust
-the request:
+Run powerful commands and web searches without asking.  Use it in
+scripts once you trust the request:
 
 @example
 codebud run --yes "run the test suite"
@@ -294,8 +295,9 @@ Abort the current plan and return to the prompt.
 @end table
 
 Other modes change these prompts: @code{auto} runs the steps after the
-plan is approved and asks only before powerful commands, @code{full-auto}
-asks nothing, and @code{plan} never runs anything (@pxref{Agent Modes}).
+plan is approved and asks only before powerful commands and web searches,
+@code{full-auto} asks nothing, and @code{plan} never runs anything
+(@pxref{Agent Modes}).
 
 To end the session, type @samp{quit}, @samp{exit} or @samp{q}, or press
 @kbd{Ctrl-D}.  An empty line (@key{RET} alone) just shows the prompt again.
@@ -398,10 +400,12 @@ one with @code{/mode} (it is also shown in the session header):
 @item @code{ask} @tab Default.  Review the plan, then approve each step.
 @item @code{auto} @tab Review the plan once; its steps then run without
 per-step prompts, except powerful commands (code runners such as
-@code{pytest}, file-changing commands such as @code{cp}), which still ask
+@code{pytest}, file-changing commands such as @code{cp}) and web searches
+(which send their query off the machine), which still ask
 @samp{Run it? [y/N]}.
 @item @code{full-auto} @tab No prompts at all: the plan runs as soon as it
-is made, powerful commands included.  For when you do not want to be
+is made, powerful commands and web searches included (each query is still
+printed).  For when you do not want to be
 interrupted.  The allow-list and refused arguments still apply, so
 commands outside the lists are still rejected.
 @item @code{plan} @tab Plans are shown but never executed.

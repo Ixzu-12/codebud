@@ -210,8 +210,9 @@ permitting @command{git push} or @command{git reset --hard}.
 
 @item
 Put anything that runs code or changes files in the powerful list, not
-the harmless one; only powerful commands make @code{auto} mode and
-@command{codebud run} (without @option{--yes}) stop and ask.
+the harmless one; only powerful commands (and web searches, which send
+data off the machine) make @code{auto} mode and @command{codebud run}
+(without @option{--yes}) stop and ask.
 
 @item
 After editing, run @command{codebud doctor} to confirm the files parse

@@ -390,6 +390,9 @@ class TestModelOverride:
             def is_powerful(self, step):
                 return False
 
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
+
             def close(self):
                 pass
 
@@ -460,6 +463,9 @@ class TestModelOverride:
 
             def is_powerful(self, step):
                 return False
+
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
 
             def close(self):
                 pass
@@ -541,6 +547,9 @@ class TestSubcommandRouting:
             def is_powerful(self, step):
                 return False
 
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
+
             def close(self):
                 pass
 
@@ -560,6 +569,9 @@ class TestSubcommandRouting:
 
             def is_powerful(self, step):
                 return False
+
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
 
             def close(self):
                 pass
@@ -589,6 +601,9 @@ class TestSubcommandRouting:
 
             def is_powerful(self, step):
                 return False
+
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
 
             def close(self):
                 pass
@@ -629,6 +644,9 @@ class TestSubcommandRouting:
             def is_powerful(self, step):
                 return step.get("args", {}).get("cmd", "").startswith("pytest")
 
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
+
             def close(self):
                 pass
 
@@ -666,6 +684,38 @@ class TestSubcommandRouting:
         assert agent.executor.execute_plan.call_count == 1
         assert rc == 1
         assert "--yes" in capsys.readouterr().err
+
+    def test_run_asks_before_a_web_search_and_shows_the_query(self, monkeypatch, capsys):
+        agent = self._fake_agent_with_plan(_web_search_plan())
+        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda p="": "n")
+        self._run_main(["run", "find the latest ruff release"])
+        err = capsys.readouterr().err
+        assert agent.executor.execute_plan.call_count == 0
+        assert 'sends "latest ruff release" to DuckDuckGo' in err
+
+    def test_run_unattended_web_search_fails_with_hint(self, monkeypatch, capsys):
+        agent = self._fake_agent_with_plan(_web_search_plan())
+        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+
+        def eof(_prompt=""):
+            raise EOFError
+
+        monkeypatch.setattr("builtins.input", eof)
+        rc = self._run_main(["run", "find it"])
+        err = capsys.readouterr().err
+        assert rc == 1 and agent.executor.execute_plan.call_count == 0
+        assert "--yes" in err and "web search" in err
+
+    def test_run_yes_allows_web_search(self, monkeypatch):
+        agent = self._fake_agent_with_plan(_web_search_plan())
+        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda p="": pytest.fail("asked"))
+        self._run_main(["run", "--yes", "find it"])
+        assert agent.executor.execute_plan.call_count == 1
 
     @pytest.mark.parametrize("flag", ["--yes", "-y"])
     def test_run_yes_runs_powerful_steps_without_asking(self, monkeypatch, flag):
@@ -766,6 +816,9 @@ class TestSubcommandRouting:
             def is_powerful(self, step):
                 return False
 
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
+
             def close(self):
                 pass
 
@@ -811,6 +864,9 @@ class TestPlanSubcommand:
 
             def is_powerful(self, step):
                 return False
+
+            def confirmation_reason(self, step):
+                return _fake_confirmation_reason(self, step)
 
             def close(self):
                 pass
@@ -947,6 +1003,27 @@ class TestHistorySubcommand:
 # ---------------------------------------------------------------------------
 
 
+def _fake_confirmation_reason(agent, step):
+    """What AgentCore.confirmation_reason() says, for the fakes."""
+    from codebud.safety import POWERFUL_REASON, egress_reason
+
+    return POWERFUL_REASON if agent.is_powerful(step) else egress_reason(step)
+
+
+def _web_search_plan(query="latest ruff release"):
+    return {
+        "status": "ok",
+        "plan": [
+            {
+                "id": "step_0",
+                "description": "search",
+                "tool": "web_search",
+                "args": {"query": query},
+            }
+        ],
+    }
+
+
 class FakeChatAgent:
     """Stand-in for AgentCore driven entirely through its public API."""
 
@@ -1008,6 +1085,9 @@ class FakeChatAgent:
 
     def is_powerful(self, step):
         return step.get("args", {}).get("cmd", "").startswith("pytest")
+
+    def confirmation_reason(self, step):
+        return _fake_confirmation_reason(self, step)
 
     def compact_history(self, keep_last=2, on_chunk=None):
         older = self._history[:-keep_last]
@@ -1500,6 +1580,22 @@ class TestChatModes(_ChatHarness):
         agent.set_mode("auto")
         self._run_chat(monkeypatch, ["do it", "y", "y"], agent=agent)
         assert agent.executor.execute_plan.call_count == 2
+
+    def test_auto_mode_asks_before_a_web_search(self, monkeypatch, capsys):
+        agent = FakeChatAgent(plan_by_message={"find it": _web_search_plan()})
+        agent.set_mode("auto")
+        # "y" approves the plan; "n" declines the search.
+        self._run_chat(monkeypatch, ["find it", "y", "n"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 0
+        assert 'sends "latest ruff release" to DuckDuckGo' in capsys.readouterr().err
+
+    def test_full_auto_searches_unattended_but_shows_the_query(self, monkeypatch, capsys):
+        """User decision 2026-10-27: allowed and unattended in full-auto."""
+        agent = FakeChatAgent(plan_by_message={"find it": _web_search_plan()})
+        agent.set_mode("full-auto")
+        self._run_chat(monkeypatch, ["find it"], agent=agent)
+        assert agent.executor.execute_plan.call_count == 1
+        assert 'query: "latest ruff release"' in capsys.readouterr().err
 
     def test_full_auto_runs_everything_without_any_prompt(self, monkeypatch):
         plan = _two_step_plan()
