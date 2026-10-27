@@ -815,9 +815,9 @@ and never touches @env{OLLAMA_MODEL} directly on a failed switch.
 @cindex config subcommand
 @cindex resolved configuration
 
-@command{config} prints the resolved value of every environment variable
-Codebud reads, including the defaults it falls back to when a variable is
-not set.
+@command{config} prints the value of every setting Codebud reads and where
+it came from: the environment, a configuration file
+(@pxref{Configuration File}) or the default.
 
 @example
 codebud config
@@ -827,26 +827,27 @@ Example output:
 
 @example
 Codebud resolved configuration:
-  OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
-  OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = all-minilm
-  CODEBUD_RAG        = 1
-  CODEBUD_RAG_HINTS  = 1
-  CODEBUD_NUM_CTX    = 8192
-  OPENAI_API_KEY     = (not set)
-  OPENAI_MODEL       = gpt-3.5-turbo
-  WEB_SEARCH_ENABLED = 0
+  OLLAMA_MODEL              = qwen2.5-coder:3b-instruct-q4_K_M   (environment)
+  OLLAMA_BASE_URL           = http://localhost:11434             (default)
+  EMBED_MODEL               = all-minilm                         (default)
+  CODEBUD_RAG               = 1                                  (default)
+  CODEBUD_RAG_HINTS         = 1                                  (default)
+  CODEBUD_NUM_CTX           = 16384                              (user config)
+  OPENAI_API_KEY            = (not set)                          (default)
+  OPENAI_MODEL              = gpt-3.5-turbo                      (default)
+  WEB_SEARCH_ENABLED        = 0                                  (default)
 
 Files:
+  config file              = /home/you/.config/codebud/config.toml
   data directory           = /home/you/.local/share/codebud
   harmless_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/harmless_commands.json
   powerful_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/powerful_commands.json
   trusted_sequences.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/trusted_sequences.json
 @end example
 
-Use this to confirm that your exported variables are actually being
-picked up by the shell, and to see which policy files are in effect
-(@pxref{Policy JSON Files}).  @env{OPENAI_MODEL} is not shown.
+Use this to confirm that your settings are actually being picked up, and
+to see which configuration and policy files are in effect
+(@pxref{Policy JSON Files}).
 
 
 @node The version Subcommand

@@ -1007,31 +1007,21 @@ def cmd_models(_args):
 
 
 def cmd_config(_args):
+    from codebud import settings
     from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
-    from codebud.llm_stub import num_ctx, openai_model
-    from codebud.tools.embeddings import embed_model
-
-    base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-    model = os.environ.get("OLLAMA_MODEL", "(not set)")
-    embed = embed_model()
-    openai_key = "(set)" if os.environ.get("OPENAI_API_KEY") else "(not set)"
-    web_search = os.environ.get("WEB_SEARCH_ENABLED", "0")
 
     print(f"{_OUT_BOLD}Codebud resolved configuration:{_OUT_RESET}")
-    print(f"  {_OUT_DIM}OLLAMA_MODEL      {_OUT_RESET} = {model}")
-    print(f"  {_OUT_DIM}OLLAMA_BASE_URL   {_OUT_RESET} = {base}")
-    print(f"  {_OUT_DIM}EMBED_MODEL       {_OUT_RESET} = {embed}")
-    print(f"  {_OUT_DIM}CODEBUD_RAG       {_OUT_RESET} = {os.environ.get('CODEBUD_RAG', '1')}")
-    hints = os.environ.get("CODEBUD_RAG_HINTS", "1")
-    print(f"  {_OUT_DIM}CODEBUD_RAG_HINTS {_OUT_RESET} = {hints}")
-    print(f"  {_OUT_DIM}CODEBUD_NUM_CTX   {_OUT_RESET} = {num_ctx()}")
-    print(f"  {_OUT_DIM}OPENAI_API_KEY    {_OUT_RESET} = {openai_key}")
-    print(f"  {_OUT_DIM}OPENAI_MODEL      {_OUT_RESET} = {openai_model()}")
-    print(f"  {_OUT_DIM}WEB_SEARCH_ENABLED{_OUT_RESET} = {web_search}")
+    for env, (value, source) in settings.resolve().items():
+        shown = settings.display_value(env, value)
+        print(f"  {_OUT_DIM}{env:<25}{_OUT_RESET} = {shown:<34} {_OUT_DIM}({source}){_OUT_RESET}")
 
     from codebud.paths import data_dir, policy_file
 
     print(f"\n{_OUT_BOLD}Files:{_OUT_RESET}")
+    project_config = settings.project_config_file()
+    print(f"  {_OUT_DIM}{'config file':<24}{_OUT_RESET} = {settings.user_config_file()}")
+    if project_config is not None:
+        print(f"  {_OUT_DIM}{'project config file':<24}{_OUT_RESET} = {project_config}")
     print(f"  {_OUT_DIM}{'data directory':<24}{_OUT_RESET} = {data_dir()}")
     for name in ("harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"):
         print(f"  {_OUT_DIM}{name:<24}{_OUT_RESET} = {policy_file(name)}")
@@ -1240,6 +1230,11 @@ def main():
     argv = sys.argv[1:]
     if argv and argv[0] not in _KNOWN_SUBCOMMANDS and not argv[0].startswith("-"):
         argv = ["run"] + argv
+
+    # Values from config.toml become environment defaults; set variables win.
+    from codebud import settings
+
+    settings.apply()
 
     parser = _build_parser()
     args = parser.parse_args(argv)

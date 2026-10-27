@@ -113,6 +113,21 @@ Makefile.am     Automake input (also in src/ and docs/)
 pyproject.toml  PEP 621 package metadata and tool configuration
 ```
 
+## Configuration
+
+Settings come from environment variables or `~/.config/codebud/config.toml`
+(the environment wins), for example:
+
+```toml
+model = "qwen2.5-coder:7b-instruct-q4_K_M"
+num_ctx = 16384
+```
+
+`codebud config` shows every value and where it came from. A project's
+`.codebud/config.toml` may set the model and similar options, but never
+anything that sends data off the machine (the Ollama URL, OpenAI key, web
+search).
+
 ## Environment variables
 
 | Variable | Default | Purpose |

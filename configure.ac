@@ -44,6 +44,9 @@ AS_IF([test "x$enable_dependency_check" != xno], [
     "$PYTHON" -c "import $codebud_mod" >/dev/null 2>&1 \
       || codebud_missing="$codebud_missing $codebud_mod"
   done
+  # config.toml needs tomllib, in the standard library only from 3.11.
+  "$PYTHON" -c "import sys; sys.version_info >= (3, 11) or __import__('tomli')" \
+      >/dev/null 2>&1 || codebud_missing="$codebud_missing tomli"
   AS_IF([test -n "$codebud_missing"], [
     AC_MSG_RESULT([missing:$codebud_missing])
     AC_MSG_ERROR([install the missing Python modules, for example:
@@ -52,6 +55,7 @@ AS_IF([test "x$enable_dependency_check" != xno], [
     Arch Linux:     pacman -S python-requests python-prompt_toolkit
     FreeBSD:        pkg install py311-requests py311-prompt-toolkit
     macOS:          $PYTHON -m pip install requests prompt_toolkit  (in a venv)
+(on Python 3.10 also tomli: python3-tomli / python-tomli / py310-tomli)
 or point configure at a Python that has them: ./configure PYTHON=/path/to/python3
 (--disable-dependency-check skips this check, e.g. for distribution builds)])
   ], [AC_MSG_RESULT([yes])])

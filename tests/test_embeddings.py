@@ -212,4 +212,4 @@ def test_config_shows_the_resolved_embed_model(monkeypatch, capsys):
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
     cmd_config(None)
     line = next(ln for ln in capsys.readouterr().out.splitlines() if "EMBED_MODEL" in ln)
-    assert line.endswith("= all-minilm")
+    assert line.split("=", 1)[1].split()[0] == "all-minilm"

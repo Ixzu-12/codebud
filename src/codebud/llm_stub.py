@@ -32,8 +32,17 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Ollama default base URL; override with OLLAMA_BASE_URL if needed.
-_OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+DEFAULT_OLLAMA_BASE = "http://localhost:11434"
+
+
+def ollama_base() -> str:
+    """The Ollama server URL: OLLAMA_BASE_URL, else localhost.
+
+    Read on every call, not at import, so a value from the config file
+    (settings.apply) is never missed.
+    """
+    return os.environ.get("OLLAMA_BASE_URL") or DEFAULT_OLLAMA_BASE
+
 
 # Context window requested from Ollama on every call. Must be identical for
 # all requests: a different num_ctx makes Ollama reload the model and drop
@@ -237,8 +246,8 @@ class ModelHeartbeat:
             return
         try:
             requests.post(
-                f"{_OLLAMA_BASE}/api/generate",
-                proxies=ollama_proxies(_OLLAMA_BASE),
+                f"{ollama_base()}/api/generate",
+                proxies=ollama_proxies(ollama_base()),
                 json={
                     "model": model,
                     "prompt": "hi",
@@ -266,8 +275,8 @@ def prewarm_model() -> None:
         try:
             logger.debug("Pre-warming model %s", model)
             requests.post(
-                f"{_OLLAMA_BASE}/api/generate",
-                proxies=ollama_proxies(_OLLAMA_BASE),
+                f"{ollama_base()}/api/generate",
+                proxies=ollama_proxies(ollama_base()),
                 json={
                     "model": model,
                     "prompt": "hi",
@@ -300,8 +309,8 @@ def warm_model_sync(
         return False
     try:
         r = requests.post(
-            f"{_OLLAMA_BASE}/api/generate",
-            proxies=ollama_proxies(_OLLAMA_BASE),
+            f"{ollama_base()}/api/generate",
+            proxies=ollama_proxies(ollama_base()),
             json={
                 "model": model,
                 "prompt": "hi",
@@ -333,7 +342,7 @@ def _ollama_available() -> bool:
     """Return True if the Ollama server answers a lightweight health check."""
     try:
         r = requests.get(
-            f"{_OLLAMA_BASE}/api/tags", timeout=2, proxies=ollama_proxies(_OLLAMA_BASE)
+            f"{ollama_base()}/api/tags", timeout=2, proxies=ollama_proxies(ollama_base())
         )
         return r.status_code == 200
     except Exception:
@@ -344,7 +353,7 @@ def list_models() -> list[str]:
     """Return the names of models currently downloaded in Ollama, or [] on failure."""
     try:
         r = requests.get(
-            f"{_OLLAMA_BASE}/api/tags", timeout=5, proxies=ollama_proxies(_OLLAMA_BASE)
+            f"{ollama_base()}/api/tags", timeout=5, proxies=ollama_proxies(ollama_base())
         )
         r.raise_for_status()
         return [m.get("name", "") for m in r.json().get("models", [])]
@@ -375,8 +384,8 @@ def _call_ollama(
     chunks = []
     try:
         r = requests.post(
-            f"{_OLLAMA_BASE}/api/generate",
-            proxies=ollama_proxies(_OLLAMA_BASE),
+            f"{ollama_base()}/api/generate",
+            proxies=ollama_proxies(ollama_base()),
             json={
                 "model": model,
                 "prompt": prompt,

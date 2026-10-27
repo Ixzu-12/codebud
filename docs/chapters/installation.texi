@@ -185,7 +185,9 @@ pip install -e . --group dev
 This installs:
 @itemize
 @item @code{prompt_toolkit}, @code{requests} --- runtime dependencies
-(@code{prompt_toolkit} draws the chat command menu and status toolbar)
+(@code{prompt_toolkit} draws the chat command menu and status toolbar),
+and on Python 3.10 @code{tomli}, which reads the configuration file
+(@pxref{Configuration File}; later Pythons have it built in)
 @item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build} and
 @code{numpy} --- the @code{dev} dependency group (PEP 735), for working on
 Codebud itself (@code{numpy} so the project-search tests run)
@@ -257,8 +259,8 @@ sudo make install            @r{# into /usr/local by default}
 @end example
 
 @command{configure} needs Python 3.10 or later with the @code{requests}
-and @code{prompt_toolkit} modules, and prints the package names for your
-system if they are missing.  It only warns if @command{ollama} is not
+and @code{prompt_toolkit} modules (and, on 3.10 only, @code{tomli}), and
+prints the package names for your system if they are missing.  It only warns if @command{ollama} is not
 found, since Ollama may run on another machine, and if @code{numpy} is
 missing, since only project search needs it.  The summary at the end
 shows what was found:

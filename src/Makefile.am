@@ -31,6 +31,7 @@ nobase_python_PYTHON = \
 	codebud/safety.py \
 	codebud/sandbox.py \
 	codebud/sessions.py \
+	codebud/settings.py \
 	codebud/skill.py \
 	codebud/tools/__init__.py \
 	codebud/tools/commands.py \

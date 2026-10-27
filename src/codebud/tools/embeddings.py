@@ -23,9 +23,8 @@ from typing import Any
 
 import requests
 
-from codebud.llm_stub import num_ctx, ollama_proxies
+from codebud.llm_stub import num_ctx, ollama_base, ollama_proxies
 
-_OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 # all-minilm: on scripts/rag_eval.py it matched nomic-embed-text with hybrid
 # search while indexing 8x faster on a CPU (66 s vs 522 s for this repository).
 DEFAULT_EMBED_MODEL = "all-minilm"
@@ -71,16 +70,16 @@ def _task_prefixes(model: str) -> tuple[str, str]:
 def _ollama_embed_many(texts: list[str], model: str) -> list[list[float]]:
     try:
         r = requests.post(
-            f"{_OLLAMA_BASE}/api/embed",
+            f"{ollama_base()}/api/embed",
             json={"model": model, "input": texts, "options": {"num_ctx": num_ctx()}},
             timeout=120,
-            proxies=ollama_proxies(_OLLAMA_BASE),
+            proxies=ollama_proxies(ollama_base()),
         )
         r.raise_for_status()
         vectors = r.json().get("embeddings") or []
     except Exception as exc:
         raise EmbeddingUnavailable(
-            f"Embedding model unavailable ({model} at {_OLLAMA_BASE}): {exc}. "
+            f"Embedding model unavailable ({model} at {ollama_base()}): {exc}. "
             f"Start Ollama and run: ollama pull {model}"
         ) from exc
     if len(vectors) != len(texts) or not all(vectors):

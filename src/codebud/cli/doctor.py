@@ -18,10 +18,8 @@ from pathlib import Path
 
 import requests
 
-from codebud.llm_stub import ollama_proxies
+from codebud.llm_stub import ollama_base, ollama_proxies
 from codebud.tools.embeddings import embed_model
-
-_OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Linux memory statistics; macOS and FreeBSD have none, so the RAM check is
 # skipped there.
@@ -69,16 +67,16 @@ def check_ollama_model_set() -> CheckResult:
 
 
 def check_ollama_reachable() -> CheckResult:
-    url = f"{_OLLAMA_BASE}/api/tags"
+    url = f"{ollama_base()}/api/tags"
     try:
-        r = requests.get(url, timeout=3, proxies=ollama_proxies(_OLLAMA_BASE))
+        r = requests.get(url, timeout=3, proxies=ollama_proxies(ollama_base()))
         if r.status_code == 200:
-            return True, f"Ollama server reachable at {_OLLAMA_BASE}", ""
+            return True, f"Ollama server reachable at {ollama_base()}", ""
         hint = "sudo systemctl start ollama  (or: ollama serve)"
         return False, f"Ollama returned HTTP {r.status_code}", hint
     except requests.exceptions.ConnectionError:
         hint = "Start the server: sudo systemctl start ollama  (or: ollama serve)"
-        return False, f"Cannot connect to Ollama at {_OLLAMA_BASE}", hint
+        return False, f"Cannot connect to Ollama at {ollama_base()}", hint
     except Exception as exc:
         hint = "sudo systemctl start ollama"
         return False, f"Ollama check failed: {exc}", hint
@@ -90,7 +88,7 @@ def check_model_pulled() -> CheckResult:
         return False, "OLLAMA_MODEL not set (skipping model-pull check)", "Set OLLAMA_MODEL first."
     try:
         r = requests.get(
-            f"{_OLLAMA_BASE}/api/tags", timeout=3, proxies=ollama_proxies(_OLLAMA_BASE)
+            f"{ollama_base()}/api/tags", timeout=3, proxies=ollama_proxies(ollama_base())
         )
         if r.status_code != 200:
             return False, "Cannot reach Ollama to check model list", "sudo systemctl start ollama"
@@ -108,7 +106,7 @@ def check_embed_model_pulled() -> CheckResult:
     model = embed_model()
     try:
         r = requests.get(
-            f"{_OLLAMA_BASE}/api/tags", timeout=3, proxies=ollama_proxies(_OLLAMA_BASE)
+            f"{ollama_base()}/api/tags", timeout=3, proxies=ollama_proxies(ollama_base())
         )
         names = {m.get("name", "") for m in r.json().get("models", [])}
     except Exception:

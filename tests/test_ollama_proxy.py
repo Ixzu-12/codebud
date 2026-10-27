@@ -42,8 +42,7 @@ def local_ollama(monkeypatch):
     monkeypatch.setenv("http_proxy", "http://127.0.0.1:9")
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(llm_stub, "_OLLAMA_BASE", base)
-    monkeypatch.setattr(doctor, "_OLLAMA_BASE", base)
+    monkeypatch.setenv("OLLAMA_BASE_URL", base)
     monkeypatch.setenv("OLLAMA_BASE_URL", base)  # read at call time by run_agent
     yield base
     server.shutdown()

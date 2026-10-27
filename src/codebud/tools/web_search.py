@@ -31,7 +31,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_ENABLED = os.environ.get("WEB_SEARCH_ENABLED", "").lower() in ("1", "true", "yes")
+
+def enabled() -> bool:
+    """Whether WEB_SEARCH_ENABLED allows outbound searches (read on each call)."""
+    return os.environ.get("WEB_SEARCH_ENABLED", "").lower() in ("1", "true", "yes")
+
+
 _DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
 _MAX_RESULTS = 5
 
@@ -92,16 +97,17 @@ class WebSearchTool:
     unavailability so the planner does not attempt to use it.
     """
 
-    description = (
-        "Perform a web search and return summarized results."
-        if _ENABLED
-        else "Web search (currently disabled — set WEB_SEARCH_ENABLED=1 to enable)."
-    )
+    @property
+    def description(self) -> str:
+        if enabled():
+            return "Perform a web search and return summarized results."
+        return "Web search (currently disabled — set WEB_SEARCH_ENABLED=1 to enable)."
+
     usage_hint = 'Required: "query" (str). Only when WEB_SEARCH_ENABLED=1.'
     required_args = ("query",)
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
-        if not _ENABLED:
+        if not enabled():
             return {
                 "stdout": "",
                 "stderr": (

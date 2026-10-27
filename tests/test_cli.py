@@ -507,7 +507,7 @@ class TestSubcommandRouting:
         monkeypatch.delenv("OPENAI_MODEL", raising=False)
         self._run_main(["config"])
         line = next(ln for ln in capsys.readouterr().out.splitlines() if "OPENAI_MODEL" in ln)
-        assert line.endswith("= gpt-3.5-turbo")
+        assert line.split("=", 1)[1].split()[0] == "gpt-3.5-turbo"
         monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
         self._run_main(["config"])
         assert "= gpt-4o-mini" in capsys.readouterr().out

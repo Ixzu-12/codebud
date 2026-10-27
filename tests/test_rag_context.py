@@ -156,7 +156,7 @@ def test_config_shows_codebud_rag(monkeypatch, capsys):
     monkeypatch.delenv("CODEBUD_RAG", raising=False)
     cmd_config(None)
     line = next(ln for ln in capsys.readouterr().out.splitlines() if "CODEBUD_RAG" in ln)
-    assert line.endswith("= 1")
+    assert line.split("=", 1)[1].split()[0] == "1"
 
 
 # --- plain chat replies (phase 9, D2) ---------------------------------------

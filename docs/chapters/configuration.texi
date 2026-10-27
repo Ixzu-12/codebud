@@ -2,12 +2,14 @@
 @chapter Configuration
 @cindex configuration
 
-Codebud has no configuration file of its own.  Runtime behaviour is
-controlled through environment variables and through three JSON policy
-files.  This chapter documents both, and where Codebud keeps its files.
+Codebud's settings come from environment variables and an optional
+configuration file, @file{config.toml}; the safety policy comes from three
+JSON policy files.  This chapter documents all of them, and where Codebud
+keeps its files.
 
 @menu
 * Environment Variables Overview::  Variables that control Codebud.
+* Configuration File::              The same settings in config.toml.
 * LLM Backend Variables::           Choosing Ollama or OpenAI.
 * Feature Flags::                   Enabling optional features.
 * Policy JSON Files::               The three safety configuration files.
@@ -101,6 +103,64 @@ To make a variable permanent, add it to your shell profile:
 @example
 echo 'export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M' >> ~/.zshrc
 @end example
+
+
+@node Configuration File
+@section Configuration File
+@cindex configuration file
+@cindex config.toml
+
+Every setting in the table above can also be written in a TOML file, so
+that it does not need exporting in each shell:
+
+@example
+# ~/.config/codebud/config.toml
+model = "qwen2.5-coder:7b-instruct-q4_K_M"
+num_ctx = 16384
+rag_hints = false
+@end example
+
+The file lives at @file{$XDG_CONFIG_HOME/codebud/config.toml} (by default
+@file{~/.config/codebud/config.toml}).  A project can have its own
+@file{.codebud/config.toml}, found like its policy files (the nearest
+@file{.codebud/} at or above the current directory).  Where a value comes
+from, highest first:
+
+@enumerate
+@item the environment variable;
+@item the project's @file{.codebud/config.toml};
+@item your @file{~/.config/codebud/config.toml};
+@item the built-in default.
+@end enumerate
+
+@multitable @columnfractions .30 .32 .38
+@headitem Key @tab Variable @tab Type
+@item @code{model} @tab @env{OLLAMA_MODEL} @tab string
+@item @code{ollama_base_url} @tab @env{OLLAMA_BASE_URL} @tab string (user file only)
+@item @code{embed_model} @tab @env{EMBED_MODEL} @tab string
+@item @code{rag} @tab @env{CODEBUD_RAG} @tab @code{true} / @code{false}
+@item @code{rag_hints} @tab @env{CODEBUD_RAG_HINTS} @tab @code{true} / @code{false}
+@item @code{num_ctx} @tab @env{CODEBUD_NUM_CTX} @tab integer
+@item @code{openai_api_key} @tab @env{OPENAI_API_KEY} @tab string (user file only)
+@item @code{openai_model} @tab @env{OPENAI_MODEL} @tab string
+@item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
+@end multitable
+
+@cindex egress settings
+@strong{Settings that make data leave the machine} --- the Ollama URL, the
+OpenAI key and web search --- are accepted only from your own file or the
+environment.  In a project's file they are ignored with a warning: cloning
+a repository must never be able to send your prompts somewhere else.  The
+same goes for unknown keys, values of the wrong type and a file that is not
+valid TOML: Codebud warns once and carries on without them.
+
+Keep secrets such as @code{openai_api_key} out of shared files, and make
+your own file private (@command{chmod 600 ~/.config/codebud/config.toml}).
+
+@command{codebud config} shows each value and where it came from
+(@pxref{Checking Your Configuration}).  Python 3.10 needs the
+@code{tomli} package to read the file (@pxref{Installation}); 3.11 and
+later have it built in.
 
 
 @node LLM Backend Variables
@@ -344,10 +404,11 @@ Two subcommands help verify your configuration:
 
 @table @command
 @item codebud config
-Prints the resolved value of Codebud's environment variables, including
-defaults, followed by the data directory and
-the policy file in effect for each name.  Use this to confirm that your
-exported variables are being read correctly.
+Prints the value of every setting and where it came from
+(@samp{environment}, @samp{project config}, @samp{user config} or
+@samp{default}; @pxref{Configuration File}), followed by the configuration
+files, the data directory and the policy file in effect for each name.
+Use this to confirm that your settings are being read correctly.
 
 @example
 codebud config
@@ -357,17 +418,18 @@ Example output:
 
 @example
 Codebud resolved configuration:
-  OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
-  OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = all-minilm
-  CODEBUD_RAG        = 1
-  CODEBUD_RAG_HINTS  = 1
-  CODEBUD_NUM_CTX    = 8192
-  OPENAI_API_KEY     = (not set)
-  OPENAI_MODEL       = gpt-3.5-turbo
-  WEB_SEARCH_ENABLED = 0
+  OLLAMA_MODEL              = qwen2.5-coder:3b-instruct-q4_K_M   (environment)
+  OLLAMA_BASE_URL           = http://localhost:11434             (default)
+  EMBED_MODEL               = all-minilm                         (default)
+  CODEBUD_RAG               = 1                                  (default)
+  CODEBUD_RAG_HINTS         = 1                                  (default)
+  CODEBUD_NUM_CTX           = 16384                              (user config)
+  OPENAI_API_KEY            = (not set)                          (default)
+  OPENAI_MODEL              = gpt-3.5-turbo                      (default)
+  WEB_SEARCH_ENABLED        = 0                                  (default)
 
 Files:
+  config file              = /home/you/.config/codebud/config.toml
   data directory           = /home/you/.local/share/codebud
   harmless_commands.json   = /home/you/.config/codebud/harmless_commands.json
   powerful_commands.json   = /usr/local/lib/python3.14/site-packages/codebud/data/policy/powerful_commands.json

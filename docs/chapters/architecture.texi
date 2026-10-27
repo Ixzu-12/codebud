@@ -567,6 +567,7 @@ src/codebud/                   the package
 ├── memory.py          MemoryStore (timeline persistence)
 ├── sessions.py        chat session checkpoints
 ├── paths.py           data, config and policy file locations
+├── settings.py        every setting: environment, config.toml, defaults
 ├── fsutil.py          atomic_write_text() helper
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
 ├── skill.py           codebud skill show/install
