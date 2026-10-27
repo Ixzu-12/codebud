@@ -18,6 +18,8 @@ import os
 import shutil
 from pathlib import Path
 
+from codebud.fsutil import private_dir
+
 APP = "codebud"
 PROJECT_DIR_NAME = ".codebud"
 
@@ -100,7 +102,8 @@ def migrate_legacy_data() -> list[str]:
         target = data_dir() / source.relative_to(legacy)
         if target.exists():
             continue
-        target.parent.mkdir(parents=True, exist_ok=True)
+        private_dir(target.parent)
         shutil.copy2(source, target)
+        os.chmod(target, 0o600)  # the copy only; the original is left as it was
         copied.append(str(target))
     return copied

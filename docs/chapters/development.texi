@@ -67,6 +67,8 @@ tests/
 ├── test_plan_args.py            required tool arguments, retry with
 │                                feedback, plan_invalid
 ├── test_planner.py              prompt content, retry, context budget
+├── test_private_files.py        data dirs 0700 / files 0600 whatever the
+│                                umask; doctor warning
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo
 │                                node, Markdown heading, line windows
 ├── test_rag_cli.py              codebud index: build, --status, --rebuild,

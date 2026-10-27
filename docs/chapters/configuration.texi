@@ -522,6 +522,19 @@ Codebud's locations do not depend on the directory it is started from.
 (@pxref{Policy JSON Files}).
 @end multitable
 
+@cindex permissions, data files
+The runtime data holds your execution history, your conversations and
+copies of your project's text, so Codebud keeps it private: every
+directory it creates is mode 0700 and every file 0600 (owner only),
+whatever your @code{umask}.  @command{codebud doctor} warns when anything
+in the data or configuration directory is readable by other users ---
+for example data written by an older version --- and gives the command
+that fixes it:
+
+@example
+chmod -R go-rwx ~/.local/share/codebud
+@end example
+
 Versions before October 2026 kept runtime data in a @file{data/} directory
 inside the source checkout.  On first start, Codebud copies anything found
 there into the data directory and reports how many files it copied; the

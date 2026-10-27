@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from . import paths
-from .fsutil import atomic_write_text
+from .fsutil import atomic_write_text, create_private, private_dir
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,7 @@ def _lock_path(session_id: str) -> str:
 
 def _try_lock(session_id: str):
     """Return an open, exclusively flock'ed lock file, or None if held elsewhere."""
+    create_private(_lock_path(session_id))
     lock = open(_lock_path(session_id), "a")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -147,11 +148,11 @@ class Session:
     @classmethod
     def create(cls, name: str | None = None) -> "Session":
         """Reserve a new, unique session file and open it."""
-        os.makedirs(_dir(), exist_ok=True)
+        private_dir(_dir())
         for _ in range(100):
             session_id = f"{_timestamp()}-{_random_suffix()}"
             try:
-                os.close(os.open(_path(session_id), os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                os.close(os.open(_path(session_id), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
             except FileExistsError:
                 continue
             break

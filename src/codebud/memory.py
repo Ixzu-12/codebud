@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from . import paths
-from .fsutil import atomic_write_text
+from .fsutil import atomic_write_text, create_private, private_dir
 
 # Overridable for tests; None means the default location in the data dir.
 MEMORY_PATH: str | None = None
@@ -52,7 +52,7 @@ class MemoryStore:
 
     def __init__(self):
         self.history: list[dict[str, Any]] = []
-        os.makedirs(os.path.dirname(_path()), exist_ok=True)
+        private_dir(os.path.dirname(_path()))
         with self._locked():
             self._migrate_legacy_file()
             self._load()
@@ -83,6 +83,7 @@ class MemoryStore:
         # can never be lost to an interrupted write. The lock keeps lines
         # from two codebud processes from interleaving.
         with self._locked():
+            create_private(_path())
             with open(_path(), "a+b") as f:
                 if f.tell() > 0:
                     f.seek(-1, os.SEEK_END)
@@ -102,6 +103,7 @@ class MemoryStore:
     @contextmanager
     def _locked(self):
         """Hold an exclusive flock(2) on the memory lock file."""
+        create_private(f"{_path()}.lock")
         with open(f"{_path()}.lock", "a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             yield

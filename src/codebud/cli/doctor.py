@@ -12,6 +12,7 @@ warnings also print the hint, a one-line "How to fix:" suggestion.
 import json
 import os
 import shutil
+import stat
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -107,6 +108,34 @@ def check_outbound() -> CheckResult:
     if not destinations:
         return True, "Outbound: none - prompts, code and searches stay on this machine", ""
     return True, "Outbound: " + "; ".join(destinations), ""
+
+
+def check_private_data() -> CheckResult:
+    """Warn when codebud's data or config is readable by other users."""
+    from codebud.paths import config_dir, data_dir
+
+    loose_roots, loose = [], 0
+    for root in (data_dir(), config_dir()):
+        if not root.exists():
+            continue
+        found = 0
+        for path in (root, *root.rglob("*")):
+            try:
+                mode = path.lstat().st_mode
+            except OSError:
+                continue
+            if not stat.S_ISLNK(mode) and stat.S_IMODE(mode) & 0o077:
+                found += 1
+        if found:
+            loose += found
+            loose_roots.append(str(root))
+    if not loose:
+        return True, "Data and config files are private (owner only)", ""
+    return (
+        None,
+        f"{loose} codebud files or directories are readable by other users",
+        "Make them private: chmod -R go-rwx " + " ".join(loose_roots),
+    )
 
 
 def check_ollama_model_set() -> CheckResult:
@@ -254,6 +283,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_model_pulled,
     check_embed_model_pulled,
     check_config_files,
+    check_private_data,
     check_disk_space,
     check_ram,
 ]

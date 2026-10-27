@@ -553,6 +553,8 @@ host, DuckDuckGo for web search --- or @samp{Outbound: none}
 @item The embedding model (@env{EMBED_MODEL}, default
       @code{all-minilm}) has been pulled --- a warning only, since
       it is needed just for project search
+@item The data and configuration directories are private (owner only) ---
+      a warning with the @command{chmod} that fixes it otherwise
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
       from the project's @file{.codebud/}, @file{~/.config/codebud/} or

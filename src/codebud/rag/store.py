@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from codebud import paths
+from codebud.fsutil import private_dir
 from codebud.rag.chunker import Chunk
 
 SCHEMA_VERSION = "1"
@@ -53,7 +54,7 @@ def index_dir(root: Path | str) -> Path:
 
 
 def _private_dir(path: Path) -> None:
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    private_dir(path)
     os.chmod(path, 0o700)
 
 
