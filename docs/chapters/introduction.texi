@@ -31,8 +31,10 @@ four stages:
 @enumerate
 @item
 @strong{Plan.}  The LLM planner reads your request and the catalogue of
-available tools.  It returns a JSON array of steps, each containing a tool
-name, a human-readable description, and a dictionary of arguments.
+available tools --- and, once the project has an index, the parts of your
+code most relevant to the request (@pxref{The index Subcommand}).  It
+returns a JSON array of steps, each containing a tool name, a
+human-readable description, and a dictionary of arguments.
 
 @item
 @strong{Validate.}  The safety engine inspects every step before anything
@@ -96,8 +98,9 @@ machine.  It is not a general-purpose assistant.
 @item
 It does not browse the web unless @env{WEB_SEARCH_ENABLED=1} is set.
 @item
-It does not have persistent knowledge between sessions --- only the memory
-timeline from previous runs is available.
+It does not have persistent knowledge between sessions beyond the memory
+timeline from previous runs and, if you build one, the project index of
+your files (which it searches but does not learn from).
 @item
 It does not self-modify or update its own planner prompt automatically.
 @item

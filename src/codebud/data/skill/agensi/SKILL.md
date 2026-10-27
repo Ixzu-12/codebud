@@ -64,8 +64,8 @@ make && make check
 sudo make install           # or: ./configure --prefix=$HOME/.local && make install
 ```
 
-Or: `pip install .` from the clone (add `"[openai]"` only if they want the
-optional OpenAI fallback).
+Or: `pip install .` from the clone (add `"[rag]"` for project search,
+`"[openai]"` only if they want the optional OpenAI fallback).
 
 Then:
 
@@ -78,6 +78,23 @@ codebud doctor
 ```
 
 License: GPL-3.0-or-later (see `COPYING` in the repo).
+
+## Project search (index the project first)
+
+Without an index the planner can only guess file names. Index the project
+once and every request gets the most relevant code as context:
+
+```bash
+ollama pull all-minilm          # small embedding model (45 MB)
+codebud index                   # about a minute per ~1,000 chunks on a CPU
+codebud index --status          # what changed since the last run
+```
+
+Re-run `codebud index` after larger changes (only changed files are
+embedded). Needs numpy (`pip install 'codebud[rag]'`); without an index or
+numpy, requests run without context. `--no-rag` turns it off for one call.
+For edits, prefer the 7B model (`-m qwen2.5-coder:7b-instruct-q4_K_M`):
+with context it planned 5 of 6 test edits correctly, the 3B model none.
 
 ## Running a task (for agents)
 
@@ -126,6 +143,7 @@ Modes: `ask` approves the plan and each step; `auto` approves the plan once
 | Command           | Purpose                                          |
 | ----------------- | ------------------------------------------------ |
 | `codebud doctor`  | Check Python, Ollama, model, and policy files    |
+| `codebud index`   | Build/refresh the project index (`--status`)     |
 | `codebud models`  | List downloaded models, mark the active one      |
 | `codebud config`  | Show settings, data directory, policy files      |
 | `codebud history` | Show past executed steps                         |
@@ -144,6 +162,8 @@ Users can adjust policy in `~/.config/codebud/` or a project’s `.codebud/`.
 | `OLLAMA_MODEL`       | *(required)*             | Model to plan with                   |
 | `OLLAMA_BASE_URL`    | `http://localhost:11434` | Ollama server                        |
 | `CODEBUD_NUM_CTX`    | `8192`                   | Context window requested from Ollama |
+| `EMBED_MODEL`        | `all-minilm`             | Embedding model for project search   |
+| `CODEBUD_RAG`        | `1`                      | `0` plans without project context    |
 | `WEB_SEARCH_ENABLED` | `0`                      | `1` enables the web search tool      |
 
 ## Suggested agent flow
@@ -152,7 +172,9 @@ Users can adjust policy in `~/.config/codebud/` or a project’s `.codebud/`.
    for codebud).
 2. If `codebud` is missing, offer install steps and the repo links above.
 3. Run `codebud doctor` and fix what it reports.
-4. `cd` to their project, then `codebud --no-progress run "..."` (add
-   `--yes` only with consent).
-5. Return codebud’s output; do not re-plan the same task in the cloud unless
+4. `cd` to their project; if `codebud index --status` says there is no
+   index, offer to build one (`codebud index`, about a minute per ~1,000
+   chunks on a CPU).
+5. `codebud --no-progress run "..."` (add `--yes` only with consent).
+6. Return codebud’s output; do not re-plan the same task in the cloud unless
    they ask you to.

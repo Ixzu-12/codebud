@@ -14,6 +14,7 @@ yay -S ollama          # or: paru -S ollama
 # 2. Start the server and pull the recommended model
 sudo systemctl enable --now ollama
 ollama pull qwen2.5-coder:3b-instruct-q4_K_M
+ollama pull all-minilm    # optional: small embedding model for project search
 
 # 3. Get codebud and install it (GNU Autotools)
 git clone https://github.com/mkhellat/codebud.git
@@ -38,6 +39,26 @@ codebud skill install --for claude    # or: --for openclaw
 Alternatively, install it with pip like any Python package:
 `pip install .` (add `"[rag]"` for project search, `"[openai]"` for the
 optional OpenAI fallback).
+
+## Project search
+
+Index a project once and every request gets its most relevant code as
+context, so plans read and patch files that really exist instead of guessed
+ones (needs numpy: `pip install ".[rag]"` or your distribution's package).
+
+```bash
+codebud index             # ~1 min for a mid-sized repository on a CPU
+codebud index --status    # what changed since the last run
+codebud chat              # /sources, /rag on|off, /index inside chat
+```
+
+Search combines embeddings (`all-minilm` by default), BM25 keyword matching
+and exact symbol names; nothing leaves your machine. The index is built
+only when you ask, and chat says when it is out of date. For edits, use the
+7B model (`-m qwen2.5-coder:7b-instruct-q4_K_M`): in our tests it planned
+5 of 6 edits against the right file, the 3B model none. Details and
+measurements: "The index Subcommand" and "Project Search Evaluation" in the
+manual.
 
 ## Build system
 

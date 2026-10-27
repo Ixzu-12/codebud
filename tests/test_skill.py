@@ -50,6 +50,9 @@ def test_skill_has_frontmatter_name_and_description():
         "--no-progress",
         "OLLAMA_MODEL",
         "CODEBUD_NUM_CTX",
+        "codebud index",
+        "--no-rag",
+        "all-minilm",
     ],
 )
 def test_skill_documents_current_cli(needle):
@@ -89,6 +92,9 @@ def test_agensi_skill_is_a_hand_off_listing():
         "OLLAMA_MODEL",
         "CODEBUD_NUM_CTX",
         "git clone",
+        "codebud index",
+        "--no-rag",
+        "all-minilm",
     ],
 )
 def test_agensi_skill_documents_install_and_cli(needle):
