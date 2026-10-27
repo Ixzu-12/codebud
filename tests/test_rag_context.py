@@ -209,3 +209,42 @@ def test_core_gives_the_plain_reply_the_retrieved_context(tmp_path, monkeypatch)
     assert result == {"status": "chat_reply", "reply": "alpha returns 1 (src/a.py:10-11)"}
     assert "--- src/a.py:10-11 (alpha)" in seen["block"]
     agent.close()
+
+
+def test_agent_switch_stops_retrieval(tmp_path, monkeypatch):
+    from codebud import memory as memory_mod
+    from codebud.core import AgentCore
+
+    monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
+    monkeypatch.setattr("codebud.core.retrieve", lambda message, history=None: [_hit()])
+    agent = AgentCore()
+    plan = {
+        "status": "ok",
+        "plan": [{"id": "step_0", "description": "d", "tool": "command", "args": {"cmd": "ls"}}],
+    }
+    monkeypatch.setattr(agent.planner, "generate_plan", lambda *a, **k: plan)
+
+    assert agent.get_rag() is True
+    agent.handle_user_message("q")
+    assert agent.last_context == [_hit()]
+    agent.set_rag(False)
+    agent.handle_user_message("q")
+    assert agent.last_context == []
+    agent.close()
+
+
+def test_agent_starts_with_rag_off_under_codebud_rag_0(tmp_path, monkeypatch):
+    from codebud import memory as memory_mod
+    from codebud.core import AgentCore
+
+    monkeypatch.setenv("CODEBUD_RAG", "0")
+    monkeypatch.setattr(memory_mod, "MEMORY_PATH", str(tmp_path / "entries.jsonl"))
+    monkeypatch.setattr("codebud.core.prewarm_model", lambda: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.start", lambda self: None)
+    monkeypatch.setattr("codebud.core.ModelHeartbeat.stop", lambda self: None)
+    agent = AgentCore()
+    assert agent.get_rag() is False
+    agent.close()

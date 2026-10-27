@@ -979,6 +979,15 @@ class FakeChatAgent:
         self._history[:] = [{"role": "summary", "content": "S"}] + self._history[-keep_last:]
         return True, f"Compacted {len(older)} entries into a summary."
 
+    last_context = []
+    _rag = True
+
+    def get_rag(self):
+        return self._rag
+
+    def set_rag(self, on):
+        self._rag = on
+
     def undo_last_turn(self):
         if len(self._history) >= 2:
             self._history.pop()
@@ -1466,3 +1475,80 @@ def test_error_hints_are_current():
         text = explanation + fix
         assert "config/harmless_commands.json" not in text
         assert "5 minutes" not in text
+
+
+class TestChatProjectContext(_ChatHarness):
+    """/rag, /sources, /index and --no-rag (phase 9, D4/D5)."""
+
+    @staticmethod
+    def _hit():
+        from codebud.rag.chunker import Chunk
+        from codebud.rag.search import Hit
+
+        return Hit(Chunk("src/a.py", 10, 11, "alpha", "python", "def alpha(): ..."), 0.05)
+
+    def test_help_lists_the_new_commands(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/help"])
+        err = capsys.readouterr().err
+        for cmd in ("/rag", "/sources", "/index"):
+            assert cmd in err
+
+    def test_sources_before_any_context(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/sources"])
+        assert "no project context" in capsys.readouterr().err
+
+    def test_sources_lists_the_last_requests_chunks(self, monkeypatch, capsys):
+        agent = FakeChatAgent()
+        agent.last_context = [self._hit()]
+        self._run_chat(monkeypatch, ["/sources"], agent=agent)
+        assert "src/a.py:10-11 (alpha)" in capsys.readouterr().err
+
+    def test_rag_off_and_on(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/rag off"])
+        assert agent.get_rag() is False
+        assert "Project context: off" in capsys.readouterr().err
+        agent = self._run_chat(monkeypatch, ["/rag off", "/rag on"])
+        assert agent.get_rag() is True
+
+    def test_rag_rejects_other_arguments(self, monkeypatch, capsys):
+        agent = self._run_chat(monkeypatch, ["/rag maybe"])
+        assert agent.get_rag() is True
+        assert "/rag on" in capsys.readouterr().err
+
+    def test_rag_status_without_an_index(self, monkeypatch, tmp_path, capsys):
+        monkeypatch.chdir(tmp_path)
+        self._run_chat(monkeypatch, ["/rag"])
+        err = capsys.readouterr().err
+        assert "Project context: on" in err
+        assert "No index" in err and "/index" in err
+
+    def test_index_from_chat_builds_and_reports(self, monkeypatch, tmp_path, capsys):
+        (tmp_path / "app.py").write_text("def main():\n    return 0\n")
+        monkeypatch.chdir(tmp_path)
+        self._run_chat(monkeypatch, ["/index", "/index status"])
+        err = capsys.readouterr().err
+        assert "Indexed 1 file (1 chunk)" in err
+        assert "1 file, 1 chunk" in err
+
+    def test_index_errors_do_not_end_the_chat(self, monkeypatch, tmp_path, capsys):
+        from codebud.tools import embeddings
+
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "app.py").write_text("x = 1\n")
+        monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
+
+        def down(*_a, **_k):
+            raise embeddings.requests.ConnectionError("refused")
+
+        monkeypatch.setattr(embeddings.requests, "post", down)
+        self._run_chat(monkeypatch, ["/index", "/help"])
+        err = capsys.readouterr().err
+        assert "Embedding model unavailable" in err
+        assert "/sources" in err  # /help still ran afterwards
+
+    def test_no_rag_flag_turns_context_off(self, monkeypatch):
+        import os
+
+        monkeypatch.setenv("CODEBUD_RAG", "1")
+        self._run_chat(monkeypatch, ["quit"], extra_argv=["--no-rag"])
+        assert os.environ["CODEBUD_RAG"] == "0"

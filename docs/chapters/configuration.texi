@@ -175,8 +175,9 @@ prompt is replaced with a notice so the planner knows not to use it.
 @item CODEBUD_RAG
 Default: @code{1}.  When the project has an index (@pxref{The index
 Subcommand}), each request's most relevant chunks are added to the
-planning prompt.  Set to @code{0} to plan without them, e.g.@: to compare
-results:
+planning prompt.  Set to @code{0} to plan without them (or pass
+@option{--no-rag}, or type @code{/rag off} in @command{chat}), e.g.@: to
+compare results:
 
 @example
 CODEBUD_RAG=0 codebud plan "add a docstring to compact_history"

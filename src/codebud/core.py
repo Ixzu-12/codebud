@@ -36,6 +36,7 @@ from .memory import MemoryStore
 from .modes import MODES
 from .planner import LLMPlanner
 from .rag.context import context_block, retrieve
+from .rag.context import enabled as rag_enabled
 from .safety import SafetyEngine
 from .sandbox import Sandbox
 from .tools.tool_registry import ToolRegistry
@@ -64,8 +65,10 @@ class AgentCore:
 
         # Store last user message for regeneration
         self.last_user_message = None
-        # Project-index chunks retrieved for the last request (phase 9).
+        # Project-index chunks retrieved for the last request (phase 9), and
+        # whether to retrieve at all (CODEBUD_RAG, --no-rag, /rag on|off).
         self.last_context: list = []
+        self._rag = rag_enabled()
 
         # Rolling conversation history: list of {"role": "user"|"assistant", "content": str}
         self._history: list[dict[str, str]] = []
@@ -100,7 +103,7 @@ class AgentCore:
         """
         self.last_user_message = message
         # Project context from the index, if the project has one (phase 9).
-        self.last_context = retrieve(message, history=self._history)
+        self.last_context = retrieve(message, history=self._history) if self._rag else []
         self._history.append({"role": "user", "content": message})
 
         plan_output = self.planner.generate_plan(
@@ -154,6 +157,14 @@ class AgentCore:
     def is_powerful(self, step: dict[str, Any]) -> bool:
         """Return whether ``step`` needs confirmation even in auto mode."""
         return self.safety.is_powerful(step)
+
+    def get_rag(self) -> bool:
+        """Whether requests get project context from the index."""
+        return self._rag
+
+    def set_rag(self, on: bool) -> None:
+        """Turn project context on or off for this session (/rag on|off)."""
+        self._rag = on
 
     def get_mode(self) -> str:
         """Return the active agent mode (see codebud/modes.py)."""

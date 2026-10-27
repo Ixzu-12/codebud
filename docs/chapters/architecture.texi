@@ -172,6 +172,9 @@ Read and change the conversation history (@code{/history}, @code{/clear},
 @code{/undo}, @option{--resume}).
 @item compact_history(keep_last=2, on_chunk=None), context_usage()
 @code{/compact}, and the estimate behind the 70% context warning.
+@item get_rag(), set_rag(on), last_context
+Whether requests get project context from the index (@option{--no-rag},
+@code{/rag on|off}), and the chunks the last request got (@code{/sources}).
 @item get_mode(), set_mode(mode), is_powerful(step)
 The agent mode and whether a step needs confirmation.
 @item get_model(), set_model(model, on_chunk=None)

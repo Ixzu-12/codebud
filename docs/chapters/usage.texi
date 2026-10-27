@@ -210,6 +210,10 @@ codebud run -m qwen2.5-coder:7b-instruct-q4_K_M "your request"
 
 @strong{Note:} @option{--model} must come @emph{after} the subcommand
 name, not before (@pxref{Global Options}).
+
+@item --no-rag
+Plan without project context from the index, as if @env{CODEBUD_RAG} were
+@samp{0} (@pxref{The index Subcommand}).
 @end table
 
 
@@ -253,7 +257,8 @@ codebud plan -x "delete all .pyc files"
 steps has side effects, and @option{--json} output is meant to be
 piped into scripts, so mixing the two would be ambiguous.  @command{plan}
 also accepts @option{--model}/@option{-m}, with the same validate-then-warm
-behaviour as @command{run} (@pxref{The run Subcommand}).
+behaviour as @command{run}, and @option{--no-rag} (@pxref{The run
+Subcommand}).
 
 
 @node The chat Subcommand
@@ -362,6 +367,14 @@ switch (@pxref{Agent Modes}).
 gives it a name to resume by (@pxref{Saved Sessions}).
 @item @code{/compact} @tab Replace older turns with a short model-written
 summary, keeping the last exchange verbatim (@pxref{Compacting a Conversation}).
+@item @code{/rag} @tab Show whether requests get project context and how
+fresh the index is; @code{/rag on} or @code{/rag off} switches it for this
+session (@pxref{The index Subcommand}).
+@item @code{/sources} @tab List the project files (with line ranges) the
+last request was given as context.
+@item @code{/index} @tab Build or refresh the project index;
+@code{/index status} shows what changed since, @code{/index rebuild}
+starts over.
 @item @code{/doctor} @tab Run environment health checks inline.
 @item @code{/model} @tab Show the active model.
 @item @code{/model @var{name}} @tab Switch models mid-session.
@@ -642,6 +655,12 @@ The context costs time: on a CPU, its roughly 2,000 extra prompt tokens
 can add half a minute to a cold request.  Set @env{CODEBUD_RAG} to
 @samp{0} to turn it off; without an index, or without @code{numpy},
 requests simply go ahead without it.
+
+In @command{chat}, @code{/sources} lists the chunks the last request was
+given, @code{/rag off} and @code{/rag on} switch the context for the rest
+of the session, and @code{/index} builds or refreshes the index without
+leaving the chat; @command{run}, @command{plan} and @command{chat} also
+take @option{--no-rag}.
 
 Small models make the least of it: in tests the 3B model found the right
 file for ``show me'' requests, but only the 7B model also used the context

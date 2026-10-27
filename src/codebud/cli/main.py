@@ -14,6 +14,7 @@ Subcommands
                   (cannot combine with --json)
                   --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   chat            Interactive REPL: multiple requests in one session
+                  /rag, /sources and /index work with the project index;
                   --model/-m <name> overrides OLLAMA_MODEL at startup;
                   /model <name> switches mid-session, /models lists available
                   --mode <ask|auto|full-auto|plan|edit> sets the agent mode
@@ -23,6 +24,7 @@ Subcommands
   sessions        List saved chat sessions (-n/--limit, --json)
   index [PATH]    Build or refresh the project index for search
                   --status, --rebuild, --drop [--yes]
+                  (run, plan and chat take --no-rag to plan without it)
   skill           Show or install codebud's skill for other agents
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
@@ -341,6 +343,77 @@ class _ChatCheckpoint:
             self.session.close()
 
 
+def _chat_sources(agent) -> None:
+    """/sources: the chunks the last request was given as project context."""
+    from codebud.cli.display import print_status
+
+    hits = agent.last_context
+    if not hits:
+        print_status("(no project context was used for the last request)\n")
+        return
+    print_status("Project context of the last request:")
+    for hit in hits:
+        c = hit.chunk
+        symbol = f" ({c.symbol})" if c.symbol else ""
+        print_status(f"  {c.path}:{c.start_line}-{c.end_line}{symbol}")
+    print(file=sys.stderr)
+
+
+def _chat_rag(agent, words: list[str]) -> None:
+    """/rag [on|off]: show or switch project context for this session."""
+    from codebud.cli.display import print_status
+    from codebud.rag import indexer
+
+    if words:
+        if words[0].lower() not in ("on", "off"):
+            print_status("Use /rag on or /rag off (or /rag to show the state).\n")
+            return
+        agent.set_rag(words[0].lower() == "on")
+    print_status(f"Project context: {'on' if agent.get_rag() else 'off'}")
+    root = indexer.project_root()
+    status = indexer.index_status(root)
+    if status is None:
+        print_status(f"No index for {root}; build one with /index.\n")
+        return
+    changes = (status["changed"], status["new"], status["deleted"])
+    stale = (
+        " -- {} changed, {} new, {} deleted since: /index to refresh".format(*changes)
+        if any(changes)
+        else ""
+    )
+    print_status(
+        f"Index: {_plural(status['files'], 'file')}, {_plural(status['chunks'], 'chunk')}, "
+        f"{status['model']}, updated {status['updated']}{stale}\n"
+    )
+
+
+def _chat_index(words: list[str]) -> None:
+    """/index [status|rebuild]: run `codebud index` without leaving chat."""
+    import contextlib
+
+    from codebud.cli.display import print_status
+
+    action = words[0].lower() if words else ""
+    if action not in ("", "status", "rebuild"):
+        print_status("Use /index, /index status or /index rebuild.\n")
+        return
+    index_args = argparse.Namespace(
+        path=None,
+        status=action == "status",
+        rebuild=action == "rebuild",
+        drop=False,
+        yes=False,
+        no_progress=False,
+    )
+    # Chat writes everything to stderr, so stdout stays clean for piping.
+    with contextlib.redirect_stdout(sys.stderr):
+        try:
+            cmd_index(index_args)
+        except SystemExit:
+            pass  # cmd_index already printed the error; the chat goes on
+    print(file=sys.stderr)
+
+
 def cmd_chat(args):
     from codebud.cli import chat_input
     from codebud.cli.display import (
@@ -523,6 +596,15 @@ def cmd_chat(args):
                         marker = f"  {_GREEN}<-- active{_RESET}" if name == active else ""
                         print(f"  {name}{marker}", file=sys.stderr)
                     print(file=sys.stderr)
+                    continue
+                if cmd == "/sources":
+                    _chat_sources(agent)
+                    continue
+                if cmd == "/rag":
+                    _chat_rag(agent, message.split()[1:])
+                    continue
+                if cmd == "/index":
+                    _chat_index(message.split()[1:])
                     continue
                 if cmd == "/plan":
                     if last_plan:
@@ -990,6 +1072,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Override OLLAMA_MODEL for this invocation (must already be downloaded).",
     )
+    model_parent.add_argument(
+        "--no-rag",
+        action="store_true",
+        help="Plan without project context from the index (same as CODEBUD_RAG=0).",
+    )
 
     sub = parser.add_subparsers(dest="subcommand")
 
@@ -1129,6 +1216,8 @@ def main():
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "no_rag", False):
+        os.environ["CODEBUD_RAG"] = "0"
 
     # One-time copy of data written by older versions to the checkout's data/.
     from codebud.paths import data_dir, migrate_legacy_data
