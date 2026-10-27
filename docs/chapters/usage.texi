@@ -544,6 +544,8 @@ It checks:
 (@env{CODEBUD_BACKEND}; fails for an unknown backend, @code{openai}
 without @env{OPENAI_API_KEY}, or a remote Ollama over plain http that is
 not allowed)
+@item Where data can leave this machine: the OpenAI API, a remote Ollama
+host, DuckDuckGo for web search --- or @samp{Outbound: none}
 @item @env{OLLAMA_MODEL} environment variable is set
 @item The Ollama server is reachable at @env{OLLAMA_BASE_URL}
 (default @code{http://localhost:11434})

@@ -47,8 +47,8 @@ direction).  Used by @code{search_embeddings} to rank stored entries
 against a query embedding.
 
 @item Doctor
-The @command{codebud doctor} subcommand.  It runs ten health checks and
-prints a @samp{[PASS]}, @samp{[FAIL]} or @samp{[WARN]} line for each, with
+The @command{codebud doctor} subcommand.  It runs a series of health checks
+(including where data can leave the machine) and prints a @samp{[PASS]}, @samp{[FAIL]} or @samp{[WARN]} line for each, with
 a one-line fix command for every failure or warning.  Warnings (such as a
 missing embedding model) do not count as failures.
 

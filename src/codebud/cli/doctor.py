@@ -90,6 +90,25 @@ def check_backend() -> CheckResult:
     return True, f"LLM backend: {backend_description()}", ""
 
 
+def check_outbound() -> CheckResult:
+    """Every place data can leave this machine to, given the settings."""
+    from urllib.parse import urlsplit
+
+    from codebud.llm_stub import is_remote
+    from codebud.tools.web_search import enabled as web_search_enabled
+
+    destinations = []
+    if backend() == "openai":
+        destinations.append("OpenAI API (prompts)")
+    elif is_remote(ollama_base()):
+        destinations.append(f"{urlsplit(ollama_base()).hostname} (prompts, embeddings)")
+    if web_search_enabled():
+        destinations.append("lite.duckduckgo.com (web search queries)")
+    if not destinations:
+        return True, "Outbound: none - prompts, code and searches stay on this machine", ""
+    return True, "Outbound: " + "; ".join(destinations), ""
+
+
 def check_ollama_model_set() -> CheckResult:
     model = os.environ.get("OLLAMA_MODEL", "")
     if model:
@@ -229,6 +248,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_python_version,
     check_agent_importable,
     check_backend,
+    check_outbound,
     check_ollama_model_set,
     check_ollama_reachable,
     check_model_pulled,

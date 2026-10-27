@@ -142,3 +142,31 @@ def test_toolbar_marks_the_cloud_backend(monkeypatch):
     assert "☁ OpenAI gpt-3.5-turbo" in reader._toolbar()
     monkeypatch.setenv("CODEBUD_BACKEND", "ollama")
     assert "qwen" in reader._toolbar() and "OpenAI" not in reader._toolbar()
+
+
+@pytest.mark.parametrize(
+    "env, expected",
+    [
+        ({}, ["Outbound: none"]),
+        ({"CODEBUD_BACKEND": "openai", "OPENAI_API_KEY": "k"}, ["OpenAI API", "prompts"]),
+        ({"OLLAMA_BASE_URL": "https://gpu-box.example:11434"}, ["gpu-box.example", "prompts"]),
+        ({"WEB_SEARCH_ENABLED": "1"}, ["lite.duckduckgo.com", "search queries"]),
+    ],
+)
+def test_doctor_lists_where_data_can_go(monkeypatch, env, expected):
+    for name in ("CODEBUD_BACKEND", "OLLAMA_BASE_URL", "WEB_SEARCH_ENABLED"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    passed, label, _hint = doctor.check_outbound()
+    assert passed is True
+    for text in expected:
+        assert text in label
+
+
+def test_doctor_lists_every_destination_at_once(monkeypatch):
+    monkeypatch.setenv("CODEBUD_BACKEND", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("WEB_SEARCH_ENABLED", "1")
+    _passed, label, _hint = doctor.check_outbound()
+    assert "OpenAI API" in label and "lite.duckduckgo.com" in label
