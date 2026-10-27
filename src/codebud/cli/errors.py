@@ -67,15 +67,19 @@ _RULES: list[tuple[str, str, str]] = [
         "the first request of a session takes about 30 s with the 3B model.",
         "Check that Ollama is still running (`codebud doctor`), or try a smaller model.",
     ),
+    # Mode before policy: a policy refusal can name the mode as its reason.
     (
-        "step is not safe",
-        "A plan step was blocked by the safety engine.",
-        "Rephrase the request, or adjust the policy (see `codebud config` for the files in effect).",
+        "not allowed in",
+        "The active agent mode does not allow this tool.",
+        "Switch the mode: /mode ask in chat, or --mode ask.",
     ),
     (
-        "not safe",
-        "A plan step was rejected by the safety engine.",
-        "Rephrase the request, or adjust the policy (see `codebud config` for the files in effect).",
+        "safety policy",
+        "A plan step uses a command or argument the safety policy does not allow.",
+        "If the command is safe, add it to harmless_commands.json (reads only) or "
+        "powerful_commands.json (runs code or changes files) in ~/.config/codebud/ or "
+        "the project's .codebud/ (`codebud config` shows the files in effect); "
+        "or rephrase the request.",
     ),
 ]
 

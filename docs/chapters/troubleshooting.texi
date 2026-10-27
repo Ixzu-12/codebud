@@ -23,15 +23,15 @@ their root causes, and how to fix them.
 @cindex plan_error
 @cindex chat reply instead of a plan
 
-When the planner cannot produce a valid plan --- no model answered, the
-answer was not valid JSON even after one retry, or a step broke the safety
-policy --- Codebud does not print a planner error.  It asks the model for a
+When the planner cannot produce a valid plan --- no model answered, or the
+answer was not valid JSON even after one retry --- Codebud does not print a
+planner error.  It asks the model for a
 plain conversational answer instead and prints that; if no model is
 reachable, the answer is empty.  So a missing plan, an empty reply, or a
 chatty answer to a request that should have produced a plan all point to
 the causes below.  Run @command{codebud doctor} first: it checks most of
-them.  (A plan refused because of the agent mode is reported directly; see
-@ref{Agent Modes}.)
+them.  (A plan refused because of the agent mode or the safety policy is
+reported directly; see @ref{Safety Rejection}.)
 
 @table @strong
 @item Cause: no LLM backend configured
@@ -63,8 +63,6 @@ ollama pull qwen2.5-coder:3b-instruct-q4_K_M
 @item Cause: request timed out
 The model is too slow for the hardware.  See @ref{Model Timeout}.
 
-@item Cause: a step broke the safety policy
-See @ref{Safety Rejection}.
 @end table
 
 
@@ -195,14 +193,26 @@ requests.  Simplify the request or switch to a larger model.
 @cindex safety engine, rejection
 @cindex plan step rejected
 
-A plan whose step breaks the safety policy is rejected as a whole.
-Today this is not reported as such: Codebud falls back to a plain chat
-reply (@pxref{No Plan or an Empty Reply}).  The @code{SafetyEngine} rejects
-a @code{command} step when its words do not begin with an entry in
-@file{harmless_commands.json} or @file{powerful_commands.json} (matched by
-whole words), or when it uses an argument that is always refused, such as
-@code{find -exec} or @code{python -c} (@pxref{The Safety Engine}).  A step
-refused because of the agent mode is reported directly instead.
+A plan whose step breaks the safety policy is rejected as a whole, and
+Codebud says which step and why:
+
+@example
+Plan error: The safety policy refused step 1 (du -sh src): du is not on the
+allow-list (harmless_commands.json / powerful_commands.json).
+@end example
+
+The @code{SafetyEngine} rejects a @code{command} step when its words do not
+begin with an entry in @file{harmless_commands.json} or
+@file{powerful_commands.json} (matched by whole words), when it uses an
+argument that is always refused, such as @code{find -exec} or
+@code{python -c} (@pxref{The Safety Engine}), or when the command is empty
+or cannot be parsed.  A step the agent mode forbids is reported the same
+way.  @command{run} and @command{plan} exit with status 1.
+
+Often the model knows the policy and declines by itself (``This request
+cannot be fulfilled with the available tools''); then nothing was blocked,
+and Codebud answers in plain words instead (@pxref{No Plan or an Empty
+Reply}).
 
 @strong{To diagnose:}
 
@@ -227,8 +237,7 @@ print(json.dumps(plan, indent=2))
 "
 @end example
 
-If the plan contains a @code{command} step with an unexpected @code{cmd},
-either:
+To get past a refusal, either:
 
 @itemize
 @item Add the command to your policy if it is genuinely safe: to

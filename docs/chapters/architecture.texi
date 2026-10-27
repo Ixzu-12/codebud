@@ -165,8 +165,8 @@ Generate a plan and return it.  Never executes steps.
 Returns @code{@{"status": "ok", "plan": [...]@}},
 @code{@{"status": "chat_reply", "reply": "..."@}} when no valid plan could
 be made, @code{@{"status": "plan_refused", "error": "..."@}} when the agent
-mode forbids it, or @code{@{"status": "plan_error", ...@}} for a malformed
-plan.
+mode or the safety policy forbids a step (the error names it and says
+why), or @code{@{"status": "plan_error", ...@}} for a malformed plan.
 @item get_history(), clear_history(), undo_last_turn(), restore_history(history)
 Read and change the conversation history (@code{/history}, @code{/clear},
 @code{/undo}, @option{--resume}).
@@ -276,8 +276,9 @@ into words as the sandbox does and requires them to begin with an entry in
 @file{harmless_commands.json} or @file{powerful_commands.json} (whole
 words, not string prefixes); some arguments are refused regardless
 (@code{find -exec}, @code{python -c}, @dots{}; @pxref{The Safety Engine}).
-A rejected step fails the whole plan; Codebud then falls back to a plain
-chat reply.
+A rejected step fails the whole plan, which comes back as
+@code{plan_refused} naming the step and the reason
+(@code{SafetyEngine.refusal_reason(step)}).
 
 All other tool types (@code{file_write}, @code{file_read}, @code{patch},
 @code{web_search}, @code{search_embeddings}) are accepted

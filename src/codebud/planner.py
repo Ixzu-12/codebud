@@ -127,10 +127,13 @@ class LLMPlanner:
             return None  # signal caller to retry
 
         if not self._validate_plan_structure(plan_json):
-            refused = self._mode_refusal(plan_json)
-            if refused is not None:
-                return refused
             return {"status": "plan_error", "error": "LLM returned malformed plan"}
+
+        # A well-formed plan the mode or the safety policy forbids is
+        # reported as such, not turned into a chat reply that hides why.
+        refused = self._mode_refusal(plan_json) or self._safety_refusal(plan_json)
+        if refused is not None:
+            return refused
 
         return plan_json
 
@@ -342,18 +345,27 @@ Format: {{"status":"ok","plan":[{{"id":"step_0","description":"...","tool":"..."
                 return False
             if "tool" not in step:
                 return False
-            if "args" not in step:
+            if not isinstance(step.get("args"), dict):
                 return False
 
             # Validate tool exists
             if not self.tool_registry.has(step["tool"]):
                 return False
 
-            # Validate safety
-            if not self.safety_engine.validate_step(step):
-                return False
-
         return True
+
+    def _safety_refusal(self, plan_json: dict[str, Any]) -> dict[str, Any] | None:
+        """Return a plan_refused result naming the first step the policy refuses."""
+        for number, step in enumerate(plan_json.get("plan", []), 1):
+            if self.safety_engine.validate_step(step):
+                continue
+            reason = self.safety_engine.refusal_reason(step) or "refused by the safety policy"
+            what = step.get("args", {}).get("cmd") or step.get("tool")
+            return {
+                "status": "plan_refused",
+                "error": f"The safety policy refused step {number} ({what}): {reason}.",
+            }
+        return None
 
     # ------------------------------------------------------------------
     # Helpers

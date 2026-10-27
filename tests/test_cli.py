@@ -338,6 +338,16 @@ class TestErrors:
         result = explain("LLM returned invalid JSON")
         assert result is not None
 
+    def test_safety_refusal_explains_how_to_allow_the_command(self):
+        from codebud.cli.errors import explain
+
+        explanation, fix = explain(
+            "The safety policy refused step 1 (du -sh src): du is not on the allow-list"
+        )
+        assert "harmless_commands.json" in fix and "codebud config" in fix
+        _, fix = explain("The plan uses tools not allowed in edit mode: command.")
+        assert "/mode ask" in fix
+
     def test_unknown_error_returns_none(self):
         from codebud.cli.errors import explain
 

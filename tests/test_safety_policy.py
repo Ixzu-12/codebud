@@ -130,3 +130,98 @@ def test_malformed_policy_file_is_reported(tmp_path, monkeypatch, caplog):
 
     assert engine.harmless_commands == []
     assert "harmless_commands.json" in caplog.text
+
+
+# --- why a step is refused (open product issue 1) ----------------------------
+
+
+def _reason(engine, cmd):
+    return engine.refusal_reason({"tool": "command", "args": {"cmd": cmd}})
+
+
+@pytest.mark.parametrize(
+    "cmd, words",
+    [
+        ("rm -rf build", ["rm", "allow-list"]),
+        ("find . -delete", ["find", "-delete", "never allowed"]),
+        ("python3 -c 'print(1)'", ["python3", "-c", "never allowed"]),
+        ("git log --output=x", ["git", "--output=x", "never allowed"]),
+        ('echo "unterminated', ["could not be parsed"]),
+        ("", ["empty"]),
+    ],
+)
+def test_refusal_reason_says_what_is_wrong(cmd, words):
+    engine = _engine(harmless=["ls", "echo", "git log", "find"], powerful=["python3"])
+    reason = _reason(engine, cmd)
+    for word in words:
+        assert word in reason
+
+
+def test_allowed_steps_have_no_refusal_reason():
+    engine = _engine()
+    assert _reason(engine, "ls -la") is None
+    assert engine.refusal_reason({"tool": "file_read", "args": {"path": "x"}}) is None
+
+
+def test_refusal_reason_names_the_mode():
+    engine = _engine()
+    engine.mode = "edit"
+    assert "edit mode" in _reason(engine, "ls")
+
+
+@pytest.mark.parametrize("cmd", ["ls", "rm -rf x", "find . -delete", 'echo "x', ""])
+def test_validate_step_agrees_with_refusal_reason(cmd):
+    engine = _engine(harmless=["ls", "echo", "find"])
+    assert _ok(engine, cmd) is (_reason(engine, cmd) is None)
+
+
+def test_may_execute_gives_the_reason():
+    allowed, message = _engine().may_execute({"tool": "command", "args": {"cmd": "rm -rf x"}})
+    assert allowed is False
+    assert "rm" in message and "allow-list" in message
+
+
+def test_planner_reports_a_refused_step_instead_of_chatting(monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+
+    from codebud import planner as planner_mod
+
+    registry = MagicMock()
+    registry.has.return_value = True
+    registry.describe_tools.return_value = "- command: run a program"
+    plan = {
+        "status": "ok",
+        "plan": [
+            {"id": "step_0", "description": "list", "tool": "command", "args": {"cmd": "ls"}},
+            {
+                "id": "step_1",
+                "description": "clean",
+                "tool": "command",
+                "args": {"cmd": "rm -rf build"},
+            },
+        ],
+    }
+    monkeypatch.setattr(planner_mod, "call_llm", lambda prompt, on_chunk=None: json.dumps(plan))
+    result = planner_mod.LLMPlanner(registry, _engine()).generate_plan("clean up")
+    assert result["status"] == "plan_refused"
+    assert "step 2" in result["error"]
+    assert "rm -rf build" in result["error"]
+    assert "allow-list" in result["error"]
+
+
+def test_plan_with_non_object_args_is_malformed(monkeypatch):
+    import json
+    from unittest.mock import MagicMock
+
+    from codebud import planner as planner_mod
+
+    registry = MagicMock()
+    registry.has.return_value = True
+    plan = {
+        "status": "ok",
+        "plan": [{"id": "s", "description": "d", "tool": "command", "args": "rm -rf /"}],
+    }
+    monkeypatch.setattr(planner_mod, "call_llm", lambda prompt, on_chunk=None: json.dumps(plan))
+    result = planner_mod.LLMPlanner(registry, _engine())._attempt("prompt")
+    assert result == {"status": "plan_error", "error": "LLM returned malformed plan"}

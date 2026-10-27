@@ -26,7 +26,7 @@ LLM output
     │
     ▼
 SafetyEngine.validate_step()          @r{(layer 1: policy file check)}
-    │  reject → no plan (chat reply; plan_refused for a mode)
+    │  reject → plan_refused: which step, and why
     ▼
 AgentCore._validate_plan()            @r{(same check, defence-in-depth)}
     │  reject → no plan
@@ -96,8 +96,10 @@ options are checked, so @code{python3 script.py -c config.toml} is allowed
 When a step fails validation the entire plan is rejected and the agent
 never executes a partial plan.  A rejection caused only by the agent mode
 is reported as such (@samp{The plan uses tools not allowed in edit mode:
-command.}); any other rejection currently ends in a plain chat reply
-instead of a plan (@pxref{No Plan or an Empty Reply}).
+command.}), and so is a policy rejection, naming the step and the reason
+(@samp{The safety policy refused step 1 (du -sh src): du is not on the
+allow-list}; @pxref{Safety Rejection}).  The same reasons are given when a
+step is refused right before it runs.
 
 @code{describe_rules()} returns a compact summary of the three policy
 lists, which is embedded in the planner prompt so the model can avoid

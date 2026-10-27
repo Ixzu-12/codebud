@@ -103,16 +103,16 @@ def _python_runs_inline_code(args: list[str]) -> bool:
     return False
 
 
-def _forbidden_argument(words: list[str]) -> bool:
-    """Return whether ``words`` use an argument this policy always refuses."""
+def _forbidden_argument(words: list[str]) -> str | None:
+    """Return the argument of ``words`` this policy always refuses, if any."""
     program, args = words[0], words[1:]
     if program == "find":
-        return any(arg in _FIND_FORBIDDEN for arg in args)
+        return next((arg for arg in args if arg in _FIND_FORBIDDEN), None)
     if program in _PYTHONS:
-        return _python_runs_inline_code(args)
+        return "-c" if _python_runs_inline_code(args) else None
     if program == "git":
-        return any(arg.startswith(_GIT_FORBIDDEN_PREFIXES) for arg in args)
-    return False
+        return next((arg for arg in args if arg.startswith(_GIT_FORBIDDEN_PREFIXES)), None)
+    return None
 
 
 class SafetyEngine:
@@ -138,30 +138,22 @@ class SafetyEngine:
     # ------------------------------------------------------------------
 
     def validate_step(self, step: dict[str, Any]) -> bool:
+        """Return whether ``step`` may run (see refusal_reason())."""
+        return self.refusal_reason(step) is None
+
+    def refusal_reason(self, step: dict[str, Any]) -> str | None:
+        """Return why ``step`` is refused, or None if it may run.
+
+        Checks the agent mode, then, for commands, that the command parses,
+        uses no always-refused argument and starts with an allow-list entry.
+        (Whether the tool exists is the tool registry's business.)
         """
-        Validate a single step.
-
-        Checks:
-        - Tool exists (handled by tool registry)
-        - If tool is 'command', validate command safety
-        - Trusted sequence validation (optional)
-        """
-
-        if not step_allowed(self.mode, step):
-            return False
-
         tool = step.get("tool")
-        args = step.get("args", {})
-
-        # Command safety
+        if not step_allowed(self.mode, step):
+            return f"{tool} is not allowed in {self.mode} mode"
         if tool == "command":
-            cmd = args.get("cmd", "")
-            if not self._validate_command(cmd):
-                return False
-
-        # Additional tool-specific safety rules can be added here
-
-        return True
+            return self._command_refusal(step.get("args", {}).get("cmd", ""))
+        return None
 
     def is_powerful(self, step: dict[str, Any]) -> bool:
         """Return whether ``step`` is a command on the powerful list.
@@ -182,8 +174,9 @@ class SafetyEngine:
         """
         if self.mode == "plan":
             return False, "plan mode: steps are never executed (switch with /mode ask)"
-        if not self.validate_step(step):
-            return False, f"step refused in {self.mode} mode by the safety policy"
+        reason = self.refusal_reason(step)
+        if reason:
+            return False, f"refused by the safety policy: {reason}"
         return True, ""
 
     def describe_rules(self) -> str:
@@ -202,9 +195,9 @@ class SafetyEngine:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _validate_command(self, cmd: str) -> bool:
+    def _command_refusal(self, cmd: str) -> str | None:
         """
-        Validate a shell command against the harmless/powerful lists.
+        Judge a shell command against the harmless/powerful lists.
 
         Commands run without a shell (Sandbox uses shlex.split), so they
         are judged on the same parsed words: a list entry such as "cat" or
@@ -212,14 +205,23 @@ class SafetyEngine:
         string prefix is not enough, so "cat" does not admit "catastrophe".
         Some arguments are refused even for listed programs (see
         _forbidden_argument), e.g. find -exec and python -c.
+        Returns why the command is refused, or None.
         """
+        if not cmd.strip():
+            return "the command is empty"
         words = _split(cmd)
-        if not words or _forbidden_argument(words):
-            return False
-        return any(
-            _starts_with_words(words, entry)
-            for entry in (*self.harmless_commands, *self.powerful_commands)
-        )
+        if not words:
+            return "the command could not be parsed"
+        forbidden = _forbidden_argument(words)
+        if forbidden:
+            return f"{words[0]} {forbidden} is never allowed (it can run or delete anything)"
+        allowed = (*self.harmless_commands, *self.powerful_commands)
+        if not any(_starts_with_words(words, entry) for entry in allowed):
+            return (
+                f"{words[0]} is not on the allow-list "
+                "(harmless_commands.json / powerful_commands.json)"
+            )
+        return None
 
     def _load_json(self, path: str) -> list[str]:
         """Load a JSON list from disk; warn and use [] if it is unusable."""

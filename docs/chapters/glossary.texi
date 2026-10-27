@@ -146,10 +146,11 @@ uses Ollama's @code{/api/generate} endpoint (streaming) and
 @item Plan error
 The planner's result @code{@{"status": "plan_error", "error": "..."@}} when
 it cannot produce a valid plan.  Common causes: the model returned empty
-output, invalid JSON, or a plan that failed safety validation.
-@code{AgentCore} turns it into a plain chat reply
-(@code{@{"status": "chat_reply"@}}); a plan rejected only because of the
-agent mode is returned as @code{plan_refused} instead.
+output, invalid JSON, or a malformed plan, or it declined the request
+itself.  @code{AgentCore} turns it into a plain chat reply
+(@code{@{"status": "chat_reply"@}}).  A plan the agent mode or the safety
+policy rejects is returned as @code{plan_refused} instead, with a message
+naming the step and the reason.
 
 @item Plan step
 One element of the @code{"plan"} array in a JSON plan.  Each step
