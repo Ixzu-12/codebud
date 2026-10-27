@@ -55,6 +55,8 @@ tests/
 ├── test_embeddings.py           deterministic stub, no silent fallback
 ├── test_fsutil.py               atomic_write_text()
 ├── test_llm_stub.py             Ollama/OpenAI paths, warmup, summaries
+├── test_local_only.py           the default flow (plan, run, index,
+│                                search) connects only to this machine
 ├── test_memory.py               MemoryStore JSON Lines, crash safety,
 │                                concurrent writers, legacy migration
 ├── test_modes.py                mode enforcement (SafetyEngine, Executor)
@@ -99,6 +101,13 @@ tests/
 @item
 @strong{No live network.}  All LLM calls are mocked with
 @code{patch("codebud.planner.call_llm", ...)} or equivalent.
+
+@item
+@strong{Local by default, proven.}  @file{test_local_only.py} refuses
+every connection to a non-loopback address and runs @command{codebud run},
+@command{codebud index} and a search against a fake Ollama on
+@code{127.0.0.1}, with @env{OPENAI_API_KEY} set; any new code path that
+reached outward would fail it.
 
 @item
 @strong{No live Ollama required.}  @code{test_llm_stub.py} patches
