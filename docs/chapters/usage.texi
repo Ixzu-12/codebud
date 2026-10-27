@@ -297,8 +297,8 @@ Other modes change these prompts: @code{auto} runs the steps after the
 plan is approved and asks only before powerful commands, @code{full-auto}
 asks nothing, and @code{plan} never runs anything (@pxref{Agent Modes}).
 
-To end the session, type @samp{quit}, @samp{exit} or @samp{q}, press
-@kbd{Ctrl-D}, or press @key{RET} on an empty line.
+To end the session, type @samp{quit}, @samp{exit} or @samp{q}, or press
+@kbd{Ctrl-D}.  An empty line (@key{RET} alone) just shows the prompt again.
 
 On a terminal, a dim horizontal rule is drawn across the full width
 before each @samp{[@var{n}] You:} prompt, so turns are easy to tell

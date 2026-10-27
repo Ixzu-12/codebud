@@ -508,7 +508,9 @@ def cmd_chat(args):
             except (EOFError, KeyboardInterrupt):
                 print(file=sys.stderr)
                 break
-            if not message or message.lower() in ("quit", "exit", "q"):
+            if not message:
+                continue  # an accidental Enter must not end the session
+            if message.lower() in ("quit", "exit", "q"):
                 break
 
             # --- slash command handling ---

@@ -1069,6 +1069,13 @@ class TestChatSubcommand(_ChatHarness):
         assert agent.closed
         assert agent.get_history() == []
 
+    def test_empty_line_does_not_end_the_session(self, monkeypatch):
+        """Pressing Enter on an empty line used to end the chat."""
+        agent = self._run_chat(monkeypatch, ["", "   ", "do something", "n"])
+        assert [t["content"] for t in agent.get_history() if t["role"] == "user"] == [
+            "do something"
+        ]
+
     def test_plan_accept_executes_all_steps(self, monkeypatch, capsys):
         agent = self._run_chat(monkeypatch, ["do something", "y", "y"])
         assert agent.executor.execute_plan.called
