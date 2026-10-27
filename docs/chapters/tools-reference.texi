@@ -378,8 +378,8 @@ Overlapping parts of one file are returned once.
 
 @table @env
 @item EMBED_MODEL
-The Ollama embedding model.  Defaults to @code{nomic-embed-text}
-(@command{ollama pull nomic-embed-text}); it does not follow
+The Ollama embedding model.  Defaults to @code{all-minilm}
+(@command{ollama pull all-minilm}); it does not follow
 @env{OLLAMA_MODEL}, and must be the model the index was built with.
 @item OLLAMA_BASE_URL
 The Ollama server.  Defaults to @code{http://localhost:11434}.

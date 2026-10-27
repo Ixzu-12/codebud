@@ -254,8 +254,12 @@ different models (or of different sizes) cannot be compared.  If
 
 @example
 The index of /home/you/src/proj was built with nomic-embed-text; this run
-uses qwen3-embedding:0.6b. Run: codebud index --rebuild
+uses all-minilm. Run: codebud index --rebuild
 @end example
+
+This also happens once after upgrading to a Codebud whose default
+embedding model is @code{all-minilm}, if an index was built with the
+earlier default, @code{nomic-embed-text}.
 
 @strong{Fix:} rebuild the index with the new model, or set
 @env{EMBED_MODEL} back:

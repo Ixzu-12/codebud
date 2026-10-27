@@ -744,3 +744,26 @@ halves the score of chunks from test files (@file{tests/}, @file{test_*},
 was kept.  The questions are few and were written by the developers, so
 small differences mean little.
 
+@subheading Embedding models
+
+The same eval with three embedding models, each building a fresh index
+of this repository (1,184 chunks) on the same CPU:
+
+@multitable @columnfractions .26 .12 .12 .14 .12 .12 .12
+@headitem Model @tab size @tab index @tab vector R@@5 @tab hybrid R@@5 / MRR @tab hybrid R@@3 / MRR @tab ms/q
+@item @code{all-minilm} @tab 45 MB @tab 66 s @tab 0.88 @tab 0.97 / 0.83 @tab 0.97 / 0.83 @tab 25
+@item @code{nomic-embed-text} @tab 274 MB @tab 522 s @tab 0.97 @tab 0.97 / 0.83 @tab 0.94 / 0.82 @tab 148
+@item @code{qwen3-embedding:0.6b} @tab 639 MB @tab about 55 min (projected) @tab --- @tab --- @tab --- @tab ---
+@end multitable
+
+On their own, @code{nomic-embed-text}'s vectors are clearly better
+(recall@@5 0.97 against 0.88), but with keyword and symbol matching added
+the two give the same results, and @code{all-minilm} indexes eight times
+faster and searches six times faster.  It became the default.  Its limits:
+it reads only about the first 256 tokens of a chunk, and it was trained on
+English; projects with long prose or other languages may do better with
+@code{nomic-embed-text}.  @code{qwen3-embedding:0.6b} took about 2.8@tie{}s
+per chunk, so its run was stopped: an hour per first index is not
+practical on a CPU, and the hybrid results above leave it at most one
+question to gain.
+

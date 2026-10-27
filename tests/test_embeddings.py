@@ -119,7 +119,7 @@ def test_search_reports_an_unavailable_model_as_an_error(tmp_path, monkeypatch):
     monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
     monkeypatch.delenv("EMBED_MODEL", raising=False)
     with IndexStore.open(tmp_path, create=True) as store:
-        store.ensure_model("nomic-embed-text", 16)
+        store.ensure_model("all-minilm", 16)
         store.replace_file("a.py", "h", [(_any_chunk(), [1.0] * 16)])
     monkeypatch.chdir(tmp_path)
     _ollama_down(monkeypatch)
@@ -152,7 +152,7 @@ def test_default_embed_model_is_a_dedicated_embedding_model(monkeypatch):
     """It used to fall back to OLLAMA_MODEL, a text-generation model."""
     monkeypatch.delenv("EMBED_MODEL", raising=False)
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b-instruct-q4_K_M")
-    assert embeddings.embed_model() == "nomic-embed-text"
+    assert embeddings.embed_model() == "all-minilm"
 
 
 def test_embed_model_env_is_read_at_call_time(monkeypatch):
@@ -181,13 +181,13 @@ def _tags(monkeypatch, names):
     return doctor
 
 
-@pytest.mark.parametrize("pulled", ["nomic-embed-text", "nomic-embed-text:latest"])
+@pytest.mark.parametrize("pulled", ["all-minilm", "all-minilm:latest"])
 def test_doctor_passes_when_embed_model_is_pulled(monkeypatch, pulled):
     monkeypatch.delenv("EMBED_MODEL", raising=False)
     doctor = _tags(monkeypatch, [pulled])
     passed, label, _hint = doctor.check_embed_model_pulled()
     assert passed is True
-    assert "nomic-embed-text" in label
+    assert "all-minilm" in label
 
 
 def test_doctor_only_warns_when_embed_model_is_missing(monkeypatch, capsys):
@@ -197,12 +197,12 @@ def test_doctor_only_warns_when_embed_model_is_missing(monkeypatch, capsys):
     doctor = _tags(monkeypatch, ["qwen2.5-coder:3b"])
     passed, _label, hint = doctor.check_embed_model_pulled()
     assert passed is None
-    assert hint == "ollama pull nomic-embed-text"
+    assert hint == "ollama pull all-minilm"
 
     assert doctor.run_doctor() == 0
     out = capsys.readouterr().out
     assert "[WARN]" in out
-    assert "ollama pull nomic-embed-text" in out
+    assert "ollama pull all-minilm" in out
 
 
 def test_config_shows_the_resolved_embed_model(monkeypatch, capsys):
@@ -212,4 +212,4 @@ def test_config_shows_the_resolved_embed_model(monkeypatch, capsys):
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
     cmd_config(None)
     line = next(ln for ln in capsys.readouterr().out.splitlines() if "EMBED_MODEL" in ln)
-    assert line.endswith("= nomic-embed-text")
+    assert line.endswith("= all-minilm")

@@ -132,7 +132,7 @@ def test_drop_removes_the_whole_index(project):
 
 def test_documents_are_batched_and_prefixed_for_nomic(monkeypatch):
     monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
-    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    monkeypatch.setenv("EMBED_MODEL", "nomic-embed-text")
     monkeypatch.setattr(embeddings, "BATCH_SIZE", 2)
     sent = []
 
@@ -199,3 +199,23 @@ def test_qwen3_embedding_gets_an_instruction_on_queries_only(monkeypatch):
     embeddings.embed_query("where is f?")
     assert sent[0] == ["def f(): pass"]
     assert sent[1][0].startswith("Instruct: ") and sent[1][0].endswith("\nQuery: where is f?")
+
+
+def test_default_model_gets_no_task_prefix(monkeypatch):
+    monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    sent = []
+
+    class Reply:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"embeddings": [[1.0]]}
+
+    monkeypatch.setattr(
+        embeddings.requests, "post", lambda url, json, **k: sent.append(json) or Reply()
+    )
+    embeddings.embed_query("where is f?")
+    assert sent[0]["model"] == "all-minilm"
+    assert sent[0]["input"] == ["where is f?"]

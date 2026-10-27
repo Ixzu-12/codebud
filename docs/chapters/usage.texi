@@ -541,7 +541,7 @@ It checks:
 (default @code{http://localhost:11434})
 @item The selected model has been pulled
 @item The embedding model (@env{EMBED_MODEL}, default
-      @code{nomic-embed-text}) has been pulled --- a warning only, since
+      @code{all-minilm}) has been pulled --- a warning only, since
       it is needed just for project search
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
@@ -689,12 +689,12 @@ codebud index --drop        @r{# delete the index (asks first; --yes to skip)}
 
 Without a path, the project is the git work tree containing the current
 directory (or the current directory outside git).  It needs the embedding
-model, @code{nomic-embed-text} by default (@pxref{Pulling a Model}).
+model, @code{all-minilm} by default (@pxref{Pulling a Model}).
 
-The first run is the slow one: on a CPU each chunk takes roughly half a
-second to embed, so Codebud's own repository (about 90 files, 1,060
-chunks) takes around seven minutes.  A progress line shows which file is
-being read.  Later runs only embed what changed.
+The first run is the slow one: on a CPU, Codebud's own repository (about
+95 files, 1,180 chunks) takes about a minute with @code{all-minilm}, and
+about nine minutes with @code{nomic-embed-text}.  A progress line shows
+which file is being read.  Later runs only embed what changed.
 
 @subsection What gets indexed
 
@@ -733,7 +733,7 @@ run:
 
 @example
 Index of /home/you/src/codebud
-  model          nomic-embed-text (768-dim)
+  model          all-minilm (384-dim)
   contents       87 files, 1061 chunks
   keyword search yes
   updated        2026-10-27T15:04:11+00:00
@@ -828,7 +828,7 @@ Example output:
 Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = nomic-embed-text
+  EMBED_MODEL        = all-minilm
   CODEBUD_RAG        = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
@@ -1087,7 +1087,7 @@ cost.
 
 @item EMBED_MODEL
 The dedicated embedding model used by the @code{search_embeddings}
-tool.  Defaults to @code{nomic-embed-text},
+tool.  Defaults to @code{all-minilm},
 independent of @env{OLLAMA_MODEL}.
 
 @item OPENAI_API_KEY

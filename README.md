@@ -99,7 +99,7 @@ pyproject.toml  PEP 621 package metadata and tool configuration
 | `OLLAMA_MODEL` | *(required)* | Model name as shown in `codebud models` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `CODEBUD_NUM_CTX` | `8192` | Context window requested from Ollama on every call |
-| `EMBED_MODEL` | `nomic-embed-text` | Dedicated embedding model (`ollama pull nomic-embed-text`) |
+| `EMBED_MODEL` | `all-minilm` | Dedicated embedding model (`ollama pull all-minilm`) |
 | `CODEBUD_RAG` | `1` | Set to `0` to plan without project context from `codebud index` |
 | `CODEBUD_RAG_HINTS` | `1` | Set to `0` to stop chat from suggesting `/index` |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |

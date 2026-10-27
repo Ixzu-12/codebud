@@ -198,13 +198,16 @@ stored permanently on disk (@pxref{Where Models Are Stored}) and reused
 across Ollama restarts.
 
 Project search uses a second, much smaller model that turns text into
-embedding vectors (about 270 MB):
+embedding vectors (about 45 MB):
 
 @example
-ollama pull nomic-embed-text
+ollama pull all-minilm
 @end example
 
-It is optional; set @env{EMBED_MODEL} to use a different embedding model.
+It is optional; set @env{EMBED_MODEL} to use a different embedding model,
+for example @code{nomic-embed-text} (about 270 MB) for projects with
+long passages of prose or text in languages other than English
+(@pxref{Project Search Evaluation}).
 
 
 @node Listing Models

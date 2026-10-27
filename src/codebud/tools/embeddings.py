@@ -9,7 +9,7 @@ never substituted.
 
 Environment variables:
   OLLAMA_BASE_URL   Base URL of the Ollama server (default: http://localhost:11434)
-  EMBED_MODEL       Embedding model (default: nomic-embed-text).  A dedicated
+  EMBED_MODEL       Embedding model (default: all-minilm).  A dedicated
                     embedding model, not the text-generation OLLAMA_MODEL.
   CODEBUD_EMBED_STUB  Tests only: "1" uses a deterministic offline stub
                     instead of Ollama.
@@ -26,7 +26,9 @@ import requests
 from codebud.llm_stub import num_ctx, ollama_proxies
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-DEFAULT_EMBED_MODEL = "nomic-embed-text"
+# all-minilm: on scripts/rag_eval.py it matched nomic-embed-text with hybrid
+# search while indexing 8x faster on a CPU (66 s vs 522 s for this repository).
+DEFAULT_EMBED_MODEL = "all-minilm"
 
 # Texts sent to Ollama per /api/embed request when indexing.
 BATCH_SIZE = 32

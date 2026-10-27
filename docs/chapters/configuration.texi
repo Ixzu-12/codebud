@@ -47,11 +47,13 @@ reload the model and discard its cached prompt prefix.  Larger values use
 more memory (roughly 36 KB per token for a 3B Qwen2.5 model).  Invalid
 values are ignored with a warning.
 @item @env{EMBED_MODEL}
-@tab @code{nomic-embed-text}
-@tab Dedicated embedding model used by the @code{search_embeddings}
-tool.  It is independent of @env{OLLAMA_MODEL};
+@tab @code{all-minilm}
+@tab Dedicated embedding model used by @command{codebud index} and the
+@code{search_embeddings} tool.  It is independent of @env{OLLAMA_MODEL};
 a text-generation model makes poor embeddings.  Pull it with
-@command{ollama pull nomic-embed-text}.  Models that expect task prefixes
+@command{ollama pull all-minilm}.  @code{nomic-embed-text} reads longer
+chunks and other languages better but indexes about eight times slower on
+a CPU (@pxref{Project Search Evaluation}).  Models that expect task prefixes
 get them automatically: @code{nomic-embed-text} (@samp{search_document:} /
 @samp{search_query:}) and @code{qwen3-embedding} (an instruction on
 queries).
@@ -357,7 +359,7 @@ Example output:
 Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = nomic-embed-text
+  EMBED_MODEL        = all-minilm
   CODEBUD_RAG        = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)

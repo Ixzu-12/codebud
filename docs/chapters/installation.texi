@@ -366,7 +366,7 @@ codebud doctor
 
 Each check prints @samp{[PASS]} or @samp{[FAIL]} with a one-line fix command.
 Fix any failures before continuing.  A @samp{[WARN]} line (for example,
-the embedding model @code{nomic-embed-text} is not pulled) is optional:
+the embedding model @code{all-minilm} is not pulled) is optional:
 it only matters for project search.
 
 @subsection Smoke-test the agent
