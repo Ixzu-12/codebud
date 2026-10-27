@@ -63,6 +63,10 @@ unavailable (requires @code{codebud[openai]}).
 @tab @code{1}
 @tab Set to @code{0} to leave project context (from @command{codebud
 index}) out of the planning prompt.
+@item @env{CODEBUD_RAG_HINTS}
+@tab @code{1}
+@tab Set to @code{0} to stop @command{chat} from suggesting @code{/index}
+when the project index is missing or out of date.
 @item @env{WEB_SEARCH_ENABLED}
 @tab @code{0}
 @tab Set to @code{1} to enable the @code{web_search} tool.  When

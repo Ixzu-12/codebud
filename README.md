@@ -101,6 +101,7 @@ pyproject.toml  PEP 621 package metadata and tool configuration
 | `CODEBUD_NUM_CTX` | `8192` | Context window requested from Ollama on every call |
 | `EMBED_MODEL` | `nomic-embed-text` | Dedicated embedding model (`ollama pull nomic-embed-text`) |
 | `CODEBUD_RAG` | `1` | Set to `0` to plan without project context from `codebud index` |
+| `CODEBUD_RAG_HINTS` | `1` | Set to `0` to stop chat from suggesting `/index` |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
 | `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable (needs `pip install "codebud[openai]"`) |
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the OpenAI fallback |

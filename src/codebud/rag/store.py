@@ -29,6 +29,7 @@ import math
 import os
 import re
 import sqlite3
+import time
 from array import array
 from collections.abc import Iterator, Sequence
 from datetime import datetime, timezone
@@ -219,8 +220,28 @@ class IndexStore:
             self._db.execute("DELETE FROM chunks WHERE path = ?", (path,))
 
     def _touch(self) -> None:
-        self._set_meta("updated", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        self._mark_checked()
         self._set_meta("generation", str(self.generation + 1))
+
+    def _mark_checked(self) -> None:
+        self._set_meta("updated", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        self._set_meta("updated_ts", repr(time.time()))
+
+    def mark_checked(self) -> None:
+        """Record that the project was compared with the index just now.
+
+        Staleness checks compare file times with this, so a refresh that
+        found nothing to change still makes the index fresh again.
+        """
+        with self._db:
+            self._mark_checked()
+
+    def updated_ts(self) -> float:
+        """Seconds since the epoch of the last index run (0 if never)."""
+        if self._meta("updated_ts"):
+            return float(self._meta("updated_ts"))
+        updated = self._meta("updated")  # indexes from before updated_ts
+        return datetime.fromisoformat(updated).timestamp() if updated else 0.0
 
     @property
     def generation(self) -> int:

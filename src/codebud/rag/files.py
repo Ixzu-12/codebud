@@ -143,13 +143,49 @@ def _matches(name: str, patterns) -> bool:
     return any(fnmatch.fnmatch(name, p) for p in patterns)
 
 
-def _skip_reason(root: Path, rel: str, ignore: list[str]) -> str | None:
+def candidate_files(root: Path | str) -> list[str]:
+    """Like select_files().files, but judged by name and size only.
+
+    Nothing is read, so this is cheap enough to run before every chat
+    prompt (staleness checks); binary files may be included.
+    """
+    root = Path(root)
+    candidates = _git_files(root)
+    if candidates is None:
+        candidates = _walk(root)
+    ignore = _ignore_patterns(root)
+    found = []
+    for rel in sorted(set(candidates)):
+        if _name_skip_reason(rel, ignore):
+            continue
+        path = root / rel
+        try:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_FILE_BYTES:
+                continue
+        except OSError:
+            continue
+        found.append(rel)
+    return found
+
+
+def _name_skip_reason(rel: str, ignore: list[str]) -> str | None:
+    """Reasons to skip ``rel`` that need only its path."""
     parts = rel.split("/")
     name = parts[-1]
     if _matches(name.lower(), SECRET_NAMES) or SECRET_DIRS & set(parts[:-1]):
         return "secret"
     if _ignored(rel, ignore):
         return "ignored"
+    if _matches(name, GENERATED_NAMES):
+        return "generated"
+    return None
+
+
+def _skip_reason(root: Path, rel: str, ignore: list[str]) -> str | None:
+    name = rel.rsplit("/", 1)[-1]
+    reason = _name_skip_reason(rel, ignore)
+    if reason in ("secret", "ignored"):
+        return reason
     path = root / rel
     if path.is_symlink():
         return "symlink"

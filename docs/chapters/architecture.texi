@@ -575,7 +575,8 @@ src/codebud/                   the package
 │   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
 │   ├── display.py         ProgressIndicator, plan printer, step printer
 │   ├── doctor.py          health checks
-│   └── errors.py          error → fix lookup table
+│   ├── errors.py          error → fix lookup table
+│   └── index_hints.py     RAG toolbar state, /index hints
 ├── rag/                   project index and retrieval (in progress)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)

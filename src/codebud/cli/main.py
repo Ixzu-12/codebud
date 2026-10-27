@@ -343,6 +343,11 @@ class _ChatCheckpoint:
             self.session.close()
 
 
+def _may_change_files(agent, step: dict) -> bool:
+    """Whether running ``step`` can have changed files in the project."""
+    return step.get("tool") in ("file_write", "patch") or agent.is_powerful(step)
+
+
 def _chat_sources(agent) -> None:
     """/sources: the chunks the last request was given as project context."""
     from codebud.cli.display import print_status
@@ -453,12 +458,17 @@ def cmd_chat(args):
         file=sys.stderr,
     )
 
+    from codebud.cli.index_hints import IndexHints, rag_indicator
+    from codebud.rag.indexer import project_root
+
     turn = 0
     checked_turn = 0
     last_plan = None
     last_step_output = None
     checkpoint = _ChatCheckpoint(agent, resumed)
-    reader = chat_input.ChatInput(agent)
+    root = project_root()
+    hints = IndexHints(agent, root)
+    reader = chat_input.ChatInput(agent, rag_state=lambda: rag_indicator(agent, root))
     if resumed is not None:
         agent.restore_history(resumed.history)
         turn = sum(1 for t in resumed.history if t.get("role") == "user")
@@ -473,6 +483,10 @@ def cmd_chat(args):
             checkpoint.save()
         except (sessions.SessionError, OSError) as exc:
             print_warning(f"Could not save the session: {exc}")
+
+    start_hint = hints.at_start()
+    if start_hint:
+        print_status(start_hint + "\n")
 
     try:
         while True:
@@ -605,6 +619,7 @@ def cmd_chat(args):
                     continue
                 if cmd == "/index":
                     _chat_index(message.split()[1:])
+                    hints.refreshed()
                     continue
                 if cmd == "/plan":
                     if last_plan:
@@ -688,6 +703,7 @@ def cmd_chat(args):
 
                 # y / yes / anything else → proceed to execution
                 steps = plan.get("plan", [])
+                changed_files = False
                 for i, step in enumerate(steps, 1):
                     if agent.get_mode() == "full-auto":
                         print_step_header(i, step)
@@ -719,6 +735,7 @@ def cmd_chat(args):
                         for j, s in enumerate(steps[i - 1 :], i):
                             print_step_header(j, s)
                             result = agent.executor.execute_plan({"status": "ok", "plan": [s]})
+                            changed_files |= _may_change_files(agent, s)
                             if result.get("status") == "ok":
                                 out = result["results"].get(s["id"], {})
                                 print_step_result(out, verbose=args.verbose)
@@ -731,6 +748,7 @@ def cmd_chat(args):
                         continue
 
                     result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
+                    changed_files |= _may_change_files(agent, step)
                     if result.get("status") == "ok":
                         out = result["results"].get(step["id"], {})
                         print_step_result(out, verbose=args.verbose)
@@ -738,6 +756,10 @@ def cmd_chat(args):
                     else:
                         print_error(str(result), label="Execution error")
                         break
+                if changed_files:
+                    hint = hints.after_changes()
+                    if hint:
+                        print_status(hint)
                 break  # done executing — exit review loop
 
             print(file=sys.stderr)

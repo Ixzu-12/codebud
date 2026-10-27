@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from codebud.rag.chunker import Chunk, chunk_file
-from codebud.rag.files import select_files
+from codebud.rag.files import candidate_files, select_files
 from codebud.rag.store import IndexStore, index_dir
 from codebud.tools.embeddings import active_model, embed_documents
 
@@ -111,6 +111,7 @@ def index_project(
         if gone:
             store.remove_files(gone)
         report.removed = len(gone)
+        store.mark_checked()
 
     report.seconds = time.monotonic() - started
     return report
@@ -133,6 +134,33 @@ def index_status(root: Path | str) -> dict | None:
     status["new"] = sum(1 for rel in current if rel not in known)
     status["deleted"] = len(set(known) - set(current))
     return status
+
+
+def quick_status(root: Path | str) -> dict | None:
+    """Cheap staleness check by file times; None if ``root`` has no index.
+
+    "changed" counts indexed files modified since the last index run (a
+    touched but unchanged file counts too -- a refresh then embeds
+    nothing), "deleted" indexed files that are gone, "new" project files
+    not indexed yet, judged by name and size only. Nothing is read or
+    hashed, so this can run before every chat prompt.
+    """
+    root = Path(root).resolve()
+    store = IndexStore.open(root)
+    if store is None:
+        return None
+    with store:
+        known = set(store.file_hashes())
+        checked = store.updated_ts()
+    changed = deleted = 0
+    for rel in known:
+        try:
+            if (root / rel).stat().st_mtime > checked:
+                changed += 1
+        except FileNotFoundError:
+            deleted += 1
+    new = sum(1 for rel in candidate_files(root) if rel not in known)
+    return {"changed": changed, "new": new, "deleted": deleted}
 
 
 def drop_index(root: Path | str) -> list[Path]:

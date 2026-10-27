@@ -1552,3 +1552,32 @@ class TestChatProjectContext(_ChatHarness):
         monkeypatch.setenv("CODEBUD_RAG", "1")
         self._run_chat(monkeypatch, ["quit"], extra_argv=["--no-rag"])
         assert os.environ["CODEBUD_RAG"] == "0"
+
+    def test_chat_start_suggests_indexing_a_git_project(self, monkeypatch, tmp_path, capsys):
+        import subprocess
+
+        subprocess.run(["git", "-C", str(tmp_path), "init", "-q"], check=True)
+        monkeypatch.chdir(tmp_path)
+        self._run_chat(monkeypatch, ["quit"])
+        assert "Tip: /index" in capsys.readouterr().err
+
+    def test_hint_after_steps_wrote_files(self, monkeypatch, tmp_path, capsys):
+        from codebud.rag import indexer
+
+        (tmp_path / "app.py").write_text("x = 1\n")
+        indexer.index_project(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        write = {
+            "status": "ok",
+            "plan": [
+                {
+                    "id": "step_0",
+                    "description": "write",
+                    "tool": "file_write",
+                    "args": {"path": "b.py", "content": "y = 2\n"},
+                }
+            ],
+        }
+        agent = FakeChatAgent(plan_by_message={"write it": write})
+        self._run_chat(monkeypatch, ["write it", "y", "y"], agent=agent)
+        assert "Files changed: /index" in capsys.readouterr().err

@@ -69,6 +69,8 @@ tests/
 │                                placement, dropped before history
 ├── test_rag_files.py            file selection: git/walk, .codebudignore,
 │                                secrets, binary/large/generated files
+├── test_rag_hints.py            staleness by file times, toolbar state,
+│                                /index hints
 ├── test_rag_indexer.py          incremental indexing, batching, nomic
 │                                prefixes, model refusal, resuming
 ├── test_rag_search.py           hybrid ranking, symbol boost, dedup,

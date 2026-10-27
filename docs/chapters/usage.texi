@@ -324,13 +324,15 @@ the planner make better decisions.
 @cindex slash command menu
 
 On a terminal, the @samp{[@var{n}] You:} line has a persistent toolbar at
-the bottom of the screen showing the agent mode, the model and how full
-the context window is:
+the bottom of the screen showing the agent mode, the model, how full
+the context window is and, when the project has an index, its state
+(@samp{RAG}, @samp{RAG stale} when files changed since it was built, or
+@samp{RAG off}; @pxref{The index Subcommand}):
 
 @example
 [3] You: _
 
- mode: ask · qwen2.5-coder:3b-instruct-q4_K_M · context 14%   (shift-tab: mode)
+ mode: ask · qwen2.5-coder:3b-instruct-q4_K_M · context 14% · RAG   (shift-tab: mode)
 @end example
 
 @itemize @bullet
@@ -661,6 +663,17 @@ given, @code{/rag off} and @code{/rag on} switch the context for the rest
 of the session, and @code{/index} builds or refreshes the index without
 leaving the chat; @command{run}, @command{plan} and @command{chat} also
 take @option{--no-rag}.
+
+@cindex index, stale
+Codebud never re-indexes by itself, since that can take minutes.  Instead
+the chat toolbar shows @samp{RAG stale} when files changed since the last
+@code{/index}, and a one-line hint suggests @code{/index}: when a chat
+starts in a git project without an index, when it starts with an
+out-of-date index, and after a plan's steps changed files (once, until you
+next run @code{/index}).  These checks look only at file names and
+modification times, so a file that was touched but not changed also
+counts; refreshing it then embeds nothing.  Set @env{CODEBUD_RAG_HINTS}
+to @samp{0} to turn the hints off.
 
 Small models make the least of it: in tests the 3B model found the right
 file for ``show me'' requests, but only the 7B model also used the context
@@ -1091,6 +1104,10 @@ Default: @code{gpt-3.5-turbo}.
 Set to @code{0} to stop adding project context from the index to the
 planning prompt.  Default: @code{1} (used whenever the project has an
 index).  @xref{The index Subcommand}.
+
+@item CODEBUD_RAG_HINTS
+Set to @code{0} to stop @command{chat} from suggesting @code{/index}.
+Default: @code{1}.
 
 @item WEB_SEARCH_ENABLED
 Set to @code{1} to enable outbound DuckDuckGo web searches.

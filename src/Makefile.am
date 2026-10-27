@@ -11,6 +11,7 @@ nobase_python_PYTHON = \
 	codebud/cli/display.py \
 	codebud/cli/doctor.py \
 	codebud/cli/errors.py \
+	codebud/cli/index_hints.py \
 	codebud/cli/main.py \
 	codebud/core.py \
 	codebud/executor.py \

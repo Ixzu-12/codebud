@@ -7,8 +7,9 @@ On a terminal this uses prompt_toolkit (decisions D2/D3):
 
 - typing "/" opens a menu of slash commands, filtered as you type, each
   with a one-line description;
-- a persistent bottom toolbar shows the agent mode, model and how full
-  the context window is;
+- a persistent bottom toolbar shows the agent mode, model, how full
+  the context window is and the project index state (RAG, RAG stale,
+  RAG off);
 - Shift-Tab cycles the agent mode;
 - arrow keys recall earlier lines.
 
@@ -60,10 +61,14 @@ def next_mode(current: str) -> str:
     return MODES[(index + 1) % len(MODES)]
 
 
-def toolbar_text(mode: str, model: str, used: int, total: int) -> str:
-    """Return the bottom toolbar line."""
+def toolbar_text(mode: str, model: str, used: int, total: int, rag: str = "") -> str:
+    """Return the bottom toolbar line; ``rag`` is the index state, if any."""
     percent = round(100 * used / total) if total else 0
-    return f" mode: {mode} · {model or '(no model)'} · context {percent}%   (shift-tab: mode)"
+    rag_part = f" · {rag}" if rag else ""
+    return (
+        f" mode: {mode} · {model or '(no model)'} · context {percent}%{rag_part}"
+        "   (shift-tab: mode)"
+    )
 
 
 class SlashCompleter(Completer):
@@ -81,11 +86,14 @@ class SlashCompleter(Completer):
 class ChatInput:
     """Reads chat input, with prompt_toolkit's menu and toolbar on a terminal."""
 
-    def __init__(self, agent, interactive: bool | None = None):
+    def __init__(self, agent, interactive: bool | None = None, rag_state=None):
         self.agent = agent
         if interactive is None:
             interactive = sys.stdin.isatty() and sys.stdout.isatty()
         self._usage = (0, 0)
+        # Callable returning the index state for the toolbar (index_hints).
+        self._rag_state = rag_state or (lambda: "")
+        self._rag = ""
         self._session = self._build_session() if interactive else None
 
     def read(self, prompt: str) -> str:
@@ -95,10 +103,11 @@ class ChatInput:
         # Context usage only changes between turns, so measure it once here
         # rather than on every toolbar redraw.
         self._usage = self.agent.context_usage()
+        self._rag = self._rag_state()
         return self._session.prompt(prompt)
 
     def _toolbar(self) -> str:
-        return toolbar_text(self.agent.get_mode(), self.agent.get_model(), *self._usage)
+        return toolbar_text(self.agent.get_mode(), self.agent.get_model(), *self._usage, self._rag)
 
     def _build_session(self) -> PromptSession:
         bindings = KeyBindings()
