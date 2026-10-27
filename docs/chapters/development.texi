@@ -63,6 +63,8 @@ tests/
 ├── test_planner.py              prompt content, retry, context budget
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo
 │                                node, Markdown heading, line windows
+├── test_rag_files.py            file selection: git/walk, .codebudignore,
+│                                secrets, binary/large/generated files
 ├── test_safety_executor_patcher.py  safety policy, executor, patching
 ├── test_safety_policy.py        whole-word matching, refused arguments,
 │                                powerful commands

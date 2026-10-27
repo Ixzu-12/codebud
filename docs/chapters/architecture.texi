@@ -570,8 +570,10 @@ src/codebud/                   the package
 │   ├── doctor.py          health checks
 │   └── errors.py          error → fix lookup table
 ├── rag/                   project index and retrieval (in progress)
-│   └── chunker.py         split files into chunks (Python by ast,
-│                          Texinfo by node, Markdown by heading)
+│   ├── chunker.py         split files into chunks (Python by ast,
+│   │                      Texinfo by node, Markdown by heading)
+│   └── files.py           choose files to index (git's view, secrets
+│                          and binaries never)
 └── tools/
     ├── tool_registry.py   ToolRegistry
     ├── file_io.py         file_write, file_read
