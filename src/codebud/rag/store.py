@@ -11,7 +11,8 @@ database 0600: the index holds copies of the project's text.
 Tables:
 
 - meta:   key/value -- project root, embedding model and dimension,
-          schema version, whether keyword search is available, last update
+          schema version, whether keyword search is available, last update,
+          and a generation counter bumped by every write (cache key)
 - files:  path -> content hash, to re-index only what changed
 - chunks: path, line range, symbol, kind, text, and the embedding as a
           unit-length float32 BLOB (so cosine similarity is a dot product)
@@ -219,6 +220,12 @@ class IndexStore:
 
     def _touch(self) -> None:
         self._set_meta("updated", datetime.now(timezone.utc).isoformat(timespec="seconds"))
+        self._set_meta("generation", str(self.generation + 1))
+
+    @property
+    def generation(self) -> int:
+        """Counter bumped by every write; readers use it to invalidate caches."""
+        return int(self._meta("generation") or 0)
 
     # --- reading ------------------------------------------------------------
 
@@ -237,6 +244,17 @@ class IndexStore:
         if row is None:
             raise KeyError(chunk_id)
         return Chunk(*row)
+
+    def symbol_search(self, words: Sequence[str]) -> list[int]:
+        """Chunk ids whose symbol is one of ``words`` (or ``Class.<word>``)."""
+        ids: list[int] = []
+        for word in words:
+            rows = self._db.execute(
+                "SELECT id FROM chunks WHERE symbol = ? OR symbol LIKE ? ESCAPE '\\' ORDER BY id",
+                (word, "%." + word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")),
+            )
+            ids.extend(r[0] for r in rows if r[0] not in ids)
+        return ids
 
     def keyword_search(self, query: str, limit: int = 20) -> list[int]:
         """Chunk ids matching any word of ``query``, best (BM25) first."""

@@ -20,6 +20,7 @@ git clone https://github.com/mkhellat/codebud.git
 cd codebud
 ./bootstrap               # git checkout only; release tarballs ship ./configure
 ./configure               # checks Python 3.10+, requests, prompt_toolkit, ollama
+                          # (and numpy, optional: only project search needs it)
 make && make check
 sudo make install         # or: ./configure --prefix=$HOME/.local && make install
 
@@ -35,7 +36,8 @@ codebud skill install --for claude    # or: --for openclaw
 ```
 
 Alternatively, install it with pip like any Python package:
-`pip install .` (add `"[openai]"` for the optional OpenAI fallback).
+`pip install .` (add `"[rag]"` for project search, `"[openai]"` for the
+optional OpenAI fallback).
 
 ## Build system
 

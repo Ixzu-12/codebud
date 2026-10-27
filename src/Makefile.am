@@ -24,6 +24,7 @@ nobase_python_PYTHON = \
 	codebud/rag/chunker.py \
 	codebud/rag/files.py \
 	codebud/rag/indexer.py \
+	codebud/rag/search.py \
 	codebud/rag/store.py \
 	codebud/safety.py \
 	codebud/sandbox.py \

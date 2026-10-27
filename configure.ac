@@ -57,6 +57,17 @@ or point configure at a Python that has them: ./configure PYTHON=/path/to/python
   ], [AC_MSG_RESULT([yes])])
 ])
 
+# numpy is optional: only project search (codebud index) needs it.
+AC_MSG_CHECKING([whether $PYTHON has numpy (for project search)])
+AS_IF(["$PYTHON" -c "import numpy" >/dev/null 2>&1],
+  [codebud_have_numpy=yes], [codebud_have_numpy=no])
+AC_MSG_RESULT([$codebud_have_numpy])
+AS_IF([test "x$codebud_have_numpy" = xno], [
+  AC_MSG_WARN([numpy not found; project search will be unavailable until it is
+installed (apt install python3-numpy, dnf install python3-numpy,
+pacman -S python-numpy, pkg install py311-numpy, or pip install numpy)])
+])
+
 # pytest is only needed for `make check`.
 AC_MSG_CHECKING([whether $PYTHON has pytest])
 AS_IF(["$PYTHON" -c "import pytest" >/dev/null 2>&1],
@@ -80,5 +91,6 @@ AC_MSG_NOTICE([
     Python:          $PYTHON ($PYTHON_VERSION)
     package dir:     $pythondir
     tests (pytest):  $codebud_have_pytest
+    project search:  $codebud_have_numpy (numpy)
     ollama:          ${OLLAMA:-not found}
 ])

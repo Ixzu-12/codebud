@@ -35,6 +35,9 @@ dependencies = [
 # Optional features users can install: pip install 'codebud[openai]'
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
+# Project search (codebud index + retrieval): one BLAS matrix-vector product
+# scores every chunk.
+rag = ["numpy>=1.24"]
 
 # PEP 735: tools for working on codebud itself, not installable by users:
 # pip install -e . --group dev
@@ -44,6 +47,7 @@ dev = [
     "pytest-cov>=4.0",
     "ruff>=0.3",
     "build>=1.0",
+    "numpy>=1.24",  # the rag extra, so its tests run
 ]
 
 [project.scripts]

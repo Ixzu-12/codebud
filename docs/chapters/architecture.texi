@@ -575,6 +575,8 @@ src/codebud/                   the package
 │   ├── files.py           choose files to index (git's view, secrets
 │   │                      and binaries never)
 │   ├── indexer.py         codebud index: incremental, batched embedding
+│   ├── search.py          hybrid search: vectors (numpy), BM25,
+│   │                      symbol names, reciprocal-rank fusion
 │   └── store.py           per-project SQLite index: chunks, unit
 │                          vectors, FTS5 keyword index, one model
 └── tools/

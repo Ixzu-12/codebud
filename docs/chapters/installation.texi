@@ -186,8 +186,9 @@ This installs:
 @itemize
 @item @code{prompt_toolkit}, @code{requests} --- runtime dependencies
 (@code{prompt_toolkit} draws the chat command menu and status toolbar)
-@item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build} --- the
-@code{dev} dependency group (PEP 735), for working on Codebud itself
+@item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build} and
+@code{numpy} --- the @code{dev} dependency group (PEP 735), for working on
+Codebud itself (@code{numpy} so the project-search tests run)
 @item the @command{codebud} CLI entry point (maps to @code{codebud.cli.main:main}); @code{python -m codebud} works too
 @end itemize
 
@@ -198,6 +199,18 @@ is not installed by default:
 pip install -e ".[openai]"        @r{# from a checkout}
 pip install "codebud[openai]"     @r{# from a package index}
 @end example
+
+Project search (@pxref{The index Subcommand}) needs @code{numpy}, also
+optional:
+
+@example
+pip install -e ".[rag]"           @r{# from a checkout}
+pip install "codebud[rag]"        @r{# from a package index}
+@end example
+
+@noindent
+Distribution packages work as well (@code{python3-numpy} on Debian and
+Fedora, @code{python-numpy} on Arch, @code{py311-numpy} on FreeBSD).
 
 All dependencies are declared in @file{pyproject.toml}; there is no
 @file{requirements.txt}.
@@ -246,7 +259,19 @@ sudo make install            @r{# into /usr/local by default}
 @command{configure} needs Python 3.10 or later with the @code{requests}
 and @code{prompt_toolkit} modules, and prints the package names for your
 system if they are missing.  It only warns if @command{ollama} is not
-found, since Ollama may run on another machine.
+found, since Ollama may run on another machine, and if @code{numpy} is
+missing, since only project search needs it.  The summary at the end
+shows what was found:
+
+@example
+  codebud 1.0.0
+    prefix:          /usr/local
+    Python:          /usr/bin/python3 (3.14)
+    package dir:     $@{PYTHON_PREFIX@}/lib/python3.14/site-packages
+    tests (pytest):  yes
+    project search:  yes (numpy)
+    ollama:          /usr/bin/ollama
+@end example
 
 @command{make install} installs:
 

@@ -69,6 +69,8 @@ tests/
 │                                secrets, binary/large/generated files
 ├── test_rag_indexer.py          incremental indexing, batching, nomic
 │                                prefixes, model refusal, resuming
+├── test_rag_search.py           hybrid ranking, symbol boost, dedup,
+│                                cache invalidation (skips without numpy)
 ├── test_rag_store.py            index store: permissions, model binding,
 │                                replace/remove, keyword search
 ├── test_safety_executor_patcher.py  safety policy, executor, patching
@@ -93,7 +95,14 @@ tests/
 @item
 @strong{Fixtures are local.}  Helper factories (@code{_make_registry()},
 @code{_make_safety()}, @code{_good_plan()}) are defined at the top of each
-test file, not in a shared @file{conftest.py}.
+test file.  The shared @file{conftest.py} only gives every test its own
+data and config directories and turns on the offline embedding stub.
+
+@item
+@strong{Optional dependencies skip, never fail.}  Tests that need
+@code{numpy} (the @code{rag} extra) are marked @code{needs_numpy} and
+skip without it, so @command{make check} passes with a Python that has
+only the core dependencies.
 
 @item
 @strong{Class-per-concern.}  Tests are grouped into classes
