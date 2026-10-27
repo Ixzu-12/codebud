@@ -173,3 +173,29 @@ def test_short_reply_from_ollama_is_an_error(monkeypatch):
     monkeypatch.setattr(embeddings.requests, "post", lambda *a, **k: Reply())
     with pytest.raises(embeddings.EmbeddingUnavailable):
         embeddings.embed_documents(["a", "b"])
+
+
+def test_qwen3_embedding_gets_an_instruction_on_queries_only(monkeypatch):
+    monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
+    monkeypatch.setenv("EMBED_MODEL", "qwen3-embedding:0.6b")
+    sent = []
+
+    class Reply:
+        def __init__(self, n):
+            self.n = n
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"embeddings": [[1.0]] * self.n}
+
+    def fake_post(url, json, **kwargs):
+        sent.append(json["input"])
+        return Reply(len(json["input"]))
+
+    monkeypatch.setattr(embeddings.requests, "post", fake_post)
+    embeddings.embed_documents(["def f(): pass"])
+    embeddings.embed_query("where is f?")
+    assert sent[0] == ["def f(): pass"]
+    assert sent[1][0].startswith("Instruct: ") and sent[1][0].endswith("\nQuery: where is f?")

@@ -32,7 +32,15 @@ DEFAULT_EMBED_MODEL = "nomic-embed-text"
 BATCH_SIZE = 32
 
 # Some embedding models expect a task prefix on every input: (document, query).
-_TASK_PREFIXES = {"nomic-embed-text": ("search_document: ", "search_query: ")}
+_TASK_PREFIXES = {
+    "nomic-embed-text": ("search_document: ", "search_query: "),
+    # Qwen3-Embedding: an instruction on queries only (per its model card).
+    "qwen3-embedding": (
+        "",
+        "Instruct: Given a question about a code base, retrieve the code or "
+        "documentation that answers it\nQuery: ",
+    ),
+}
 
 
 class EmbeddingUnavailable(RuntimeError):

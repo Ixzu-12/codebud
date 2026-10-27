@@ -51,7 +51,10 @@ values are ignored with a warning.
 @tab Dedicated embedding model used by the @code{search_embeddings}
 tool.  It is independent of @env{OLLAMA_MODEL};
 a text-generation model makes poor embeddings.  Pull it with
-@command{ollama pull nomic-embed-text}.
+@command{ollama pull nomic-embed-text}.  Models that expect task prefixes
+get them automatically: @code{nomic-embed-text} (@samp{search_document:} /
+@samp{search_query:}) and @code{qwen3-embedding} (an instruction on
+queries).
 @item @env{OPENAI_API_KEY}
 @tab @emph{(none)}
 @tab When set, enables the OpenAI fallback backend if Ollama is
