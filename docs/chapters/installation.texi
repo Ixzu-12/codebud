@@ -361,13 +361,15 @@ is not frozen (@pxref{Progress Output}).
 
 @subsection Install the skill for other agents (optional)
 
-Codebud ships a skill that teaches other agents, such as Claude Code or
-OpenClaw, when and how to call it.  Install it where your agent looks for
-skills:
+Codebud ships skills that teach other agents, such as Claude Code or
+OpenClaw, when and how to call it.  Install the default skill where your
+agent looks for skills; print the Agensi marketplace variant with
+@option{--for agensi}:
 
 @example
 codebud skill install --for claude     @r{# ~/.claude/skills/codebud/}
 codebud skill install --for openclaw   @r{# ~/.openclaw/skills/codebud/}
+codebud skill show --for agensi        @r{# Agensi hand-off skill}
 @end example
 
 @xref{The skill Subcommand}.

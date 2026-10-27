@@ -611,13 +611,17 @@ cannot be resumed until that chat ends.  @xref{Saved Sessions}.
 @cindex Claude Code
 @cindex OpenClaw
 
-Codebud ships a @dfn{skill}: a @file{SKILL.md} that teaches another agent,
-such as Claude Code or OpenClaw, when to delegate a coding task to Codebud
-and how to call it (including @code{--no-progress} and @code{--yes} for
-unattended use).
+Codebud ships @dfn{skills}: @file{SKILL.md} files that teach another agent
+when to delegate a coding task to Codebud and how to call it (including
+@code{--no-progress} and @code{--yes} for unattended use).  The default
+skill is for Claude Code and OpenClaw (install into their personal skills
+directories).  An Agensi marketplace variant adds install guidance for
+users who do not have Codebud yet; print it with @option{--for agensi} and
+upload a ZIP that has @file{SKILL.md} at the root.
 
 @example
-codebud skill show                       @r{# print it, e.g. to publish it}
+codebud skill show                       @r{# default skill (Claude / OpenClaw)}
+codebud skill show --for agensi          @r{# Agensi hand-off skill}
 codebud skill install --for claude       @r{# ~/.claude/skills/codebud/}
 codebud skill install --for openclaw     @r{# ~/.openclaw/skills/codebud/}
 codebud skill install --dir @var{path}       @r{# any other directory}

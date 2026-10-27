@@ -178,8 +178,10 @@ three policy JSON files and applies whole-word validation to every
 @item Skill
 A @file{SKILL.md} file (Markdown with a @code{name}/@code{description}
 frontmatter) that teaches an agent such as Claude Code or OpenClaw when and
-how to use a tool.  Codebud ships one and installs it with
-@command{codebud skill install} (@pxref{The skill Subcommand}).
+how to use a tool.  Codebud ships a default skill (install with
+@command{codebud skill install --for claude} or @code{openclaw}) and an
+Agensi marketplace hand-off variant (@command{codebud skill show --for agensi};
+@pxref{The skill Subcommand}).
 
 @item Step error
 The response @code{@{"status": "step_error", "error": "..."@}} returned by

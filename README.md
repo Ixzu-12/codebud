@@ -30,6 +30,8 @@ codebud run "your task"
 
 # 5. Optional: let other agents (Claude Code, OpenClaw) use codebud
 codebud skill install --for claude    # or: --for openclaw
+# Agensi marketplace listing (ZIP SKILL.md at the root):
+#   codebud skill show --for agensi
 ```
 
 Alternatively, install it with pip like any Python package:

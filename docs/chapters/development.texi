@@ -63,7 +63,7 @@ tests/
 ├── test_safety_policy.py        whole-word matching, refused arguments,
 │                                powerful commands
 ├── test_sessions.py             session files, IDs, locking
-├── test_skill.py                SKILL.md content, codebud skill
+├── test_skill.py                SKILL.md variants (default, Agensi), skill CLI
 └── test_tools.py                tool and doctor regression tests
 @end example
 

@@ -560,7 +560,9 @@ src/codebud/                   the package
 │   ├── harmless_commands.json
 │   ├── powerful_commands.json
 │   └── trusted_sequences.json
-├── data/skill/SKILL.md  skill for other agents (package data)
+├── data/skill/
+│   ├── SKILL.md           default skill (Claude / OpenClaw)
+│   └── agensi/SKILL.md    Agensi marketplace hand-off skill
 ├── cli/
 │   ├── main.py            CLI entry point (the codebud command)
 │   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
