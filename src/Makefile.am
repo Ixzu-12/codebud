@@ -20,6 +20,8 @@ nobase_python_PYTHON = \
 	codebud/modes.py \
 	codebud/paths.py \
 	codebud/planner.py \
+	codebud/rag/__init__.py \
+	codebud/rag/chunker.py \
 	codebud/safety.py \
 	codebud/sandbox.py \
 	codebud/sessions.py \
