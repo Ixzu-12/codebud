@@ -90,8 +90,11 @@ def test_embed_requests_send_the_same_num_ctx(sent, monkeypatch):
         sent.append(json)
         return _EmbedResponse()
 
+    monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
     monkeypatch.setattr(embeddings.requests, "post", fake_post)
-    embeddings.ollama_embed("text", model="m")
+    embeddings.embed_query("text")
+    assert sent[-1]["options"]["num_ctx"] == 8192
+    embeddings.embed_documents(["a"])
     assert sent[-1]["options"]["num_ctx"] == 8192
 
 

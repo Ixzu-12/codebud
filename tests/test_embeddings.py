@@ -6,6 +6,7 @@ at runtime an unreachable embedding model is an error, never a silent
 switch to fake vectors (phase 9, step A1).
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -48,7 +49,7 @@ def test_runtime_failure_raises_instead_of_using_the_stub(monkeypatch):
     monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
     _ollama_down(monkeypatch)
     with pytest.raises(embeddings.EmbeddingUnavailable, match="ollama pull"):
-        embeddings.get_embedding("text")
+        embeddings.embed_query("text")
 
 
 def test_stub_is_used_only_when_asked_for(monkeypatch):
@@ -58,17 +59,80 @@ def test_stub_is_used_only_when_asked_for(monkeypatch):
         raise AssertionError("the stub must not call Ollama")
 
     monkeypatch.setattr(embeddings.requests, "post", no_network)
-    assert embeddings.get_embedding("text") == embeddings.stub_embedding("text")
+    assert embeddings.embed_query("text") == embeddings.stub_embedding("text")
+    assert embeddings.embed_documents(["a", "b"]) == [
+        embeddings.stub_embedding("a"),
+        embeddings.stub_embedding("b"),
+    ]
 
 
+# --- the search_embeddings tool (phase 9, C2) --------------------------------
+
+needs_numpy = pytest.mark.skipif(
+    importlib.util.find_spec("numpy") is None, reason="numpy (codebud[rag]) not installed"
+)
+
+
+@pytest.fixture
+def indexed_project(tmp_path, monkeypatch):
+    from codebud.rag import indexer
+
+    root = tmp_path / "proj"
+    root.mkdir()
+    for i in range(4):
+        (root / f"m{i}.py").write_text(f"def func{i}():\n    return {i}\n")
+    indexer.index_project(root)
+    monkeypatch.chdir(root)
+    return root
+
+
+@needs_numpy
+def test_search_tool_returns_located_chunks(indexed_project):
+    result = embeddings.EmbeddingSearchTool().run({"query": "func2", "top_k": 2})
+    assert result["returncode"] == 0, result["stderr"]
+    hits = json.loads(result["stdout"])
+    assert len(hits) == 2
+    assert hits[0] == {
+        "path": "m2.py",
+        "lines": "1-2",
+        "symbol": "func2",
+        "score": hits[0]["score"],
+        "text": "def func2():\n    return 2",
+    }
+    assert (
+        len(json.loads(embeddings.EmbeddingSearchTool().run({"query": "x", "k": 3})["stdout"])) == 3
+    )
+
+
+@needs_numpy
+def test_search_tool_without_an_index_says_how_to_build_one(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = embeddings.EmbeddingSearchTool().run({"query": "x"})
+    assert result["returncode"] == 1
+    assert "codebud index" in result["stderr"]
+
+
+@needs_numpy
 def test_search_reports_an_unavailable_model_as_an_error(tmp_path, monkeypatch):
+    from codebud.rag.store import IndexStore
+
     monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
-    monkeypatch.setattr(embeddings, "EMBEDDING_INDEX_PATH", str(tmp_path / "index.json"))
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    with IndexStore.open(tmp_path, create=True) as store:
+        store.ensure_model("nomic-embed-text", 16)
+        store.replace_file("a.py", "h", [(_any_chunk(), [1.0] * 16)])
+    monkeypatch.chdir(tmp_path)
     _ollama_down(monkeypatch)
 
     result = embeddings.EmbeddingSearchTool().run({"query": "x"})
     assert result["returncode"] == 1
     assert "Embedding model unavailable" in result["stderr"]
+
+
+def _any_chunk():
+    from codebud.rag.chunker import Chunk
+
+    return Chunk("a.py", 1, 1, None, "python", "x = 1")
 
 
 def test_planner_is_not_offered_the_embed_tool():
@@ -101,7 +165,7 @@ def test_unavailable_message_names_the_configured_model(monkeypatch):
     monkeypatch.setenv("EMBED_MODEL", "my-embedder")
     _ollama_down(monkeypatch)
     with pytest.raises(embeddings.EmbeddingUnavailable, match="ollama pull my-embedder"):
-        embeddings.get_embedding("text")
+        embeddings.embed_query("text")
 
 
 def _tags(monkeypatch, names):

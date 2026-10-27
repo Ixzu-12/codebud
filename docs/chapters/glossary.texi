@@ -55,10 +55,12 @@ meaning of a piece of text.  Texts with similar meaning have embeddings
 that point in similar directions in high-dimensional space.  Codebud
 generates embeddings with Ollama's @code{/api/embed} endpoint.
 
-@item Embedding index
-The file @file{$XDG_DATA_HOME/codebud/embeddings/index.json}.  It stores a list of
-@code{@{text, vector@}} pairs.  The @code{search_embeddings} tool loads this
-file and returns the entries whose vectors are closest to the query vector.
+@item Project index
+A per-project SQLite database under @file{$XDG_DATA_HOME/codebud/index/},
+built by @command{codebud index}.  It stores the project's files as
+chunks (functions, classes, manual nodes, headings), each with an
+embedding vector and a full-text index.  The @code{search_embeddings} tool
+searches it.  @xref{The index Subcommand}.
 
 @item Executor
 The Python class in @file{src/codebud/executor.py} that walks a validated plan

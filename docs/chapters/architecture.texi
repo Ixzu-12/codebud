@@ -590,8 +590,7 @@ src/codebud/                   the package
 ~/.local/share/codebud/        runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
-├── index/<id>/index.sqlite3   project indexes (codebud index)
-└── embeddings/index.json      embedding index (auto-created)
+└── index/<id>/index.sqlite3   project indexes (codebud index)
 
 ~/.config/codebud/             your policy files ($XDG_CONFIG_HOME/codebud)
 <project>/.codebud/            a project's policy files (override both)

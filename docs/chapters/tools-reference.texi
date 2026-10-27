@@ -313,27 +313,37 @@ This is the only network call Codebud makes that goes outside your machine
 @section @code{search_embeddings}
 @cindex search_embeddings tool
 @cindex semantic search
+@cindex project search
 @cindex embeddings
 
-Embeds the query with the Ollama embedding endpoint, loads
-@file{$XDG_DATA_HOME/codebud/embeddings/index.json}, computes cosine
-similarity against every stored entry, and returns the @var{top_k} best
-matches.  Note that nothing in Codebud currently adds entries to this
-index, so the search only finds what was put there by other means.  (An
-earlier @code{embed} tool returned a vector without storing it; it was
-removed.)
+Searches the current project's index, built with @command{codebud index}
+(@pxref{The index Subcommand}), and returns the @var{top_k} chunks of code
+or documentation most relevant to the query, each with its file and line
+range.  Three rankings are combined (reciprocal-rank fusion):
 
-If the embedding model is unreachable, the tool fails with an error
-naming the model and the @command{ollama pull} command to fetch it; it
-never substitutes made-up vectors, which would corrupt the index.  (The
-test suite sets @env{CODEBUD_EMBED_STUB} to @samp{1} to use a
-deterministic offline stub instead.)
+@itemize
+@item @strong{meaning} --- similarity of the query's embedding vector to
+each chunk's;
+@item @strong{keywords} --- BM25 full-text matches, for exact identifiers
+and error messages;
+@item @strong{names} --- chunks whose function, class or section name is a
+word of the query, weighted double.
+@end itemize
+
+The project is the git work tree containing the current directory.  The
+tool fails with an error saying what to do when the project has no index
+(@samp{Create one with: codebud index}), when @code{numpy} is missing
+(@samp{pip install 'codebud[rag]'}), when the index was built with another
+embedding model (@samp{codebud index --rebuild}), or when the embedding
+model is unreachable (@samp{ollama pull @dots{}}).  It never substitutes
+made-up vectors.  (The test suite sets @env{CODEBUD_EMBED_STUB} to
+@samp{1} to use a deterministic offline stub instead.)
 
 @subsection Arguments
 
 @table @code
 @item query
-@emph{Required.}  A natural-language query.
+@emph{Required.}  What to look for, in words or by name.
 
 @item top_k
 @emph{Optional.}  Number of results to return.  Default: @code{5}.
@@ -342,21 +352,23 @@ deterministic offline stub instead.)
 
 @subsection Returns
 
-On success:
+On success, @code{stdout} is a JSON array, best match first:
 @example
-@{
-  "stdout": "[
-    @{\"text\": \"...\", \"vector\": [...]@},
-    ...
-  ]",
-  "stderr": "",
-  "returncode": 0
-@}
+[
+  @{
+    "path": "src/codebud/core.py",
+    "lines": "202-226",
+    "symbol": "AgentCore.compact_history",
+    "score": 0.0636,
+    "text": "def compact_history(..."
+  @},
+  ...
+]
 @end example
 
 @noindent
-The matches are the stored entries themselves, best first; no similarity
-score is included.
+@code{score} is the fused rank score: only its order is meaningful.
+Overlapping parts of one file are returned once.
 
 @subsection Environment variables
 
@@ -364,21 +376,13 @@ score is included.
 @item EMBED_MODEL
 The Ollama embedding model.  Defaults to @code{nomic-embed-text}
 (@command{ollama pull nomic-embed-text}); it does not follow
-@env{OLLAMA_MODEL}.
+@env{OLLAMA_MODEL}, and must be the model the index was built with.
 @item OLLAMA_BASE_URL
 The Ollama server.  Defaults to @code{http://localhost:11434}.
 @end table
 
-@subsection Dimension mismatch
-
-If the index was built with a different model (e.g.@: 16-dimensional
-vectors written by Codebud versions that fell back to a stub, vs.@:
-Ollama's 2048-dimensional vectors), cosine similarity returns
-@code{0.0} for all comparisons and the search result is meaningless.
-Clear the index to fix this:
-
-@example
-echo "[]" > "$@{XDG_DATA_HOME:-$HOME/.local/share@}/codebud/embeddings/index.json"
-@end example
-
-Then rebuild the index.  @xref{Embedding Dimension Mismatch}.
+@noindent
+Earlier versions searched @file{$XDG_DATA_HOME/codebud/embeddings/index.json},
+which nothing ever filled; it is no longer read and can be deleted.  (An
+@code{embed} tool that returned a vector without storing it was removed
+too.)

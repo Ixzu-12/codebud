@@ -12,7 +12,7 @@ their root causes, and how to fix them.
 * Ollama Unreachable Through a Proxy::  A proxy answers instead of a remote Ollama.
 * Invalid JSON from Planner::       The model wraps output in code fences.
 * Safety Rejection::                A plan step is blocked by the safety engine.
-* Embedding Dimension Mismatch::    Old stub vectors mix with new real vectors.
+* Index Built With Another Model::  EMBED_MODEL changed since indexing.
 * Web Search Returns No Results::   The DuckDuckGo scraper finds nothing.
 * Tests Cannot Import codebud::     The package is not on the path.
 @end menu
@@ -242,25 +242,27 @@ are in effect (@pxref{Policy JSON Files}).
 @end itemize
 
 
-@node Embedding Dimension Mismatch
-@section Embedding Dimension Mismatch
-@cindex embedding dimension mismatch
+@node Index Built With Another Model
+@section Index Built With Another Model
+@cindex embedding model mismatch
+@cindex index, rebuild
 
-Older Codebud versions silently fell back to 16-dimensional stub vectors
-whenever Ollama was unreachable, so
-@file{$XDG_DATA_HOME/codebud/embeddings/index.json} (by default under
-@file{~/.local/share}) may contain them.  Current versions report an
-error instead.
-New embeddings are 2048-dimensional.  Cosine similarity between entries of
-different sizes returns 0.0, making search results incorrect.
-
-@strong{Fix:} clear the index and re-embed your content:
+A project index belongs to the embedding model that built it: vectors from
+different models (or of different sizes) cannot be compared.  If
+@env{EMBED_MODEL} changes, @command{codebud index} and the
+@code{search_embeddings} tool stop with:
 
 @example
-echo "[]" > "$@{XDG_DATA_HOME:-$HOME/.local/share@}/codebud/embeddings/index.json"
+The index of /home/you/src/proj was built with nomic-embed-text; this run
+uses qwen3-embedding:0.6b. Run: codebud index --rebuild
 @end example
 
-Then re-run whatever pipeline populated the index.
+@strong{Fix:} rebuild the index with the new model, or set
+@env{EMBED_MODEL} back:
+
+@example
+codebud index --rebuild
+@end example
 
 
 @node Web Search Returns No Results

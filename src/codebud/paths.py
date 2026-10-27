@@ -4,7 +4,7 @@ codebud/paths.py
 Where codebud keeps its files (decision D5b). Nothing here depends on the
 directory codebud is started from.
 
-- Runtime data (memory, sessions, embeddings index):
+- Runtime data (memory, sessions, project indexes):
       $XDG_DATA_HOME/codebud            (default ~/.local/share/codebud)
 - Policy files (harmless/powerful commands, trusted sequences), first found:
       <project>/.codebud/               nearest one at or above the cwd

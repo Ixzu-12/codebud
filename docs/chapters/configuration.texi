@@ -373,7 +373,8 @@ Codebud's locations do not depend on the directory it is started from.
 @headitem Location @tab Contents
 @item @file{$XDG_DATA_HOME/codebud/} (default @file{~/.local/share/codebud/})
 @tab Runtime data: @file{memory/entries.jsonl} (execution history),
-@file{sessions/} (chat sessions), @file{embeddings/index.json}.
+@file{sessions/} (chat sessions), @file{index/} (project indexes,
+@pxref{The index Subcommand}).
 @item @file{$XDG_CONFIG_HOME/codebud/} (default @file{~/.config/codebud/})
 @tab Your policy files, overriding the shipped defaults.
 @item @file{.codebud/} in a project
