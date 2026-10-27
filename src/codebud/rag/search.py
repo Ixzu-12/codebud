@@ -36,7 +36,7 @@ SYMBOL_WEIGHT = 2.0
 # Fused score multiplier for chunks from test files, unless the query is
 # about tests: tests mention every name they test, so they crowd out the
 # code that defines it. Chosen with scripts/rag_eval.py.
-TEST_WEIGHT = 1.0
+TEST_WEIGHT = 0.5
 
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}")
 _ABOUT_TESTS = re.compile(r"\b(tests?|pytest|testing)\b", re.IGNORECASE)

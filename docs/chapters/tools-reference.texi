@@ -330,6 +330,10 @@ and error messages;
 word of the query, weighted double.
 @end itemize
 
+@noindent
+Chunks from test files count half unless the query is about tests, since
+tests mention every name they test (@pxref{Project Search Evaluation}).
+
 The project is the git work tree containing the current directory.  The
 tool fails with an error saying what to do when the project has no index
 (@samp{Create one with: codebud index}), when @code{numpy} is missing
