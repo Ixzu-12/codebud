@@ -17,6 +17,11 @@ Every tool follows the same contract:
 A @code{returncode} of @code{0} means success; anything else means failure.
 The executor stops and returns a @code{step_error} on the first failure.
 
+Each tool declares the arguments it requires (marked @emph{Required.}
+below).  The planner checks every step against them before anything runs;
+a plan that misses one is sent back to the model once, then reported as
+invalid (@pxref{Invalid Plan}).  Extra arguments are ignored.
+
 @menu
 * file_write::          Create or overwrite a file.
 * file_read::           Read a file's contents.

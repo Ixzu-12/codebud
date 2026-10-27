@@ -34,6 +34,7 @@ class FileWriteTool:
 
     description = "Create or overwrite a file with the given content."
     usage_hint = 'Required: "path" (str), "content" (str). Use for new files or full rewrites.'
+    required_args = ("path",)  # content defaults to ""
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         path = args.get("path")
@@ -71,6 +72,7 @@ class FileReadTool:
 
     description = "Read a file and return its content."
     usage_hint = 'Required: "path" (str). Only for a specific named file, never a directory.'
+    required_args = ("path",)
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         path = args.get("path")

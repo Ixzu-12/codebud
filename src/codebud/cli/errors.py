@@ -67,6 +67,13 @@ _RULES: list[tuple[str, str, str]] = [
         "the first request of a session takes about 30 s with the 3B model.",
         "Check that Ollama is still running (`codebud doctor`), or try a smaller model.",
     ),
+    (
+        "plan is invalid",
+        "The model's plan left out arguments its tools need, even after being told "
+        "what was wrong (typical of small models planning edits).",
+        "Try again, or switch to a larger model for this request: "
+        "/model qwen2.5-coder:7b-instruct-q4_K_M (or -m on run/plan).",
+    ),
     # Mode before policy: a policy refusal can name the mode as its reason.
     (
         "not allowed in",

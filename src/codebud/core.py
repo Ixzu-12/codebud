@@ -113,8 +113,9 @@ class AgentCore:
             context_hits=self.last_context,
         )
 
-        # The active mode forbids this plan: report it rather than chatting.
-        if plan_output.get("status") == "plan_refused":
+        # The mode or the safety policy forbids this plan, or the model's
+        # steps miss required arguments: report it rather than chatting.
+        if plan_output.get("status") in ("plan_refused", "plan_invalid"):
             self._history.append({"role": "assistant", "content": plan_output["error"]})
             return plan_output
 

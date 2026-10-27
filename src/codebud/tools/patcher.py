@@ -35,6 +35,7 @@ class PatchTool:
 
     description = "Apply a unified diff patch to a file."
     usage_hint = 'Required: "patch" (str, unified diff with --- +++ headers). Prefer over file_write for small edits.'
+    required_args = ("patch",)
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         patch_text = args.get("patch")

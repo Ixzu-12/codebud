@@ -97,6 +97,16 @@ class LLMPlanner:
 
         prompt = self._build_prompt(user_message, history=history, context_hits=context_hits)
         result = self._attempt(prompt, on_chunk=on_chunk)
+        if result is not None and result.get("status") == "plan_invalid":
+            # Steps miss required arguments: ask once more, saying what was
+            # wrong. The note is appended, so the cached prompt prefix holds.
+            retry = self._attempt(
+                prompt + self._invalid_plan_note(result.pop("problems")), on_chunk=on_chunk
+            )
+            if retry is not None:
+                retry.pop("problems", None)
+                return retry
+            return result
         if result is not None:
             return result
 
@@ -128,6 +138,14 @@ class LLMPlanner:
 
         if not self._validate_plan_structure(plan_json):
             return {"status": "plan_error", "error": "LLM returned malformed plan"}
+
+        problems = self._arg_problems(plan_json)
+        if problems:
+            return {
+                "status": "plan_invalid",
+                "problems": problems,
+                "error": "The model's plan is invalid: " + "; ".join(problems) + ".",
+            }
 
         # A well-formed plan the mode or the safety policy forbids is
         # reported as such, not turned into a chat reply that hides why.
@@ -353,6 +371,32 @@ Format: {{"status":"ok","plan":[{{"id":"step_0","description":"...","tool":"..."
                 return False
 
         return True
+
+    def _arg_problems(self, plan_json: dict[str, Any]) -> list[str]:
+        """Describe steps that miss an argument their tool requires.
+
+        Extra arguments alone are tolerated (models add harmless keys);
+        they are named only to explain a missing one.
+        """
+        problems = []
+        for number, step in enumerate(plan_json.get("plan", []), 1):
+            tool = self.tool_registry.tools.get(step.get("tool"))
+            args = step.get("args", {})
+            missing = [a for a in getattr(tool, "required_args", ()) if a not in args]
+            if missing:
+                given = ", ".join(args) or "no arguments"
+                needs = ", ".join(f'"{a}"' for a in missing)
+                problems.append(f"step {number} ({step['tool']}) needs {needs}; it gave {given}")
+        return problems
+
+    @staticmethod
+    def _invalid_plan_note(problems: list[str]) -> str:
+        lines = "\n".join(f"- {p}" for p in problems)
+        return (
+            f"\nYOUR PREVIOUS PLAN WAS INVALID:\n{lines}\n"
+            "Use exactly the argument names listed under AVAILABLE TOOLS, and real paths. "
+            "Output the corrected JSON plan only.\n"
+        )
 
     def _safety_refusal(self, plan_json: dict[str, Any]) -> dict[str, Any] | None:
         """Return a plan_refused result naming the first step the policy refuses."""

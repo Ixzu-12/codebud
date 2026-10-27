@@ -1281,6 +1281,8 @@ src/codebud/cli/main.py cmd_run / cmd_chat
           → json.loads(full_output)
           → _validate_plan_structure(plan_json)
           [invalid JSON: one retry with _build_retry_prompt()]
+          [missing tool arguments: one retry, problems appended to the
+           prompt; still missing → plan_invalid]
       [planner failed: call_llm_plain() → plain chat reply,
        with the same project context]
       → AgentCore._validate_plan(plan_json)

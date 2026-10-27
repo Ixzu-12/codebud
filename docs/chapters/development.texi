@@ -60,6 +60,8 @@ tests/
 ├── test_ollama_proxy.py         local Ollama reachable despite HTTP_PROXY
 ├── test_paths.py                XDG/.codebud lookup, migration, version,
 │                                python -m codebud
+├── test_plan_args.py            required tool arguments, retry with
+│                                feedback, plan_invalid
 ├── test_planner.py              prompt content, retry, context budget
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo
 │                                node, Markdown heading, line windows

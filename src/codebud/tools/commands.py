@@ -31,6 +31,7 @@ class CommandTool:
 
     description = "Execute a shell command inside the sandbox."
     usage_hint = 'Required: "cmd" (str). Use for ls, pytest, grep, git, etc.'
+    required_args = ("cmd",)
 
     def __init__(self, sandbox):
         self.sandbox = sandbox

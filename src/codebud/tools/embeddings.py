@@ -140,6 +140,7 @@ class EmbeddingSearchTool:
         'Required: "query" (str). Optional: "top_k" (int, default 5). Returns the most '
         "relevant chunks with path and line numbers. Needs an index (codebud index)."
     )
+    required_args = ("query",)
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         # Imported here: codebud.rag.search imports this module.

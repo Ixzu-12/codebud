@@ -100,12 +100,16 @@ LLM stub.  Tokens stream back from Ollama; each fragment is forwarded to
 @item
 @strong{LLMPlanner} strips any Markdown code fences from the raw output
 and attempts @code{json.loads()}.  If parsing fails, it retries once
-with a minimal JSON-only prompt.  If it fails again, it returns
+with a minimal JSON-only prompt.  If the plan parses but a step misses an
+argument its tool requires, it retries once with the same prompt plus a
+note of what was wrong, then returns @code{plan_invalid}.  If parsing
+fails again, it returns
 @code{@{"status": "plan_error", ...@}}, and @code{AgentCore} asks the model
 for a plain conversational answer instead (@code{call_llm_plain()}, given
-the same project context and asked to cite files from it), returned as @code{@{"status": "chat_reply", "reply": ...@}}.  A plan
-rejected only because of the agent mode comes back as
-@code{plan_refused} and is reported as such.
+the same project context and asked to cite files from it), returned as
+@code{@{"status": "chat_reply", "reply": ...@}}.  A plan rejected by the
+agent mode or the safety policy comes back as @code{plan_refused}, and an
+invalid one as @code{plan_invalid}; both are reported as such.
 
 @item
 @strong{LLMPlanner} validates the parsed JSON:
@@ -166,7 +170,9 @@ Returns @code{@{"status": "ok", "plan": [...]@}},
 @code{@{"status": "chat_reply", "reply": "..."@}} when no valid plan could
 be made, @code{@{"status": "plan_refused", "error": "..."@}} when the agent
 mode or the safety policy forbids a step (the error names it and says
-why), or @code{@{"status": "plan_error", ...@}} for a malformed plan.
+why), @code{@{"status": "plan_invalid", "error": "..."@}} when steps still
+miss required tool arguments after one retry, or
+@code{@{"status": "plan_error", ...@}} for a malformed plan.
 @item get_history(), clear_history(), undo_last_turn(), restore_history(history)
 Read and change the conversation history (@code{/history}, @code{/clear},
 @code{/undo}, @option{--resume}).

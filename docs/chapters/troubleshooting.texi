@@ -12,6 +12,7 @@ their root causes, and how to fix them.
 * Ollama Unreachable Through a Proxy::  A proxy answers instead of a remote Ollama.
 * Invalid JSON from Planner::       The model wraps output in code fences.
 * Safety Rejection::                A plan step is blocked by the safety engine.
+* Invalid Plan::                    Steps miss arguments their tools need.
 * Index Built With Another Model::  EMBED_MODEL changed since indexing.
 * Web Search Returns No Results::   The DuckDuckGo scraper finds nothing.
 * Tests Cannot Import codebud::     The package is not on the path.
@@ -249,6 +250,34 @@ are in effect (@pxref{Policy JSON Files}).
 @item Rephrase the request so the planner uses a different tool (e.g.
 @code{file_read} instead of @code{cat}).
 @end itemize
+
+
+@node Invalid Plan
+@section Invalid Plan
+@cindex plan_invalid
+@cindex tool arguments, missing
+
+A plan step must give its tool the arguments it requires (@code{path} for
+@code{file_read} and @code{file_write}, @code{cmd} for @code{command},
+@code{patch} for @code{patch}, @code{query} for the search tools;
+@pxref{Tools Reference}).  Small models sometimes invent their own names
+(@code{file_path}, @code{line_number}) or placeholder paths.  Codebud then
+asks the model once more, listing what was wrong; if the second plan is
+still invalid, it stops with:
+
+@example
+Plan error: The model's plan is invalid: step 1 (file_read) needs "path";
+it gave file_path.
+@end example
+
+@noindent
+Nothing has been executed.  @command{run} and @command{plan} exit with
+status 1.
+
+@strong{Fix:} try again, or use a larger model for the request ---
+@code{/model qwen2.5-coder:7b-instruct-q4_K_M} in @command{chat}, or
+@option{-m} on @command{run} and @command{plan}.  Edits are where the 3B
+model fails most (@pxref{Planning with Project Context}).
 
 
 @node Index Built With Another Model

@@ -152,6 +152,12 @@ itself.  @code{AgentCore} turns it into a plain chat reply
 policy rejects is returned as @code{plan_refused} instead, with a message
 naming the step and the reason.
 
+@item Plan invalid
+The planner's result @code{@{"status": "plan_invalid", "error": "..."@}}
+when steps miss arguments their tools require, even after the model was
+told once what was wrong.  Reported directly, never executed.
+@xref{Invalid Plan}.
+
 @item Plan step
 One element of the @code{"plan"} array in a JSON plan.  Each step
 specifies one tool call: @code{id}, @code{description}, @code{tool},
