@@ -728,8 +728,8 @@ search look far better than it is.
 @item keyword (BM25) only @tab 0.91 @tab 0.64 @tab 0.91 @tab 0.89 @tab 4
 @item keyword + symbol names @tab 0.94 @tab 0.71 @tab 0.91 @tab 1.00 @tab 15
 @item hybrid (all three) @tab 0.94 @tab 0.76 @tab 0.91 @tab 1.00 @tab 143
-@item hybrid, tests @times{} 0.5 (default) @tab 0.97 @tab 0.83 @tab 0.96 @tab 1.00 @tab 146
-@item hybrid, tests @times{} 0.25 @tab 0.97 @tab 0.83 @tab 0.96 @tab 1.00 @tab 146
+@item hybrid, tests x 0.5 (default) @tab 0.97 @tab 0.83 @tab 0.96 @tab 1.00 @tab 146
+@item hybrid, tests x 0.25 @tab 0.97 @tab 0.83 @tab 0.96 @tab 1.00 @tab 146
 @end multitable
 
 Embeddings carry the concept questions; keyword and symbol matching are
