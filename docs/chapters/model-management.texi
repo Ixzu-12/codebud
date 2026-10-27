@@ -99,11 +99,16 @@ multi-step plans or complex file edits.  Good for quick experiments.
 @item 3B (recommended for CPU laptops)
 The best balance of speed and capability on hardware without a dedicated GPU.
 Handles Codebud's planning prompt well and usually returns valid JSON on the
-first try.
+first try.  Good for questions about the code, lookups and simple commands,
+but not for edits: in a test of five edit requests with project context it
+planned none correctly, writing placeholder paths and arguments the tools
+do not take (@pxref{Planning with Project Context}).
 
-@item 7B (recommended if you have a GPU or a fast desktop CPU)
-Noticeably better plan quality and code generation.  Too slow for interactive
-use on a 2018 laptop CPU (1--2 tokens/s means 2--5 minutes per prompt).
+@item 7B (recommended for edits, and if you have a GPU or a fast desktop CPU)
+Noticeably better plan quality and code generation: in the same test it
+read and patched the right file for all five edits.  Slow on a laptop CPU
+(about three minutes per plan there), so a practical split is the 3B for
+questions and the 7B, via @code{/model} or @option{-m}, for edits.
 
 @item 14B and larger
 Requires substantial RAM (16 GB+) and a GPU for practical use.  Not covered

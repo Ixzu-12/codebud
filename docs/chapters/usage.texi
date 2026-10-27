@@ -675,9 +675,10 @@ modification times, so a file that was touched but not changed also
 counts; refreshing it then embeds nothing.  Set @env{CODEBUD_RAG_HINTS}
 to @samp{0} to turn the hints off.
 
-Small models make the least of it: in tests the 3B model found the right
-file for ``show me'' requests, but only the 7B model also used the context
-to plan an edit.
+Small models make the least of it: the 3B model answers questions about
+the code well with it, but plans edits badly even when the right file is
+in its context; the 7B model planned five of five test edits against the
+right file (@pxref{Planning with Project Context}).
 
 @example
 codebud index               @r{# build or refresh the index}

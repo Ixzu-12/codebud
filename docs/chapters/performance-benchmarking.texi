@@ -31,6 +31,7 @@ session and about 8 s for later ones.
 * October 2026 Results::      Prompt caching, num_ctx, threads: today's numbers.
 * The Measurement Program::   scripts/benchmark.py.
 * Project Search Evaluation:: How well codebud index finds the right files.
+* Planning with Project Context:: Which model turns context into correct plans.
 @end menu
 
 
@@ -766,4 +767,50 @@ English; projects with long prose or other languages may do better with
 per chunk, so its run was stopped: an hour per first index is not
 practical on a CPU, and the hybrid results above leave it at most one
 question to gain.
+
+
+@node Planning with Project Context
+@section Planning with Project Context
+@cindex model choice, edits
+@cindex plan evaluation
+
+Finding the right file is half the job; the planner still has to use it.
+@file{scripts/plan_eval.py} plans six requests about Codebud's own source
+--- five edits (``change the RRF constant used for fusing rankings from 60
+to 50'') and one lookup --- with project context from the index, and
+counts a plan as correct when its steps name the file that answers the
+request and give every tool the arguments it requires.  Nothing is
+executed.
+
+@example
+codebud index
+python scripts/plan_eval.py qwen2.5-coder:3b-instruct-q4_K_M \
+                            qwen2.5-coder:7b-instruct-q4_K_M
+@end example
+
+@subheading Results, October 2026
+
+Same CPU, @code{all-minilm} index:
+
+@multitable @columnfractions .40 .18 .22 .20
+@headitem Model @tab correct @tab valid arguments @tab per plan
+@item @code{qwen2.5-coder:3b-instruct-q4_K_M} @tab 0 of 6 @tab 1 of 6 @tab 117 s
+@item @code{qwen2.5-coder:7b-instruct-q4_K_M} @tab 5 of 6 @tab 6 of 6 @tab 192 s
+@end multitable
+
+The 7B model read and then patched the right file for all five edits; for
+the lookup (``how are chat sessions locked against a second resume?'') it
+read @file{cli/main.py} and the usage chapter, which describe the lock,
+rather than @file{sessions.py}, which implements it.  The 3B model ignored
+the context and its tools' arguments, for example:
+
+@example
+@{"tool": "file_read",  "args": @{"file_path": "path/to/your/file"@}@}
+@{"tool": "file_write", "args": @{"file_path": "path/to/your/file",
+                               "line_number": "line_number_found", @dots{}@}@}
+@end example
+
+@noindent
+So the 3B model suits questions and lookups, and the 7B model edits
+(@pxref{Choosing a Model}).
 

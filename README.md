@@ -84,7 +84,7 @@ Troubleshooting · Glossary.
 ```
 src/codebud/    The package: agent, CLI (cli/main.py), tools, default policy
 docs/           GNU Texinfo manual
-scripts/        Developer scripts (benchmark, project-search eval)
+scripts/        Developer scripts (benchmark, search and plan evals)
 tests/          Test suite (pytest)
 bootstrap       Generates ./configure (GNU Autotools)
 configure.ac    Autoconf input
