@@ -48,8 +48,8 @@ more memory (roughly 36 KB per token for a 3B Qwen2.5 model).  Invalid
 values are ignored with a warning.
 @item @env{EMBED_MODEL}
 @tab @code{nomic-embed-text}
-@tab Dedicated embedding model used by the @code{embed} and
-@code{search_embeddings} tools.  It is independent of @env{OLLAMA_MODEL};
+@tab Dedicated embedding model used by the @code{search_embeddings}
+tool.  It is independent of @env{OLLAMA_MODEL};
 a text-generation model makes poor embeddings.  Pull it with
 @command{ollama pull nomic-embed-text}.
 @item @env{OPENAI_API_KEY}

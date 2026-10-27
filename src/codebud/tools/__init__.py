@@ -15,11 +15,11 @@ The most important tools are:
 - PatchTool: apply unified diff patches.
 - CommandTool: execute shell commands via the sandbox.
 - WebSearchTool: DuckDuckGo Lite search (off unless WEB_SEARCH_ENABLED=1).
-- EmbedTool / EmbeddingSearchTool: simple embedding + vector search.
+- EmbeddingSearchTool: vector search over the embedding index.
 """
 
 from .commands import CommandTool
-from .embeddings import EmbeddingSearchTool, EmbedTool
+from .embeddings import EmbeddingSearchTool
 from .file_io import FileReadTool, FileWriteTool
 from .patcher import PatchTool
 from .tool_registry import ToolRegistry
@@ -31,7 +31,6 @@ __all__ = [
     "PatchTool",
     "CommandTool",
     "WebSearchTool",
-    "EmbedTool",
     "EmbeddingSearchTool",
     "ToolRegistry",
 ]

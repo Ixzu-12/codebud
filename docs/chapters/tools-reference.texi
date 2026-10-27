@@ -23,7 +23,6 @@ The executor stops and returns a @code{step_error} on the first failure.
 * command::             Execute a shell command.
 * patch::               Apply a unified diff to a file.
 * web_search::          Search the web via DuckDuckGo Lite.
-* embed::               Generate an embedding vector.
 * search_embeddings::   Find semantically similar stored entries.
 @end menu
 
@@ -310,63 +309,25 @@ This is the only network call Codebud makes that goes outside your machine
 (apart from Ollama on a remote host).
 
 
-@node embed
-@section @code{embed}
-@cindex embed tool
-@cindex embeddings
-
-Generates a floating-point embedding vector for a piece of text using the
-Ollama embedding endpoint.  If the embedding model is unreachable, the
-tool fails with an error naming the model and the @command{ollama pull}
-command to fetch it; it never substitutes made-up vectors, which would
-corrupt the index.  (The test suite sets @env{CODEBUD_EMBED_STUB} to
-@samp{1} to use a deterministic offline stub instead.)
-
-@subsection Arguments
-
-@table @code
-@item text
-@emph{Required.}  The text to embed.
-@end table
-
-@subsection Returns
-
-On success:
-@example
-@{ "stdout": "[0.12, -0.34, ...]", "stderr": "", "returncode": 0 @}
-@end example
-
-The @code{stdout} value is a JSON array of floats.
-
-@subsection Environment variables
-
-@table @env
-@item EMBED_MODEL
-The Ollama embedding model.  Defaults to @code{nomic-embed-text}
-(@command{ollama pull nomic-embed-text}); it does not follow
-@env{OLLAMA_MODEL}.
-@item OLLAMA_BASE_URL
-The Ollama server.  Defaults to @code{http://localhost:11434}.
-@end table
-
-@subsection When to use
-
-Use @code{embed} when you want to store a semantic representation of a
-piece of code or text in the embedding index (@pxref{search_embeddings}).
-The planner rarely proposes this tool directly; it is more commonly called
-programmatically when building an index.
-
-
 @node search_embeddings
 @section @code{search_embeddings}
 @cindex search_embeddings tool
 @cindex semantic search
+@cindex embeddings
 
-Embeds the query, loads @file{$XDG_DATA_HOME/codebud/embeddings/index.json},
-computes cosine similarity against every stored entry, and returns the
-@var{top_k} best matches.  Note that nothing in Codebud currently adds
-entries to this index (@code{embed} returns a vector without storing it),
-so the search only finds what was put there by other means.
+Embeds the query with the Ollama embedding endpoint, loads
+@file{$XDG_DATA_HOME/codebud/embeddings/index.json}, computes cosine
+similarity against every stored entry, and returns the @var{top_k} best
+matches.  Note that nothing in Codebud currently adds entries to this
+index, so the search only finds what was put there by other means.  (An
+earlier @code{embed} tool returned a vector without storing it; it was
+removed.)
+
+If the embedding model is unreachable, the tool fails with an error
+naming the model and the @command{ollama pull} command to fetch it; it
+never substitutes made-up vectors, which would corrupt the index.  (The
+test suite sets @env{CODEBUD_EMBED_STUB} to @samp{1} to use a
+deterministic offline stub instead.)
 
 @subsection Arguments
 
@@ -397,6 +358,17 @@ On success:
 The matches are the stored entries themselves, best first; no similarity
 score is included.
 
+@subsection Environment variables
+
+@table @env
+@item EMBED_MODEL
+The Ollama embedding model.  Defaults to @code{nomic-embed-text}
+(@command{ollama pull nomic-embed-text}); it does not follow
+@env{OLLAMA_MODEL}.
+@item OLLAMA_BASE_URL
+The Ollama server.  Defaults to @code{http://localhost:11434}.
+@end table
+
 @subsection Dimension mismatch
 
 If the index was built with a different model (e.g.@: 16-dimensional
@@ -409,4 +381,4 @@ Clear the index to fix this:
 echo "[]" > "$@{XDG_DATA_HOME:-$HOME/.local/share@}/codebud/embeddings/index.json"
 @end example
 
-Then re-embed your content.  @xref{Embedding Dimension Mismatch}.
+Then rebuild the index.  @xref{Embedding Dimension Mismatch}.

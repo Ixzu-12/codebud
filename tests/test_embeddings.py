@@ -61,16 +61,24 @@ def test_stub_is_used_only_when_asked_for(monkeypatch):
     assert embeddings.get_embedding("text") == embeddings.stub_embedding("text")
 
 
-def test_tools_report_an_unavailable_model_as_an_error(tmp_path, monkeypatch):
+def test_search_reports_an_unavailable_model_as_an_error(tmp_path, monkeypatch):
     monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
     monkeypatch.setattr(embeddings, "EMBEDDING_INDEX_PATH", str(tmp_path / "index.json"))
     _ollama_down(monkeypatch)
 
-    embed = embeddings.EmbedTool().run({"text": "x"})
-    search = embeddings.EmbeddingSearchTool().run({"query": "x"})
-    for result in (embed, search):
-        assert result["returncode"] == 1
-        assert "Embedding model unavailable" in result["stderr"]
+    result = embeddings.EmbeddingSearchTool().run({"query": "x"})
+    assert result["returncode"] == 1
+    assert "Embedding model unavailable" in result["stderr"]
+
+
+def test_planner_is_not_offered_the_embed_tool():
+    """embed returned a vector the planner could not use (D13f): removed."""
+    from codebud.tools.tool_registry import ToolRegistry
+
+    registry = ToolRegistry(sandbox=None)
+    assert not registry.has("embed")
+    assert registry.has("search_embeddings")
+    assert "- embed:" not in registry.describe_tools()
 
 
 # --- embedding model selection (phase 9, A2) --------------------------------

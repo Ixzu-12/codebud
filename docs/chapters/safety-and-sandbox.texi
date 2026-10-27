@@ -48,7 +48,7 @@ Layer 2 is hard-coded and cannot be overridden from config files.  Both
 must pass for a shell command to run.
 
 Non-shell tools (@code{file_write}, @code{file_read}, @code{patch},
-@code{web_search}, @code{embed}, @code{search_embeddings}) pass directly
+@code{web_search}, @code{search_embeddings}) pass directly
 through layer 1 and bypass layer 2 entirely.
 
 

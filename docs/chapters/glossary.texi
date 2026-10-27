@@ -208,8 +208,8 @@ on an i7-8550U CPU the typical rate is approximately 1.1@tie{}t/s.
 @item Tool
 A Python class with a @code{run(args: dict) -> dict} method that performs
 one operation.  Tools are the only way the agent interacts with the outside
-world.  The seven built-in tools are @code{file_write}, @code{file_read},
-@code{command}, @code{patch}, @code{web_search}, @code{embed}, and
+world.  The six built-in tools are @code{file_write}, @code{file_read},
+@code{command}, @code{patch}, @code{web_search}, and
 @code{search_embeddings}.
 
 @item ToolRegistry

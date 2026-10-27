@@ -1,15 +1,11 @@
 """
 codebud/tools/embeddings.py
 
-Provides two tools:
-
-1. EmbedTool ("embed") — generate a real embedding vector via Ollama's
-   /api/embed endpoint.  If the model is unreachable the tool reports an
-   error; it never substitutes fake vectors.
-
-2. EmbeddingSearchTool ("search_embeddings") — load stored embeddings
-   from the embedding index in the data directory, embed the query, compute cosine
-   similarity, and return top-k matches.
+Embeds text with Ollama's /api/embed endpoint, and provides the
+EmbeddingSearchTool ("search_embeddings"): load stored embeddings from the
+embedding index in the data directory, embed the query, compute cosine
+similarity, and return top-k matches.  If the embedding model is
+unreachable, an error is reported; fake vectors are never substituted.
 
 Environment variables:
   OLLAMA_BASE_URL   Base URL of the Ollama server (default: http://localhost:11434)
@@ -133,24 +129,6 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
-
-
-class EmbedTool:
-    """Generate an embedding vector for text using Ollama."""
-
-    description = "Generate an embedding vector for text."
-    usage_hint = 'Required: "text" (str). Embeds text for later semantic search.'
-
-    def run(self, args: dict[str, Any]) -> dict[str, Any]:
-        text = args.get("text")
-        if not text:
-            return {"stdout": "", "stderr": "Missing required argument: text", "returncode": 1}
-
-        try:
-            vector = get_embedding(text)
-        except EmbeddingUnavailable as exc:
-            return {"stdout": "", "stderr": str(exc), "returncode": 1}
-        return {"stdout": json.dumps(vector), "stderr": "", "returncode": 0}
 
 
 class EmbeddingSearchTool:

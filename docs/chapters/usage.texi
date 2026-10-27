@@ -940,8 +940,8 @@ large files; see @ref{Environment Variables Overview} for the memory
 cost.
 
 @item EMBED_MODEL
-The dedicated embedding model used by the @code{embed} and
-@code{search_embeddings} tools.  Defaults to @code{nomic-embed-text},
+The dedicated embedding model used by the @code{search_embeddings}
+tool.  Defaults to @code{nomic-embed-text},
 independent of @env{OLLAMA_MODEL}.
 
 @item OPENAI_API_KEY

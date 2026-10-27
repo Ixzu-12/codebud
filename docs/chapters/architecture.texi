@@ -273,7 +273,7 @@ A rejected step fails the whole plan; Codebud then falls back to a plain
 chat reply.
 
 All other tool types (@code{file_write}, @code{file_read}, @code{patch},
-@code{web_search}, @code{embed}, @code{search_embeddings}) are accepted
+@code{web_search}, @code{search_embeddings}) are accepted
 unconditionally at the @code{SafetyEngine} level; the Sandbox provides a
 second layer of protection for shell commands only.
 
@@ -575,7 +575,7 @@ src/codebud/                   the package
     ├── commands.py        command
     ├── patcher.py         patch
     ├── web_search.py      web_search
-    └── embeddings.py      embed, search_embeddings
+    └── embeddings.py      search_embeddings
 
 ~/.local/share/codebud/        runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)

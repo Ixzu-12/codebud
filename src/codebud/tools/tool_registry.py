@@ -17,7 +17,7 @@ The registry is used by:
 from typing import Any
 
 from .commands import CommandTool
-from .embeddings import EmbeddingSearchTool, EmbedTool
+from .embeddings import EmbeddingSearchTool
 from .file_io import FileReadTool, FileWriteTool
 from .patcher import PatchTool
 from .web_search import WebSearchTool
@@ -42,7 +42,6 @@ class ToolRegistry:
         self._register("patch", PatchTool())
         self._register("command", CommandTool(sandbox))
         self._register("web_search", WebSearchTool())
-        self._register("embed", EmbedTool())
         self._register("search_embeddings", EmbeddingSearchTool())
 
     # ------------------------------------------------------------------
