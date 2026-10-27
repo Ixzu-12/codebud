@@ -47,9 +47,11 @@ reload the model and discard its cached prompt prefix.  Larger values use
 more memory (roughly 36 KB per token for a 3B Qwen2.5 model).  Invalid
 values are ignored with a warning.
 @item @env{EMBED_MODEL}
-@tab same as @env{OLLAMA_MODEL}
-@tab Model used for generating embeddings.  Override to use a different
-model for the @code{embed} tool without changing the planning model.
+@tab @code{nomic-embed-text}
+@tab Dedicated embedding model used by the @code{embed} and
+@code{search_embeddings} tools.  It is independent of @env{OLLAMA_MODEL};
+a text-generation model makes poor embeddings.  Pull it with
+@command{ollama pull nomic-embed-text}.
 @item @env{OPENAI_API_KEY}
 @tab @emph{(none)}
 @tab When set, enables the OpenAI fallback backend if Ollama is
@@ -333,7 +335,7 @@ Example output:
 Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = qwen2.5-coder:3b-instruct-q4_K_M
+  EMBED_MODEL        = nomic-embed-text
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
@@ -349,7 +351,9 @@ Files:
 Checks each configuration value for correctness: whether the Ollama server
 is reachable, whether the selected model has been pulled, and whether the
 three policy JSON files parse without errors.  Each check prints
-@samp{[PASS]} or @samp{[FAIL]} with a one-line fix command.
+@samp{[PASS]} or @samp{[FAIL]} with a one-line fix command; optional
+items, such as a missing embedding model, print @samp{[WARN]} and do not
+count as failures.
 
 @example
 codebud doctor

@@ -342,7 +342,9 @@ The @code{stdout} value is a JSON array of floats.
 
 @table @env
 @item EMBED_MODEL
-The Ollama model to use for embeddings.  Defaults to @env{OLLAMA_MODEL}.
+The Ollama embedding model.  Defaults to @code{nomic-embed-text}
+(@command{ollama pull nomic-embed-text}); it does not follow
+@env{OLLAMA_MODEL}.
 @item OLLAMA_BASE_URL
 The Ollama server.  Defaults to @code{http://localhost:11434}.
 @end table

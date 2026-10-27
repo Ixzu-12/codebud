@@ -522,6 +522,9 @@ It checks:
 @item The Ollama server is reachable at @env{OLLAMA_BASE_URL}
 (default @code{http://localhost:11434})
 @item The selected model has been pulled
+@item The embedding model (@env{EMBED_MODEL}, default
+      @code{nomic-embed-text}) has been pulled --- a warning only, since
+      it is needed just for project search
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
       from the project's @file{.codebud/}, @file{~/.config/codebud/} or
@@ -531,7 +534,9 @@ It checks:
       @file{/proc/meminfo} does not exist)
 @end enumerate
 
-Each failed check prints a one-line fix.  Example output when
+Each failed check prints a one-line fix.  Warnings print
+@samp{[WARN]} with a fix too, but do not make @command{doctor} fail.
+Example output when
 @env{OLLAMA_MODEL} is not set:
 
 @example
@@ -678,7 +683,7 @@ Example output:
 Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
-  EMBED_MODEL        = qwen2.5-coder:3b-instruct-q4_K_M
+  EMBED_MODEL        = nomic-embed-text
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
@@ -935,8 +940,9 @@ large files; see @ref{Environment Variables Overview} for the memory
 cost.
 
 @item EMBED_MODEL
-The model to use for generating embeddings (used by the memory and
-search tools).  Defaults to the value of @env{OLLAMA_MODEL}.
+The dedicated embedding model used by the @code{embed} and
+@code{search_embeddings} tools.  Defaults to @code{nomic-embed-text},
+independent of @env{OLLAMA_MODEL}.
 
 @item OPENAI_API_KEY
 When set, Codebud falls back to the OpenAI API if Ollama is not

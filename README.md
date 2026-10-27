@@ -97,7 +97,7 @@ pyproject.toml  PEP 621 package metadata and tool configuration
 | `OLLAMA_MODEL` | *(required)* | Model name as shown in `codebud models` |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
 | `CODEBUD_NUM_CTX` | `8192` | Context window requested from Ollama on every call |
-| `EMBED_MODEL` | same as `OLLAMA_MODEL` | Override model used for embeddings |
+| `EMBED_MODEL` | `nomic-embed-text` | Dedicated embedding model (`ollama pull nomic-embed-text`) |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
 | `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable (needs `pip install "codebud[openai]"`) |
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the OpenAI fallback |

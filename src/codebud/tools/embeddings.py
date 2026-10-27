@@ -13,9 +13,8 @@ Provides two tools:
 
 Environment variables:
   OLLAMA_BASE_URL   Base URL of the Ollama server (default: http://localhost:11434)
-  OLLAMA_MODEL      Model used for text generation (reused for embeddings)
-  EMBED_MODEL       Override which model to use for embeddings specifically.
-                    Defaults to OLLAMA_MODEL or "qwen2.5-coder:3b-instruct-q4_K_M".
+  EMBED_MODEL       Embedding model (default: nomic-embed-text).  A dedicated
+                    embedding model, not the text-generation OLLAMA_MODEL.
   CODEBUD_EMBED_STUB  Tests only: "1" uses a deterministic offline stub
                     instead of Ollama.
 """
@@ -44,11 +43,12 @@ def _index_path() -> str:
 
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-_DEFAULT_EMBED_MODEL = (
-    os.environ.get("EMBED_MODEL")
-    or os.environ.get("OLLAMA_MODEL")
-    or "qwen2.5-coder:3b-instruct-q4_K_M"
-)
+DEFAULT_EMBED_MODEL = "nomic-embed-text"
+
+
+def embed_model() -> str:
+    """Return the embedding model: EMBED_MODEL, else DEFAULT_EMBED_MODEL."""
+    return os.environ.get("EMBED_MODEL") or DEFAULT_EMBED_MODEL
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ def ollama_embed(text: str, model: str | None = None) -> list[float]:
     Raises RuntimeError if the server is unreachable or returns an error,
     so callers can fall back to the stub if needed.
     """
-    m = model or _DEFAULT_EMBED_MODEL
+    m = model or embed_model()
     r = requests.post(
         f"{_OLLAMA_BASE}/api/embed",
         json={"model": m, "input": text, "options": {"num_ctx": num_ctx()}},
@@ -108,8 +108,8 @@ def get_embedding(text: str) -> list[float]:
         return ollama_embed(text)
     except Exception as exc:
         raise EmbeddingUnavailable(
-            f"Embedding model unavailable ({_DEFAULT_EMBED_MODEL} at {_OLLAMA_BASE}): {exc}. "
-            f"Start Ollama and run: ollama pull {_DEFAULT_EMBED_MODEL}"
+            f"Embedding model unavailable ({embed_model()} at {_OLLAMA_BASE}): {exc}. "
+            f"Start Ollama and run: ollama pull {embed_model()}"
         ) from exc
 
 

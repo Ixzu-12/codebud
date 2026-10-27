@@ -38,9 +38,10 @@ direction).  Used by @code{search_embeddings} to rank stored entries
 against a query embedding.
 
 @item Doctor
-The @command{codebud doctor} subcommand.  It runs eight health checks and
-prints a @samp{[PASS]} or @samp{[FAIL]} line for each, with a one-line fix
-command for every failure.
+The @command{codebud doctor} subcommand.  It runs nine health checks and
+prints a @samp{[PASS]}, @samp{[FAIL]} or @samp{[WARN]} line for each, with
+a one-line fix command for every failure or warning.  Warnings (such as a
+missing embedding model) do not count as failures.
 
 @item Editable install
 A @command{pip install -e .} installation where the package's source

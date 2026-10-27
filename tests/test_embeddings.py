@@ -71,3 +71,73 @@ def test_tools_report_an_unavailable_model_as_an_error(tmp_path, monkeypatch):
     for result in (embed, search):
         assert result["returncode"] == 1
         assert "Embedding model unavailable" in result["stderr"]
+
+
+# --- embedding model selection (phase 9, A2) --------------------------------
+
+
+def test_default_embed_model_is_a_dedicated_embedding_model(monkeypatch):
+    """It used to fall back to OLLAMA_MODEL, a text-generation model."""
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b-instruct-q4_K_M")
+    assert embeddings.embed_model() == "nomic-embed-text"
+
+
+def test_embed_model_env_is_read_at_call_time(monkeypatch):
+    monkeypatch.setenv("EMBED_MODEL", "qwen3-embedding:0.6b")
+    assert embeddings.embed_model() == "qwen3-embedding:0.6b"
+
+
+def test_unavailable_message_names_the_configured_model(monkeypatch):
+    monkeypatch.delenv("CODEBUD_EMBED_STUB", raising=False)
+    monkeypatch.setenv("EMBED_MODEL", "my-embedder")
+    _ollama_down(monkeypatch)
+    with pytest.raises(embeddings.EmbeddingUnavailable, match="ollama pull my-embedder"):
+        embeddings.get_embedding("text")
+
+
+def _tags(monkeypatch, names):
+    from codebud.cli import doctor
+
+    class Reply:
+        status_code = 200
+
+        def json(self):
+            return {"models": [{"name": n} for n in names]}
+
+    monkeypatch.setattr(doctor.requests, "get", lambda *a, **k: Reply())
+    return doctor
+
+
+@pytest.mark.parametrize("pulled", ["nomic-embed-text", "nomic-embed-text:latest"])
+def test_doctor_passes_when_embed_model_is_pulled(monkeypatch, pulled):
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    doctor = _tags(monkeypatch, [pulled])
+    passed, label, _hint = doctor.check_embed_model_pulled()
+    assert passed is True
+    assert "nomic-embed-text" in label
+
+
+def test_doctor_only_warns_when_embed_model_is_missing(monkeypatch, capsys):
+    """Project search is optional, so a missing embedding model is no failure."""
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+    doctor = _tags(monkeypatch, ["qwen2.5-coder:3b"])
+    passed, _label, hint = doctor.check_embed_model_pulled()
+    assert passed is None
+    assert hint == "ollama pull nomic-embed-text"
+
+    assert doctor.run_doctor() == 0
+    out = capsys.readouterr().out
+    assert "[WARN]" in out
+    assert "ollama pull nomic-embed-text" in out
+
+
+def test_config_shows_the_resolved_embed_model(monkeypatch, capsys):
+    from codebud.cli.main import cmd_config
+
+    monkeypatch.delenv("EMBED_MODEL", raising=False)
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+    cmd_config(None)
+    line = next(ln for ln in capsys.readouterr().out.splitlines() if "EMBED_MODEL" in ln)
+    assert line.endswith("= nomic-embed-text")

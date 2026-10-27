@@ -812,10 +812,11 @@ def cmd_models(_args):
 def cmd_config(_args):
     from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
     from codebud.llm_stub import num_ctx
+    from codebud.tools.embeddings import embed_model
 
     base = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
     model = os.environ.get("OLLAMA_MODEL", "(not set)")
-    embed = os.environ.get("EMBED_MODEL", model)
+    embed = embed_model()
     openai_key = "(set)" if os.environ.get("OPENAI_API_KEY") else "(not set)"
     web_search = os.environ.get("WEB_SEARCH_ENABLED", "0")
 

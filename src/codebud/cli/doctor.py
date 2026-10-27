@@ -3,9 +3,10 @@ codebud/cli/doctor.py
 
 Environment health checks for `codebud doctor`.
 
-Each check is a function that returns (passed: bool, label: str, hint: str).
-The label is shown to the user in both the pass and fail cases; failures
-also print the hint, a one-line "How to fix:" suggestion.
+Each check is a function that returns (passed, label, hint).  passed is
+True, False, or None for a warning: something optional is missing, which
+does not count as a failure.  The label is always shown; failures and
+warnings also print the hint, a one-line "How to fix:" suggestion.
 """
 
 import json
@@ -18,6 +19,7 @@ from pathlib import Path
 import requests
 
 from codebud.llm_stub import ollama_proxies
+from codebud.tools.embeddings import embed_model
 
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 
@@ -31,13 +33,14 @@ _BOLD = "\033[1m" if _IS_TTY else ""
 _DIM = "\033[2m" if _IS_TTY else ""
 _GREEN = "\033[32m" if _IS_TTY else ""
 _RED = "\033[31m" if _IS_TTY else ""
+_YELLOW = "\033[33m" if _IS_TTY else ""
 _RESET = "\033[0m" if _IS_TTY else ""
 
 # ---------------------------------------------------------------------------
 # Individual checks
 # ---------------------------------------------------------------------------
 
-CheckResult = tuple[bool, str, str]  # (passed, label, hint_on_failure)
+CheckResult = tuple[bool | None, str, str]  # (passed or None = warning, label, hint)
 
 
 def check_python_version() -> CheckResult:
@@ -98,6 +101,23 @@ def check_model_pulled() -> CheckResult:
         return False, f"Model '{model}' is NOT pulled", hint
     except Exception:
         return False, "Could not read model list from Ollama", "sudo systemctl start ollama"
+
+
+def check_embed_model_pulled() -> CheckResult:
+    """Warn (not fail) when the embedding model for project search is missing."""
+    model = embed_model()
+    try:
+        r = requests.get(
+            f"{_OLLAMA_BASE}/api/tags", timeout=3, proxies=ollama_proxies(_OLLAMA_BASE)
+        )
+        names = {m.get("name", "") for m in r.json().get("models", [])}
+    except Exception:
+        return None, f"Could not check embedding model '{model}'", "Start Ollama first."
+    # Ollama lists untagged pulls as "<name>:latest".
+    if model in names or f"{model}:latest" in names:
+        return True, f"Embedding model '{model}' is available", ""
+    label = f"Embedding model '{model}' is not pulled (needed only for project search)"
+    return None, label, f"ollama pull {model}"
 
 
 def check_config_files() -> CheckResult:
@@ -181,6 +201,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_ollama_model_set,
     check_ollama_reachable,
     check_model_pulled,
+    check_embed_model_pulled,
     check_config_files,
     check_disk_space,
     check_ram,
@@ -190,11 +211,17 @@ _CHECKS: list[Callable[[], CheckResult]] = [
 def run_doctor() -> int:
     """Run all checks and print a report. Returns exit code (0=all pass)."""
     failures = 0
+    warnings = 0
     print(f"{_BOLD}Codebud environment check{_RESET}\n")
     for check_fn in _CHECKS:
         passed, label, hint = check_fn()
         if passed:
             print(f"  {_GREEN}[PASS]{_RESET} {label}")
+        elif passed is None:
+            warnings += 1
+            print(f"  {_YELLOW}[WARN]{_RESET} {label}")
+            if hint:
+                print(f"         {_DIM}-> {hint}{_RESET}")
         else:
             failures += 1
             print(f"  {_RED}[FAIL]{_RESET} {label}")
@@ -202,7 +229,8 @@ def run_doctor() -> int:
                 print(f"         {_DIM}-> {hint}{_RESET}")
     print()
     if failures == 0:
-        print(f"{_GREEN}All checks passed. Codebud is ready.{_RESET}")
+        note = f" ({warnings} warning(s) above)" if warnings else ""
+        print(f"{_GREEN}All checks passed. Codebud is ready.{_RESET}{note}")
     else:
         print(
             f"{_RED}{failures} check(s) failed.{_RESET} Fix the issues above and re-run: codebud doctor"
