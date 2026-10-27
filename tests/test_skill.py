@@ -1,9 +1,10 @@
 """
 tests/test_skill.py
 
-codebud ships a SKILL.md (package data) that teaches other agents (Claude
-Code, OpenClaw, ...) when and how to call the codebud CLI. `codebud skill`
-prints it or installs it where an agent looks for skills.
+codebud ships SKILL.md variants (package data) that teach other agents
+(Claude Code, OpenClaw, Agensi, ...) when and how to call the codebud CLI.
+`codebud skill` prints a variant or installs the default where an agent
+looks for skills.
 """
 
 import sys
@@ -61,6 +62,59 @@ def test_skill_has_no_stale_source_paths():
     assert "run_agent" not in text
 
 
+def test_agensi_skill_is_a_hand_off_listing():
+    text = skill.skill_text("agensi")
+    assert text.startswith("---\n")
+    front = text.split("---")[1]
+    assert "name: codebud-local" in front
+    assert "github.com/mkhellat/codebud" in text
+    assert "codeberg.org/mkhellat/codebud" in text
+    assert "Agensi cannot" in text
+    assert "codebud --no-progress run" in text
+    assert "agent/" not in text
+
+
+@pytest.mark.parametrize(
+    "needle",
+    [
+        "codebud run",
+        "codebud plan",
+        "codebud chat",
+        "codebud doctor",
+        "codebud sessions",
+        "--resume",
+        "--mode",
+        "--yes",
+        "--no-progress",
+        "OLLAMA_MODEL",
+        "CODEBUD_NUM_CTX",
+        "git clone",
+    ],
+)
+def test_agensi_skill_documents_install_and_cli(needle):
+    assert needle in skill.skill_text("agensi")
+
+
+def test_kind_for_show_maps_agents():
+    assert skill.kind_for_show(None) == "default"
+    assert skill.kind_for_show("claude") == "default"
+    assert skill.kind_for_show("openclaw") == "default"
+    assert skill.kind_for_show("agensi") == "agensi"
+    with pytest.raises(skill.SkillError, match="agensi"):
+        skill.kind_for_show("vim")
+
+
+def test_skill_text_rejects_unknown_kind():
+    with pytest.raises(skill.SkillError, match="default, agensi"):
+        skill.skill_text("vim")
+
+
+def test_install_always_writes_the_default_skill(tmp_path):
+    path = skill.install(tmp_path / "skills" / "codebud", kind="default")
+    assert path.read_text() == skill.skill_text("default")
+    assert path.read_text() != skill.skill_text("agensi")
+
+
 # --- install ---
 
 
@@ -98,7 +152,6 @@ def test_install_never_overwrites_a_changed_copy_without_force(tmp_path):
 def test_cli_skill_show_prints_it(monkeypatch, capsys):
     assert _cli(["skill", "show"], monkeypatch) in (0, None)
     assert capsys.readouterr().out == skill.skill_text()
-
 
 def test_cli_skill_install_for_agent(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("HOME", str(tmp_path))

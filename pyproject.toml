@@ -58,7 +58,7 @@ Documentation = "https://github.com/mkhellat/codebud/tree/main/docs"
 where = ["src"]
 
 [tool.setuptools.package-data]
-codebud = ["data/policy/*.json", "data/skill/SKILL.md"]
+codebud = ["data/policy/*.json", "data/skill/SKILL.md", "data/skill/agensi/SKILL.md"]
 
 [build-system]
 requires = ["setuptools>=77"]  # 77: PEP 639 license expressions
