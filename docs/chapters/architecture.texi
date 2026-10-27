@@ -572,8 +572,10 @@ src/codebud/                   the package
 ├── rag/                   project index and retrieval (in progress)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)
-│   └── files.py           choose files to index (git's view, secrets
-│                          and binaries never)
+│   ├── files.py           choose files to index (git's view, secrets
+│   │                      and binaries never)
+│   └── store.py           per-project SQLite index: chunks, unit
+│                          vectors, FTS5 keyword index, one model
 └── tools/
     ├── tool_registry.py   ToolRegistry
     ├── file_io.py         file_write, file_read

@@ -23,6 +23,7 @@ nobase_python_PYTHON = \
 	codebud/rag/__init__.py \
 	codebud/rag/chunker.py \
 	codebud/rag/files.py \
+	codebud/rag/store.py \
 	codebud/safety.py \
 	codebud/sandbox.py \
 	codebud/sessions.py \
