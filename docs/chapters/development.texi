@@ -65,6 +65,8 @@ tests/
 │                                node, Markdown heading, line windows
 ├── test_rag_cli.py              codebud index: build, --status, --rebuild,
 │                                --drop
+├── test_rag_context.py          project context: retrieval, budget,
+│                                placement, dropped before history
 ├── test_rag_files.py            file selection: git/walk, .codebudignore,
 │                                secrets, binary/large/generated files
 ├── test_rag_indexer.py          incremental indexing, batching, nomic

@@ -59,6 +59,10 @@ unavailable (requires @code{codebud[openai]}).
 @item @env{OPENAI_MODEL}
 @tab @code{gpt-3.5-turbo}
 @tab OpenAI model to use when the OpenAI backend is active.
+@item @env{CODEBUD_RAG}
+@tab @code{1}
+@tab Set to @code{0} to leave project context (from @command{codebud
+index}) out of the planning prompt.
 @item @env{WEB_SEARCH_ENABLED}
 @tab @code{0}
 @tab Set to @code{1} to enable the @code{web_search} tool.  When
@@ -167,6 +171,16 @@ WEB_SEARCH_ENABLED=1 codebud run "find the latest Python release notes"
 
 When disabled, the @code{web_search} tool's description in the planner
 prompt is replaced with a notice so the planner knows not to use it.
+
+@item CODEBUD_RAG
+Default: @code{1}.  When the project has an index (@pxref{The index
+Subcommand}), each request's most relevant chunks are added to the
+planning prompt.  Set to @code{0} to plan without them, e.g.@: to compare
+results:
+
+@example
+CODEBUD_RAG=0 codebud plan "add a docstring to compact_history"
+@end example
 @end table
 
 
@@ -336,6 +350,7 @@ Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = nomic-embed-text
+  CODEBUD_RAG        = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0

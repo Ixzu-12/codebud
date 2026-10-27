@@ -22,6 +22,7 @@ nobase_python_PYTHON = \
 	codebud/planner.py \
 	codebud/rag/__init__.py \
 	codebud/rag/chunker.py \
+	codebud/rag/context.py \
 	codebud/rag/files.py \
 	codebud/rag/indexer.py \
 	codebud/rag/search.py \

@@ -360,8 +360,10 @@ If a prompt does not fit, Ollama keeps the @emph{end} and silently drops the
 beginning --- for Codebud, the instructions.  The planner therefore estimates
 the prompt size (conservatively, at 3 characters per token) and, when it
 would exceed the window minus 1,024 tokens reserved for the answer, drops
-the oldest conversation turns first.  If the request alone is too large, a
-warning suggests raising @env{CODEBUD_NUM_CTX}.
+retrieved project context first (it never takes more than a quarter of
+the window anyway; @pxref{The index Subcommand}), then the oldest
+conversation turns.  If the request alone is too large, a warning suggests
+raising @env{CODEBUD_NUM_CTX}.
 
 More tokens = slower prefill.  This is why the planning prompt was trimmed
 to reduce cold-start time (@pxref{Phase 2 Prefill}).
@@ -1263,9 +1265,12 @@ The complete call chain for a single user request:
 @example
 src/codebud/cli/main.py cmd_run / cmd_chat
   → AgentCore.handle_user_message(message, on_chunk=prog.on_chunk)
-      → LLMPlanner.generate_plan(message, on_chunk=on_chunk, history=...)
-          → LLMPlanner._build_prompt(message, history)
-              → _render_prompt(...)  [drops oldest turns to fit num_ctx]
+      → rag.context.retrieve(message, history)  [if the project has an index]
+      → LLMPlanner.generate_plan(message, on_chunk=on_chunk, history=...,
+                                 context_hits=...)
+          → LLMPlanner._build_prompt(message, history, context_hits)
+              → _render_prompt(...)  [drops context, then oldest turns,
+                                      to fit num_ctx]
           → call_llm(prompt, on_chunk=on_chunk)
               → _call_ollama(model, prompt, timeout, on_chunk)
                   ← Ollama /api/generate  (streaming NDJSON)

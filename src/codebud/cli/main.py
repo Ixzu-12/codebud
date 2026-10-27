@@ -915,6 +915,7 @@ def cmd_config(_args):
     print(f"  {_OUT_DIM}OLLAMA_MODEL      {_OUT_RESET} = {model}")
     print(f"  {_OUT_DIM}OLLAMA_BASE_URL   {_OUT_RESET} = {base}")
     print(f"  {_OUT_DIM}EMBED_MODEL       {_OUT_RESET} = {embed}")
+    print(f"  {_OUT_DIM}CODEBUD_RAG       {_OUT_RESET} = {os.environ.get('CODEBUD_RAG', '1')}")
     print(f"  {_OUT_DIM}CODEBUD_NUM_CTX   {_OUT_RESET} = {num_ctx()}")
     print(f"  {_OUT_DIM}OPENAI_API_KEY    {_OUT_RESET} = {openai_key}")
     print(f"  {_OUT_DIM}WEB_SEARCH_ENABLED{_OUT_RESET} = {web_search}")

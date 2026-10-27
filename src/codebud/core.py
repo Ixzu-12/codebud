@@ -35,6 +35,7 @@ from .llm_stub import (
 from .memory import MemoryStore
 from .modes import MODES
 from .planner import LLMPlanner
+from .rag.context import retrieve
 from .safety import SafetyEngine
 from .sandbox import Sandbox
 from .tools.tool_registry import ToolRegistry
@@ -63,6 +64,8 @@ class AgentCore:
 
         # Store last user message for regeneration
         self.last_user_message = None
+        # Project-index chunks retrieved for the last request (phase 9).
+        self.last_context: list = []
 
         # Rolling conversation history: list of {"role": "user"|"assistant", "content": str}
         self._history: list[dict[str, str]] = []
@@ -96,12 +99,15 @@ class AgentCore:
         indicator in the CLI without coupling display logic to this class.
         """
         self.last_user_message = message
+        # Project context from the index, if the project has one (phase 9).
+        self.last_context = retrieve(message, history=self._history)
         self._history.append({"role": "user", "content": message})
 
         plan_output = self.planner.generate_plan(
             message,
             on_chunk=on_chunk,
             history=self._history[:-1],  # exclude the turn we just appended
+            context_hits=self.last_context,
         )
 
         # The active mode forbids this plan: report it rather than chatting.
@@ -197,7 +203,8 @@ class AgentCore:
         Used by chat to tell the user when the conversation is filling the
         context window, before the planner has to start dropping old turns.
         """
-        return self.planner.estimate_prompt_tokens(self._history), num_ctx()
+        tokens = self.planner.estimate_prompt_tokens(self._history, self.last_context)
+        return tokens, num_ctx()
 
     def compact_history(
         self,

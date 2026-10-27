@@ -475,8 +475,9 @@ the gist of older turns rather than preventing errors.
 
 @cindex context warning
 After each turn, @command{chat} estimates the size of the next planning
-prompt.  Once it reaches 70% of the context window, a warning is shown (once
-per turn, not after slash commands):
+prompt, including the project context the last request retrieved.  Once
+it reaches 70% of the context window, a warning is shown (once per turn,
+not after slash commands):
 
 @example
   Context 72% full (~5,900 of 8,192 tokens). Use /compact to summarise older turns.
@@ -620,9 +621,24 @@ cannot be resumed until that chat ends.  @xref{Saved Sessions}.
 
 @command{index} reads your project, splits it into chunks and stores
 an embedding vector for each, so Codebud can later find the code and
-documentation relevant to a request.  @strong{Work in progress:} the
-planner and chat do not use the index yet; for now this subcommand only
-builds and maintains it.
+documentation relevant to a request.
+
+@cindex project context
+Once a project has an index, every request from @command{run},
+@command{plan} and @command{chat} first searches it, and the five most
+relevant chunks go into the planning prompt as @dfn{project context},
+marked as reference data rather than instructions.  This is what lets the
+planner name real files: asked to change a function, it reads and patches
+the file that defines it instead of guessing a path.  The context takes at
+most a quarter of the context window, and is the first thing dropped when
+the prompt is full (conversation history is kept).  Plain chat replies,
+given when no plan can be made, do not use it yet.  Set
+@env{CODEBUD_RAG} to @samp{0} to turn it off; without an index, or without
+@code{numpy}, requests simply go ahead without it.
+
+Small models make the least of it: in tests the 3B model found the right
+file for ``show me'' requests, but only the 7B model also used the context
+to plan an edit.
 
 @example
 codebud index               @r{# build or refresh the index}
@@ -774,6 +790,7 @@ Codebud resolved configuration:
   OLLAMA_MODEL       = qwen2.5-coder:3b-instruct-q4_K_M
   OLLAMA_BASE_URL    = http://localhost:11434
   EMBED_MODEL        = nomic-embed-text
+  CODEBUD_RAG        = 1
   CODEBUD_NUM_CTX    = 8192
   OPENAI_API_KEY     = (not set)
   WEB_SEARCH_ENABLED = 0
@@ -1043,6 +1060,11 @@ by @env{OPENAI_MODEL}.
 @item OPENAI_MODEL
 The OpenAI model to use when @env{OPENAI_API_KEY} is set.
 Default: @code{gpt-3.5-turbo}.
+
+@item CODEBUD_RAG
+Set to @code{0} to stop adding project context from the index to the
+planning prompt.  Default: @code{1} (used whenever the project has an
+index).  @xref{The index Subcommand}.
 
 @item WEB_SEARCH_ENABLED
 Set to @code{1} to enable outbound DuckDuckGo web searches.

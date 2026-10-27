@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 # Tokens kept free in the context window for the model's JSON answer.
 _OUTPUT_RESERVE_TOKENS = 1024
 
+# Share of the context window retrieved project context may use (D13e).
+_CONTEXT_SHARE = 0.25
+
 # Conservative characters-per-token ratio for estimating prompt size
 # (measured ~3.5 for planner prompts on qwen2.5-coder); erring low means
 # history is trimmed slightly early rather than the prompt overflowing.
@@ -74,6 +77,7 @@ class LLMPlanner:
         user_message: str,
         on_chunk: Callable[[str], None] | None = None,
         history: list[dict[str, str]] | None = None,
+        context_hits: list | None = None,
     ) -> dict[str, Any]:
         """Generate a plan using the LLM.
 
@@ -85,9 +89,13 @@ class LLMPlanner:
         ``[{"role": "user"|"assistant", "content": str}, ...]``.  When
         provided, the last N turns are injected into the prompt so the model
         can see what was said and done before this request.
+
+        ``context_hits`` are search hits from the project index
+        (codebud.rag.context.retrieve); they are shown to the model as
+        reference material, within a quarter of the context window.
         """
 
-        prompt = self._build_prompt(user_message, history=history)
+        prompt = self._build_prompt(user_message, history=history, context_hits=context_hits)
         result = self._attempt(prompt, on_chunk=on_chunk)
         if result is not None:
             return result
@@ -165,18 +173,35 @@ User: "order me a pizza"
         self,
         user_message: str,
         history: list[dict[str, str]] | None = None,
+        context_hits: list | None = None,
     ) -> str:
         """Build the full planning prompt with tools, rules, examples, and request."""
 
         # Keep the prompt inside the context window: if it would overflow,
-        # drop the oldest history turns first. Ollama would otherwise cut
+        # drop retrieved chunks (worst first), then the oldest history turns
+        # (D13e: conversation continuity wins). Ollama would otherwise cut
         # the *start* of the prompt, i.e. these instructions.
         window = list(history[-self._HISTORY_WINDOW :]) if history else []
+        hits = list(context_hits or [])
         budget = num_ctx() - _OUTPUT_RESERVE_TOKENS
-        prompt = self._render_prompt(user_message, window)
+        context_budget = int(num_ctx() * _CONTEXT_SHARE)
+
+        def render() -> str:
+            block = ""
+            if hits:
+                # Imported here: codebud.rag.context imports this module.
+                from codebud.rag.context import format_context
+
+                block = format_context(hits, context_budget)
+            return self._render_prompt(user_message, window, block)
+
+        prompt = render()
+        while hits and estimate_tokens(prompt) > budget:
+            hits.pop()
+            prompt = render()
         while window and estimate_tokens(prompt) > budget:
             window.pop(0)
-            prompt = self._render_prompt(user_message, window)
+            prompt = render()
         if estimate_tokens(prompt) > budget:
             logger.warning(
                 "Planner prompt (~%d tokens) exceeds the context budget (%d); "
@@ -186,16 +211,27 @@ User: "order me a pizza"
             )
         return prompt
 
-    def estimate_prompt_tokens(self, history: list[dict[str, str]] | None = None) -> int:
+    def estimate_prompt_tokens(
+        self, history: list[dict[str, str]] | None = None, context_hits: list | None = None
+    ) -> int:
         """Estimate the size of the next planning prompt for ``history``.
 
-        Uses the same history trimming as a real request, so the number
-        reflects what would actually be sent (minus the next user message).
+        Uses the same trimming as a real request, so the number reflects
+        what would actually be sent (minus the next user message).
+        ``context_hits`` stands in for the context the next request will
+        retrieve (callers pass the last request's).
         """
-        return estimate_tokens(self._build_prompt("", history=history))
+        return estimate_tokens(self._build_prompt("", history=history, context_hits=context_hits))
 
-    def _render_prompt(self, user_message: str, history: list[dict[str, str]]) -> str:
-        """Render the planning prompt for ``user_message`` with ``history``."""
+    def _render_prompt(
+        self, user_message: str, history: list[dict[str, str]], context_block: str = ""
+    ) -> str:
+        """Render the planning prompt for ``user_message`` with ``history``.
+
+        ``context_block`` (retrieved project context) goes after the history,
+        right before the request: everything above it stays the same from
+        one turn to the next, so Ollama's prompt cache still covers it.
+        """
         tool_descriptions = self.tool_registry.describe_tools()
         safety_rules = self.safety_engine.describe_rules()
         history_block = self._format_history(history)
@@ -225,7 +261,7 @@ RESPONSE FORMAT:
 On failure:
 {{"status": "plan_error", "error": "reason"}}
 
-{self._FEW_SHOT_EXAMPLES}{mode_block}{history_block}Now respond to this request. Output JSON only.
+{self._FEW_SHOT_EXAMPLES}{mode_block}{history_block}{context_block}Now respond to this request. Output JSON only.
 
 USER REQUEST: {user_message}
 """

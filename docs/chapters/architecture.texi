@@ -80,13 +80,17 @@ This is the full sequence of events for @command{codebud run "your request"}:
 @code{AgentCore.handle_user_message(message, on_chunk=...)}.
 
 @item
-@strong{AgentCore} delegates to @code{LLMPlanner.generate_plan(message)}.
+@strong{AgentCore} searches the project index, if the project has one
+(@code{codebud.rag.context.retrieve()}), and delegates to
+@code{LLMPlanner.generate_plan(message, history, context_hits)}.
 
 @item
 @strong{LLMPlanner} calls @code{_build_prompt()}, which embeds the tool
 catalogue (from @code{ToolRegistry.describe_tools()}) and safety rules
 (from @code{SafetyEngine.describe_rules()}) into a structured few-shot
-prompt.
+prompt, followed by the conversation history and then the retrieved
+project context, right before the request (so everything above it stays
+the same between turns and Ollama's prompt cache covers it).
 
 @item
 @strong{LLMPlanner} calls @code{call_llm(prompt, on_chunk=...)} via the
@@ -572,6 +576,7 @@ src/codebud/                   the package
 ├── rag/                   project index and retrieval (in progress)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)
+│   ├── context.py         project context for the planner prompt
 │   ├── files.py           choose files to index (git's view, secrets
 │   │                      and binaries never)
 │   ├── indexer.py         codebud index: incremental, batched embedding
