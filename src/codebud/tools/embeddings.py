@@ -76,6 +76,65 @@ class EmbeddingUnavailable(RuntimeError):
     """The embedding model could not be reached or returned nothing."""
 
 
+# Texts sent to Ollama per /api/embed request when indexing.
+BATCH_SIZE = 32
+
+# Some embedding models expect a task prefix on every input: (document, query).
+_TASK_PREFIXES = {"nomic-embed-text": ("search_document: ", "search_query: ")}
+
+
+def _task_prefixes(model: str) -> tuple[str, str]:
+    return _TASK_PREFIXES.get(model.split(":")[0], ("", ""))
+
+
+def active_model() -> str:
+    """Name recorded in an index for the vectors produced now ("stub" in tests)."""
+    return "stub" if _stub_enabled() else embed_model()
+
+
+def _ollama_embed_many(texts: list[str], model: str) -> list[list[float]]:
+    try:
+        r = requests.post(
+            f"{_OLLAMA_BASE}/api/embed",
+            json={"model": model, "input": texts, "options": {"num_ctx": num_ctx()}},
+            timeout=120,
+            proxies=ollama_proxies(_OLLAMA_BASE),
+        )
+        r.raise_for_status()
+        vectors = r.json().get("embeddings") or []
+    except Exception as exc:
+        raise EmbeddingUnavailable(
+            f"Embedding model unavailable ({model} at {_OLLAMA_BASE}): {exc}. "
+            f"Start Ollama and run: ollama pull {model}"
+        ) from exc
+    if len(vectors) != len(texts) or not all(vectors):
+        raise EmbeddingUnavailable(
+            f"{model} returned {len(vectors)} embeddings for {len(texts)} texts"
+        )
+    return vectors
+
+
+def embed_documents(texts: list[str]) -> list[list[float]]:
+    """Embed texts for storing in an index, BATCH_SIZE per request."""
+    if _stub_enabled():
+        return [stub_embedding(t) for t in texts]
+    model = embed_model()
+    prefix = _task_prefixes(model)[0]
+    vectors: list[list[float]] = []
+    for start in range(0, len(texts), BATCH_SIZE):
+        batch = [prefix + t for t in texts[start : start + BATCH_SIZE]]
+        vectors.extend(_ollama_embed_many(batch, model))
+    return vectors
+
+
+def embed_query(text: str) -> list[float]:
+    """Embed a search query (with the model's query prefix, if it has one)."""
+    if _stub_enabled():
+        return stub_embedding(text)
+    model = embed_model()
+    return _ollama_embed_many([_task_prefixes(model)[1] + text], model)[0]
+
+
 def stub_embedding(text: str) -> list[float]:
     """Deterministic 16-float unit vector from SHA-256 (tests only).
 

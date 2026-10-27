@@ -63,8 +63,12 @@ tests/
 ├── test_planner.py              prompt content, retry, context budget
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo
 │                                node, Markdown heading, line windows
+├── test_rag_cli.py              codebud index: build, --status, --rebuild,
+│                                --drop
 ├── test_rag_files.py            file selection: git/walk, .codebudignore,
 │                                secrets, binary/large/generated files
+├── test_rag_indexer.py          incremental indexing, batching, nomic
+│                                prefixes, model refusal, resuming
 ├── test_rag_store.py            index store: permissions, model binding,
 │                                replace/remove, keyword search
 ├── test_safety_executor_patcher.py  safety policy, executor, patching

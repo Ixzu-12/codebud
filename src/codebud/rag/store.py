@@ -134,19 +134,27 @@ class IndexStore:
     def has_fts(self) -> bool:
         return self._meta("fts") == "1"
 
+    def check_model(self, model: str) -> None:
+        """Refuse ``model`` if the index was built with another one."""
+        stored = self._meta("model")
+        if stored is not None and stored != model:
+            raise ModelMismatch(
+                f"The index of {self.root} was built with {stored}; this run uses "
+                f"{model}. Run: codebud index --rebuild"
+            )
+
     def ensure_model(self, model: str, dim: int) -> None:
         """Bind the index to ``model``/``dim``, or refuse a different one (A3)."""
-        stored_model, stored_dim = self._meta("model"), self._meta("dim")
-        if stored_model is None:
+        self.check_model(model)
+        stored_dim = self._meta("dim")
+        if stored_dim is None:
             with self._db:
                 self._set_meta("model", model)
                 self._set_meta("dim", str(dim))
-            return
-        if (stored_model, int(stored_dim)) != (model, dim):
+        elif int(stored_dim) != dim:
             raise ModelMismatch(
-                f"The index of {self.root} was built with {stored_model} "
-                f"({stored_dim}-dim vectors); this run uses {model} ({dim}-dim). "
-                "Run: codebud index --rebuild"
+                f"The index of {self.root} holds {stored_dim}-dim vectors; {model} "
+                f"now returns {dim}-dim ones. Run: codebud index --rebuild"
             )
 
     def _dim(self) -> int:

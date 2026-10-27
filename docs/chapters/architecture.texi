@@ -574,6 +574,7 @@ src/codebud/                   the package
 │   │                      Texinfo by node, Markdown by heading)
 │   ├── files.py           choose files to index (git's view, secrets
 │   │                      and binaries never)
+│   ├── indexer.py         codebud index: incremental, batched embedding
 │   └── store.py           per-project SQLite index: chunks, unit
 │                          vectors, FTS5 keyword index, one model
 └── tools/
@@ -587,6 +588,7 @@ src/codebud/                   the package
 ~/.local/share/codebud/        runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)
 ├── sessions/<id>.json         chat session checkpoints (auto-created)
+├── index/<id>/index.sqlite3   project indexes (codebud index)
 └── embeddings/index.json      embedding index (auto-created)
 
 ~/.config/codebud/             your policy files ($XDG_CONFIG_HOME/codebud)

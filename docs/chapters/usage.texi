@@ -16,6 +16,7 @@ output, and how to get help when something goes wrong.
 * The doctor Subcommand::       Check your environment before running.
 * The history Subcommand::      Past step executions across sessions.
 * The sessions Subcommand::     Saved chat sessions you can resume.
+* The index Subcommand::        Build the project index for search.
 * The skill Subcommand::        Codebud's skill for other agents.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
@@ -120,6 +121,7 @@ Codebud organises its functionality into subcommands:
 @item @command{doctor} @tab Check the environment
 @item @command{history} @tab Show past step executions
 @item @command{sessions} @tab List saved chat sessions
+@item @command{index} @tab Build or refresh the project index for search
 @item @command{skill} @tab Show or install Codebud's skill for other agents
 @item @command{models} @tab List downloaded Ollama models
 @item @command{config} @tab Show resolved configuration
@@ -608,6 +610,94 @@ Resume with: codebud chat --resume <id or name>
 
 @samp{(open)} marks a session that another chat currently has open; it
 cannot be resumed until that chat ends.  @xref{Saved Sessions}.
+
+
+@node The index Subcommand
+@section The @command{index} Subcommand
+@cindex index subcommand
+@cindex project index
+@cindex embeddings
+
+@command{index} reads your project, splits it into chunks and stores
+an embedding vector for each, so Codebud can later find the code and
+documentation relevant to a request.  @strong{Work in progress:} the
+planner and chat do not use the index yet; for now this subcommand only
+builds and maintains it.
+
+@example
+codebud index               @r{# build or refresh the index}
+codebud index ~/src/proj    @r{# a different project}
+codebud index --status      @r{# what is indexed, and what changed since}
+codebud index --rebuild     @r{# start over (e.g.@: after changing EMBED_MODEL)}
+codebud index --drop        @r{# delete the index (asks first; --yes to skip)}
+@end example
+
+Without a path, the project is the git work tree containing the current
+directory (or the current directory outside git).  It needs the embedding
+model, @code{nomic-embed-text} by default (@pxref{Pulling a Model}).
+
+The first run is the slow one: on a CPU each chunk takes roughly half a
+second to embed, so Codebud's own repository (about 90 files, 1,060
+chunks) takes around seven minutes.  A progress line shows which file is
+being read.  Later runs only embed what changed.
+
+@subsection What gets indexed
+
+Inside git, the files git sees as part of the project: tracked files plus
+new files that are not ignored, so @file{.gitignore} and
+@file{.git/info/exclude} apply.  Outside git, every file under the
+directory, except hidden directories, virtual environments, caches and
+build output.  Then these are always skipped:
+
+@itemize
+@item Anything that looks like a secret, whatever the ignore files say:
+@file{.env} files, keys and key stores (@file{*.pem}, @file{*.key},
+@file{id_rsa*}, @file{*.p12}, @dots{}), credential files (@file{.netrc},
+@file{.pypirc}, @file{credentials*}, names containing @samp{secret}),
+encrypted files, and anything under @file{.ssh}, @file{.gnupg},
+@file{.aws}, @file{.kube} or @file{.docker}.
+@item Patterns listed in a @file{.codebudignore} file at the project
+root: one per line, shell-style (@samp{*.generated.py}), a trailing
+@samp{/} for a directory (@samp{vendor/}), @samp{#} for comments.
+@item Symbolic links, lock files, minified files, source maps, files
+larger than 256@tie{}KB, and anything that is not UTF-8 text.
+@end itemize
+
+Python files are split into their top-level functions and classes (a
+long class into its methods), Texinfo files by node, Markdown by heading,
+and other text into overlapping 40-line windows.
+
+@subsection Refreshing
+
+Running @command{codebud index} again only re-embeds files whose
+contents changed, and forgets deleted ones, so a refresh is quick.  Each
+file is saved as soon as it is done: if indexing is interrupted (or the
+embedding model goes away), what finished is kept and the next run
+continues.  @option{--status} shows how many files changed since the last
+run:
+
+@example
+Index of /home/you/src/codebud
+  model          nomic-embed-text (768-dim)
+  contents       87 files, 1061 chunks
+  keyword search yes
+  updated        2026-10-27T15:04:11+00:00
+  file           /home/you/.local/share/codebud/index/3f2a9c0d1e7b5a64/index.sqlite3
+  since then     2 changed, 1 new, 0 deleted -- refresh with: codebud index
+@end example
+
+An index belongs to one embedding model.  If you change
+@env{EMBED_MODEL}, @command{codebud index} refuses to mix the two and asks
+for @option{--rebuild}.
+
+@subsection Where the index lives
+
+One SQLite database per project, under
+@file{$XDG_DATA_HOME/codebud/index/} (by default
+@file{~/.local/share/codebud/index/}), in a directory named after a hash of
+the project's path.  The index holds copies of your files' text, so the
+directory is readable only by you (mode 0700, database 0600).  It never
+leaves your machine; the embeddings are computed by your local Ollama.
 
 
 @node The skill Subcommand

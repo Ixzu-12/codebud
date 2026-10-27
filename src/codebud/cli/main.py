@@ -21,6 +21,8 @@ Subcommands
   doctor          Check the environment (Ollama, model, policy files, RAM, disk)
   history         Show past step executions (-n/--limit, --json)
   sessions        List saved chat sessions (-n/--limit, --json)
+  index [PATH]    Build or refresh the project index for search
+                  --status, --rebuild, --drop [--yes]
   skill           Show or install codebud's skill for other agents
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
@@ -44,6 +46,7 @@ _KNOWN_SUBCOMMANDS = {
     "doctor",
     "history",
     "sessions",
+    "index",
     "skill",
     "models",
     "config",
@@ -711,6 +714,94 @@ def cmd_sessions(args):
     print(f"\n{_OUT_DIM}Resume with: codebud chat --resume <id or name>{_OUT_RESET}")
 
 
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}" + ("" if n == 1 else "s")
+
+
+def cmd_index(args):
+    """Build, refresh, inspect or delete the project index."""
+    from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
+    from codebud.rag import indexer
+    from codebud.rag.store import ModelMismatch
+    from codebud.tools.embeddings import EmbeddingUnavailable
+
+    root = indexer.project_root(args.path)
+
+    if args.status:
+        status = indexer.index_status(root)
+        if status is None:
+            print(f"No index for {root}. Create one with: codebud index")
+            return
+        print(f"{_OUT_BOLD}Index of {status['root']}{_OUT_RESET}")
+        print(f"  {_OUT_DIM}model         {_OUT_RESET} {status['model']} ({status['dim']}-dim)")
+        print(
+            f"  {_OUT_DIM}contents      {_OUT_RESET} "
+            f"{_plural(status['files'], 'file')}, {_plural(status['chunks'], 'chunk')}"
+        )
+        keyword = "yes" if status["keyword_search"] else "no (SQLite lacks FTS5)"
+        print(f"  {_OUT_DIM}keyword search{_OUT_RESET} {keyword}")
+        print(f"  {_OUT_DIM}updated       {_OUT_RESET} {status['updated']}")
+        print(f"  {_OUT_DIM}file          {_OUT_RESET} {status['path']}")
+        changes = (status["changed"], status["new"], status["deleted"])
+        if any(changes):
+            print(
+                f"  {_OUT_DIM}since then    {_OUT_RESET} "
+                "{} changed, {} new, {} deleted -- refresh with: codebud index".format(*changes)
+            )
+        else:
+            print(f"  {_OUT_DIM}since then    {_OUT_RESET} no changes")
+        return
+
+    if args.drop:
+        directory = indexer.index_dir(root)
+        if not directory.is_dir():
+            print(f"No index for {root}.")
+            return
+        if not args.yes:
+            if not sys.stdin.isatty():
+                print(
+                    f"codebud: not deleting {directory} without confirmation; re-run with --yes.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            answer = input(f"Delete the index in {directory}? [y/N] ").strip().lower()
+            if answer not in ("y", "yes"):
+                print("Kept.")
+                sys.exit(1)
+        for path in indexer.drop_index(root):
+            print(f"removed {path}")
+        return
+
+    show = not _no_progress(args)
+
+    def progress(number: int, total: int, path: str) -> None:
+        if show:
+            sys.stderr.write(f"\r\033[K  [{number}/{total}] {path}"[:200])
+            sys.stderr.flush()
+
+    try:
+        report = indexer.index_project(root, rebuild=args.rebuild, progress=progress)
+    except (EmbeddingUnavailable, ModelMismatch) as exc:
+        if show:
+            sys.stderr.write("\r\033[K")
+        print(f"codebud: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if show:
+        sys.stderr.write("\r\033[K")
+
+    if report.indexed or report.removed:
+        print(
+            f"Indexed {_plural(report.indexed, 'file')} "
+            f"({_plural(report.chunks, 'chunk')}) in {report.seconds:.1f} s; "
+            f"{report.unchanged} unchanged, {report.removed} removed."
+        )
+    else:
+        print(f"Index is up to date ({_plural(report.unchanged, 'file')}).")
+    if report.skipped:
+        skipped = ", ".join(f"{n} {reason}" for reason, n in sorted(report.skipped.items()))
+        print(f"{_OUT_DIM}Skipped: {skipped}{_OUT_RESET}")
+
+
 def cmd_skill(args):
     """Print codebud's SKILL.md, or install it where an agent finds skills."""
     from codebud import skill
@@ -971,6 +1062,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p_sessions.add_argument("--json", action="store_true", help="Output raw JSON.")
 
+    # index
+    p_index = sub.add_parser("index", help="Build or refresh the project index for search.")
+    p_index.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Project directory (default: the git project containing the current directory).",
+    )
+    action = p_index.add_mutually_exclusive_group()
+    action.add_argument("--status", action="store_true", help="Show the index and what changed.")
+    action.add_argument(
+        "--rebuild", action="store_true", help="Delete the index and build it from scratch."
+    )
+    action.add_argument("--drop", action="store_true", help="Delete the index.")
+    p_index.add_argument("--yes", "-y", action="store_true", help="Do not ask before --drop.")
+
     # skill
     p_skill = sub.add_parser("skill", help="Show or install codebud's skill for other agents.")
     skill_sub = p_skill.add_subparsers(dest="skill_action", required=True)
@@ -1040,6 +1147,7 @@ def main():
         "doctor": cmd_doctor,
         "history": cmd_history,
         "sessions": cmd_sessions,
+        "index": cmd_index,
         "skill": cmd_skill,
         "models": cmd_models,
         "config": cmd_config,
