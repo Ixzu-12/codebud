@@ -716,7 +716,12 @@ def cmd_skill(args):
     from codebud import skill
 
     if args.skill_action == "show":
-        sys.stdout.write(skill.skill_text())
+        try:
+            kind = skill.kind_for_show(args.agent)
+        except skill.SkillError as exc:
+            print(f"codebud: {exc}", file=sys.stderr)
+            sys.exit(1)
+        sys.stdout.write(skill.skill_text(kind))
         return
     try:
         directory = args.dir or skill.target_dir(args.agent)
@@ -968,7 +973,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # skill
     p_skill = sub.add_parser("skill", help="Show or install codebud's skill for other agents.")
     skill_sub = p_skill.add_subparsers(dest="skill_action", required=True)
-    skill_sub.add_parser("show", help="Print the SKILL.md.")
+    p_show = skill_sub.add_parser("show", help="Print a SKILL.md variant.")
+    p_show.add_argument(
+        "--for",
+        dest="agent",
+        choices=["claude", "openclaw", "agensi"],
+        default=None,
+        help="Which variant: claude/openclaw (default text) or agensi (marketplace hand-off).",
+    )
     p_install = skill_sub.add_parser("install", help="Install the SKILL.md for an agent.")
     where = p_install.add_mutually_exclusive_group(required=True)
     where.add_argument(

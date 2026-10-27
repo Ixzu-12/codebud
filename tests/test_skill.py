@@ -153,6 +153,12 @@ def test_cli_skill_show_prints_it(monkeypatch, capsys):
     assert _cli(["skill", "show"], monkeypatch) in (0, None)
     assert capsys.readouterr().out == skill.skill_text()
 
+
+def test_cli_skill_show_for_agensi(monkeypatch, capsys):
+    assert _cli(["skill", "show", "--for", "agensi"], monkeypatch) in (0, None)
+    assert capsys.readouterr().out == skill.skill_text("agensi")
+
+
 def test_cli_skill_install_for_agent(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("HOME", str(tmp_path))
     assert _cli(["skill", "install", "--for", "claude"], monkeypatch) in (0, None)
