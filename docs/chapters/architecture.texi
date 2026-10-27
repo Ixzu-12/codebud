@@ -577,7 +577,7 @@ src/codebud/                   the package
 │   ├── doctor.py          health checks
 │   ├── errors.py          error → fix lookup table
 │   └── index_hints.py     RAG toolbar state, /index hints
-├── rag/                   project index and retrieval (in progress)
+├── rag/                   project index and retrieval (codebud index)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)
 │   ├── context.py         project context for the planner prompt
