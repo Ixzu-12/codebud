@@ -1,6 +1,6 @@
-# Codebud — Local Cursor-Style Coding Agent
+# Codebud — Local-First Coding Agent
 
-Codebud is a local coding agent that turns natural-language requests into
+Codebud is a local-first coding agent that turns natural-language requests into
 executable plans using a locally-running LLM (Ollama + Qwen2.5-Coder).
 No data leaves your machine.
 

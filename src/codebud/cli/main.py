@@ -871,7 +871,7 @@ def cmd_version(_args):
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codebud",
-        description="Codebud — local coding agent powered by Ollama.",
+        description="Codebud — local-first coding agent using Ollama.",
     )
     parser.add_argument(
         "--no-progress",

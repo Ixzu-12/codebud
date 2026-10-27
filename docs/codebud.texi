@@ -9,11 +9,11 @@
 
 @dircategory Software development
 @direntry
-* Codebud: (codebud).           Local coding agent powered by Ollama.
+* Codebud: (codebud).           Local-first coding agent using Ollama.
 @end direntry
 
 @copying
-This manual documents Codebud @value{VERSION}, a local Cursor-style coding
+This manual documents Codebud @value{VERSION}, a local-first coding
 agent powered by Ollama and Qwen2.5-Coder.
 
 Copyright @copyright{} 2026 Mohammadreza Khellat.
@@ -27,7 +27,7 @@ license is available at @url{https://www.gnu.org/licenses/fdl.html}.
 
 @titlepage
 @title Codebud Manual
-@subtitle A Local Cursor-Style Coding Agent
+@subtitle A Local-First Coding Agent
 @subtitle Version @value{VERSION}, @value{UPDATED}
 @author Mohammadreza Khellat
 @page

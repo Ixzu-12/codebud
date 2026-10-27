@@ -1,7 +1,7 @@
 ---
 name: codebud-local
 description: >
-  Hand off multi-step coding work to codebud, a local coding agent that plans
+  Hand off multi-step coding work to codebud, a local-first coding agent that plans
   and runs steps (read files, run commands, write patches) on-device with
   Ollama — no API key and no cloud model. Use when the user wants private,
   offline, or local-only coding help, or asks for codebud / Ollama-based
@@ -9,7 +9,7 @@ description: >
   the codebud CLI on the user's machine.
 ---
 
-# Codebud — local coding agent (hand-off)
+# Codebud — local-first coding agent (hand-off)
 
 Codebud turns a natural-language request into a plan of steps (read a file,
 run a command, write or patch a file) and executes them with a model that

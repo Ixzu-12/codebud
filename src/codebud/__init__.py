@@ -1,8 +1,8 @@
 """
 Codebud agent package.
 
-This package contains the core building blocks of the local
-Cursor‑style coding agent:
+This package contains the core building blocks of the
+local-first coding agent:
 
 - AgentCore: central orchestrator that wires planner, executor,
   tools, sandbox, safety, and memory.

@@ -1,7 +1,7 @@
 [project]
 name = "codebud"
 version = "1.0.0"
-description = "A Cursor-style local coding agent using Ollama — no API key required."
+description = "A local-first coding agent using Ollama — no API key required."
 readme = "README.md"
 # PEP 639: SPDX license expression and the license file(s) to ship.
 license = "GPL-3.0-or-later"
