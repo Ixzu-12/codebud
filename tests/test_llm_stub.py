@@ -1,17 +1,35 @@
 import sys
 import types
 
+import pytest
+
 from codebud import llm_stub
 
 
-def test_no_backend(monkeypatch, caplog):
-    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+def _fake_openai(monkeypatch, text="resp-text"):
+    """Install a minimal stand-in for the openai v1 client; record calls."""
+    calls = []
+    choice = types.SimpleNamespace(message=types.SimpleNamespace(content=text))
+    completion = types.SimpleNamespace(choices=[choice])
 
-    caplog.set_level("WARNING")
-    output = llm_stub.call_llm("hello")
-    assert output == ""
-    assert "No LLM backend configured" in caplog.text
+    class FakeCompletions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return completion
+
+    class FakeClient:
+        chat = types.SimpleNamespace(completions=FakeCompletions())
+
+    fake_openai = types.ModuleType("openai")
+    fake_openai.OpenAI = lambda: FakeClient()
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    return calls
+
+
+def test_no_model_is_a_clear_error(monkeypatch):
+    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+    with pytest.raises(llm_stub.LLMUnavailable, match="OLLAMA_MODEL is not set"):
+        llm_stub.call_llm("hello")
 
 
 def test_ollama_path(monkeypatch):
@@ -32,43 +50,70 @@ def test_ollama_path(monkeypatch):
     assert called["prompt"] == "my prompt"
 
 
-def test_openai_fallback(monkeypatch):
-    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
+@pytest.mark.parametrize("ollama_model", [None, "some-model"])
+def test_openai_is_never_a_fallback(monkeypatch, ollama_model):
+    """With OPENAI_API_KEY set, prompts used to go to OpenAI whenever Ollama
+    was unset or down -- silently (phase 8, A1)."""
+    if ollama_model:
+        monkeypatch.setenv("OLLAMA_MODEL", ollama_model)
+    else:
+        monkeypatch.delenv("OLLAMA_MODEL", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "testkey")
-
-    # Build a minimal mock that matches the openai v1 client interface.
-    choice = types.SimpleNamespace(message=types.SimpleNamespace(content="resp-text"))
-    completion = types.SimpleNamespace(choices=[choice])
-
-    class FakeCompletions:
-        def create(self, **kwargs):
-            return completion
-
-    class FakeChat:
-        completions = FakeCompletions()
-
-    class FakeClient:
-        chat = FakeChat()
-
-    fake_openai = types.ModuleType("openai")
-    fake_openai.OpenAI = lambda: FakeClient()
-
-    monkeypatch.setitem(sys.modules, "openai", fake_openai)
-
-    result = llm_stub.call_llm("prompt for openai")
-    assert result == "resp-text"
-
-
-def test_ollama_unavailable_falls_through(monkeypatch, caplog):
-    """If OLLAMA_MODEL is set but server is down, fall through to warning."""
-    monkeypatch.setenv("OLLAMA_MODEL", "some-model")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr(llm_stub, "_ollama_available", lambda: False)
+    calls = _fake_openai(monkeypatch)
+    with pytest.raises(llm_stub.LLMUnavailable, match="CODEBUD_BACKEND=openai"):
+        llm_stub.call_llm("secret prompt")
+    assert calls == []
 
-    caplog.set_level("WARNING")
-    result = llm_stub.call_llm("hello")
-    assert result == ""
-    assert "No LLM backend configured" in caplog.text
+
+def test_unreachable_ollama_names_the_url(monkeypatch):
+    monkeypatch.setenv("OLLAMA_MODEL", "some-model")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:9")
+    monkeypatch.setattr(llm_stub, "_ollama_available", lambda: False)
+    with pytest.raises(llm_stub.LLMUnavailable, match="not reachable at http://127.0.0.1:9"):
+        llm_stub.call_llm("hello")
+
+
+def test_openai_when_chosen(monkeypatch):
+    monkeypatch.setenv("CODEBUD_BACKEND", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "testkey")
+    monkeypatch.setenv("OLLAMA_MODEL", "local-model")
+    monkeypatch.setattr(llm_stub, "_ollama_available", lambda: True)
+    monkeypatch.setattr(llm_stub, "_call_ollama", lambda *a, **k: pytest.fail("used Ollama"))
+    calls = _fake_openai(monkeypatch)
+    assert llm_stub.call_llm("prompt for openai") == "resp-text"
+    assert calls[0]["model"] == "gpt-3.5-turbo"
+
+
+def test_openai_backend_needs_a_key(monkeypatch):
+    monkeypatch.setenv("CODEBUD_BACKEND", "openai")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(llm_stub.LLMUnavailable, match="OPENAI_API_KEY is not set"):
+        llm_stub.call_llm("hello")
+
+
+def test_openai_backend_without_the_package_says_how_to_install(monkeypatch):
+    """openai is an optional extra (codebud[openai]); say so if it's missing."""
+    monkeypatch.setenv("CODEBUD_BACKEND", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "testkey")
+    monkeypatch.setitem(sys.modules, "openai", None)  # import openai -> ImportError
+    with pytest.raises(llm_stub.LLMUnavailable, match=r"pip install 'codebud\[openai\]'"):
+        llm_stub.call_llm("hello")
+
+
+def test_unknown_backend_is_an_error(monkeypatch):
+    monkeypatch.setenv("CODEBUD_BACKEND", "anthropic")
+    with pytest.raises(llm_stub.LLMUnavailable, match="ollama or openai"):
+        llm_stub.call_llm("hello")
+
+
+def test_backend_description(monkeypatch):
+    monkeypatch.delenv("CODEBUD_BACKEND", raising=False)
+    monkeypatch.delenv("OLLAMA_BASE_URL", raising=False)
+    assert llm_stub.backend_description() == "ollama at http://localhost:11434 (local)"
+    monkeypatch.setenv("CODEBUD_BACKEND", "openai")
+    assert "OpenAI" in llm_stub.backend_description()
+    assert "leave this machine" in llm_stub.backend_description()
 
 
 def test_list_models_returns_names(monkeypatch):
@@ -127,6 +172,14 @@ def test_warm_model_sync_request_failure(monkeypatch):
     assert llm_stub.warm_model_sync("some-model") is False
 
 
+def test_summarize_without_a_backend_returns_nothing(monkeypatch):
+    def unavailable(prompt, timeout=600.0, on_chunk=None):
+        raise llm_stub.LLMUnavailable("Ollama is not reachable")
+
+    monkeypatch.setattr(llm_stub, "call_llm", unavailable)
+    assert llm_stub.summarize_conversation([{"role": "user", "content": "x"}]) == ""
+
+
 def test_summarize_conversation_sends_turns_and_strips_reply(monkeypatch):
     captured = {}
 
@@ -142,14 +195,3 @@ def test_summarize_conversation_sends_turns_and_strips_reply(monkeypatch):
     assert llm_stub.summarize_conversation(turns) == "A short summary."
     assert "User: list the python files" in captured["prompt"]
     assert "Assistant: planned: command(list python files)" in captured["prompt"]
-
-
-def test_openai_fallback_without_the_package_says_how_to_install(monkeypatch, caplog):
-    """openai is an optional extra (codebud[openai]); say so if it's missing."""
-    monkeypatch.delenv("OLLAMA_MODEL", raising=False)
-    monkeypatch.setenv("OPENAI_API_KEY", "testkey")
-    monkeypatch.setitem(sys.modules, "openai", None)  # import openai -> ImportError
-
-    caplog.set_level("WARNING")
-    assert llm_stub.call_llm("hello") == ""
-    assert "pip install 'codebud[openai]'" in caplog.text

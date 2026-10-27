@@ -6,22 +6,25 @@ codebase calls `call_llm(prompt)` and expects a string containing the raw
 model output (usually JSON).  No parsing or error handling is performed by
 this module.
 
-The implementation is small and flexible:
+The backend is chosen explicitly (phase 8, decision D12a) with
+CODEBUD_BACKEND or `backend` in config.toml:
 
-* If `OLLAMA_MODEL` is set and the Ollama server (`OLLAMA_BASE_URL`) answers,
-  we call its REST API (`/api/generate`, streamed), sending the same
-  `num_ctx` on every request and bypassing HTTP proxies for a local server.
-* Otherwise, if `OPENAI_API_KEY` is set we fall back to the OpenAI Python
-  client (the optional extra `codebud[openai]`) with `OPENAI_MODEL` or
-  `gpt-3.5-turbo` by default.
-* If neither backend is configured, `call_llm` returns an empty string and
-  logs a warning.
+* "ollama" (default): the Ollama REST API at OLLAMA_BASE_URL
+  (`/api/generate`, streamed) with OLLAMA_MODEL, sending the same `num_ctx`
+  on every request and bypassing HTTP proxies for a local server.
+* "openai": the OpenAI Python client (the optional extra `codebud[openai]`)
+  with OPENAI_API_KEY and OPENAI_MODEL (default gpt-3.5-turbo).
+
+There is no fallback from one to the other: prompts go to OpenAI only when
+it was chosen. When the chosen backend cannot be used, `call_llm` raises
+LLMUnavailable saying why.
 
 It also holds the helpers around the model: warm-up and heartbeat, model
 listing, conversation summaries for /compact. No network operations are
 performed unless a real model is requested.
 """
 
+import ipaddress
 import logging
 import os
 import threading
@@ -33,6 +36,24 @@ import requests
 logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_BASE = "http://localhost:11434"
+BACKENDS = ("ollama", "openai")
+
+
+class LLMUnavailable(RuntimeError):
+    """The chosen LLM backend cannot be used; the message says why."""
+
+
+def backend() -> str:
+    """The chosen backend: CODEBUD_BACKEND (lower-cased), default "ollama"."""
+    return (os.environ.get("CODEBUD_BACKEND") or "ollama").strip().lower()
+
+
+def backend_description() -> str:
+    """One line saying where prompts go, for doctor and chat."""
+    if backend() == "openai":
+        return f"OpenAI ({openai_model()}): prompts leave this machine"
+    base = ollama_base()
+    return f"ollama at {base} ({'local' if _is_loopback(base) else 'remote'})"
 
 
 def ollama_base() -> str:
@@ -90,9 +111,20 @@ def ollama_proxies(base: str) -> dict[str, None] | None:
     be sent to the proxy and fail. Loopback addresses therefore bypass any
     proxy; a remote Ollama keeps the environment's proxy settings (None).
     """
-    if urlsplit(base).hostname in _LOOPBACK_HOSTS:
+    if _is_loopback(base):
         return {"http": None, "https": None, "all": None}
     return None
+
+
+def _is_loopback(base: str) -> bool:
+    """Whether the URL ``base`` points at this machine (localhost, 127.x, ::1)."""
+    host = urlsplit(base).hostname or ""
+    if host in _LOOPBACK_HOSTS:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def call_llm(
@@ -102,11 +134,8 @@ def call_llm(
 ) -> str:
     """Send ``prompt`` to the configured LLM and return the raw text output.
 
-    Priority order:
-
-    1. Ollama REST API if ``OLLAMA_MODEL`` is set and the server is reachable.
-    2. OpenAI API if ``OPENAI_API_KEY`` is present.
-    3. Otherwise return an empty string and log a warning.
+    Uses the backend chosen with CODEBUD_BACKEND (see the module
+    docstring); raises LLMUnavailable if it cannot be used.
 
     ``timeout`` is the maximum total wall-clock seconds to wait.  On CPU-only
     hardware prefill alone can take several minutes for a 300-token prompt, so
@@ -118,34 +147,48 @@ def call_llm(
     indicator without coupling the display code to this module.
     """
 
+    chosen = backend()
+    if chosen == "openai":
+        return _call_openai(prompt)
+    if chosen != "ollama":
+        raise LLMUnavailable(
+            f"Unknown CODEBUD_BACKEND '{chosen}': choose ollama or openai "
+            "(or set `backend` in config.toml)."
+        )
     ollama_model = os.environ.get("OLLAMA_MODEL")
-    if ollama_model and _ollama_available():
-        return _call_ollama(ollama_model, prompt, timeout, on_chunk=on_chunk)
+    if not ollama_model:
+        raise LLMUnavailable(
+            "No model to plan with: OLLAMA_MODEL is not set (or `model` in config.toml). "
+            "OpenAI is used only when chosen with CODEBUD_BACKEND=openai."
+        )
+    if not _ollama_available():
+        raise LLMUnavailable(
+            f"Ollama is not reachable at {ollama_base()}. Prompts are never sent "
+            "anywhere else unless you choose CODEBUD_BACKEND=openai."
+        )
+    return _call_ollama(ollama_model, prompt, timeout, on_chunk=on_chunk)
 
-    if os.environ.get("OPENAI_API_KEY"):
-        try:
-            from openai import OpenAI
-        except ImportError:
-            logger.warning(
-                "OPENAI_API_KEY is set but the OpenAI client is not installed; "
-                "run: pip install 'codebud[openai]'"
-            )
-            return ""
-        try:
-            client = OpenAI()
-            model = openai_model()
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-            )
-            return resp.choices[0].message.content or ""
-        except Exception as exc:  # pragma: no cover
-            logger.warning("OpenAI call failed: %s", exc)
-            return ""
 
-    logger.warning("No LLM backend configured (set OLLAMA_MODEL or OPENAI_API_KEY)")
-    return ""
+def _call_openai(prompt: str) -> str:
+    """Send ``prompt`` to OpenAI (only when CODEBUD_BACKEND=openai)."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise LLMUnavailable("CODEBUD_BACKEND=openai but OPENAI_API_KEY is not set.")
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise LLMUnavailable(
+            "CODEBUD_BACKEND=openai but the OpenAI client is not installed; "
+            "run: pip install 'codebud[openai]'"
+        ) from exc
+    try:
+        resp = OpenAI().chat.completions.create(
+            model=openai_model(),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0,
+        )
+    except Exception as exc:  # network, auth, quota...
+        raise LLMUnavailable(f"OpenAI call failed: {exc}") from exc
+    return resp.choices[0].message.content or ""
 
 
 def call_llm_plain(
@@ -193,7 +236,11 @@ def summarize_conversation(
         "the user may refer back to. Output only the summary.\n\n"
         f"{transcript}\n\nSummary:"
     )
-    return call_llm(prompt, on_chunk=on_chunk).strip()
+    try:
+        return call_llm(prompt, on_chunk=on_chunk).strip()
+    except LLMUnavailable as exc:
+        logger.warning("No summary: %s", exc)
+        return ""
 
 
 # ---------------------------------------------------------------------------

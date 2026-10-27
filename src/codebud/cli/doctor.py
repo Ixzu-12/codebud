@@ -18,7 +18,7 @@ from pathlib import Path
 
 import requests
 
-from codebud.llm_stub import ollama_base, ollama_proxies
+from codebud.llm_stub import BACKENDS, backend, backend_description, ollama_base, ollama_proxies
 from codebud.tools.embeddings import embed_model
 
 # Linux memory statistics; macOS and FreeBSD have none, so the RAM check is
@@ -56,6 +56,24 @@ def check_agent_importable() -> CheckResult:
     except ImportError:
         hint = "Run: ./bootstrap --dev  (or: pip install -e . --group dev)"
         return False, "codebud package is NOT importable", hint
+
+
+def check_backend() -> CheckResult:
+    """Which backend prompts go to, and whether it is usable at all."""
+    chosen = backend()
+    if chosen not in BACKENDS:
+        return (
+            False,
+            f"Unknown LLM backend '{chosen}'",
+            "Set CODEBUD_BACKEND (or `backend` in config.toml) to ollama or openai.",
+        )
+    if chosen == "openai" and not os.environ.get("OPENAI_API_KEY"):
+        return (
+            False,
+            f"LLM backend: {backend_description()}",
+            "Set OPENAI_API_KEY, or go back to the local backend: CODEBUD_BACKEND=ollama.",
+        )
+    return True, f"LLM backend: {backend_description()}", ""
 
 
 def check_ollama_model_set() -> CheckResult:
@@ -196,6 +214,7 @@ def check_ram() -> CheckResult:
 _CHECKS: list[Callable[[], CheckResult]] = [
     check_python_version,
     check_agent_importable,
+    check_backend,
     check_ollama_model_set,
     check_ollama_reachable,
     check_model_pulled,

@@ -33,7 +33,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from .llm_stub import call_llm, num_ctx
+from .llm_stub import LLMUnavailable, call_llm, num_ctx
 from .modes import prompt_note, step_allowed
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,10 @@ class LLMPlanner:
         on_chunk: Callable[[str], None] | None = None,
     ) -> dict[str, Any] | None:
         """Call the LLM once and return a valid plan dict, or None on failure."""
-        llm_output = call_llm(prompt, on_chunk=on_chunk)
+        try:
+            llm_output = call_llm(prompt, on_chunk=on_chunk)
+        except LLMUnavailable as exc:
+            return {"status": "llm_unavailable", "error": str(exc)}
         if not llm_output:
             return {"status": "plan_error", "error": "LLM returned empty output"}
 

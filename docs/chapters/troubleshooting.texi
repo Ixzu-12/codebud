@@ -24,28 +24,33 @@ their root causes, and how to fix them.
 @cindex plan_error
 @cindex chat reply instead of a plan
 
-When the planner cannot produce a valid plan --- no model answered, or the
-answer was not valid JSON even after one retry --- Codebud does not print a
-planner error.  It asks the model for a
-plain conversational answer instead and prints that; if no model is
-reachable, the answer is empty.  So a missing plan, an empty reply, or a
-chatty answer to a request that should have produced a plan all point to
-the causes below.  Run @command{codebud doctor} first: it checks most of
-them.  (A plan refused because of the agent mode or the safety policy is
-reported directly; see @ref{Safety Rejection}.)
+When the model answers but no valid plan comes out of it --- the answer
+was not valid JSON even after one retry, or the model declined --- Codebud
+does not print a planner error.  It asks the model for a plain
+conversational answer instead and prints that.  So a chatty answer to a
+request that should have produced a plan points to the causes below.  Run
+@command{codebud doctor} first: it checks most of them.
+
+When no model can be reached at all, Codebud says so directly instead (see
+the first two causes), and a plan refused by the agent mode or the safety
+policy is reported directly too (@pxref{Safety Rejection}).
 
 @table @strong
-@item Cause: no LLM backend configured
-Neither @env{OLLAMA_MODEL} nor @env{OPENAI_API_KEY} is set.
+@item Cause: no model set
+Codebud stops with @samp{No model to plan with: OLLAMA_MODEL is not set}.
 
-@emph{Fix:} set @env{OLLAMA_MODEL}:
+@emph{Fix:} set @env{OLLAMA_MODEL} (or @code{model} in @file{config.toml}):
 @example
 export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M
 @end example
 
+@noindent
+Setting @env{OPENAI_API_KEY} does not help: OpenAI is used only with
+@env{CODEBUD_BACKEND=openai} (@pxref{LLM Backend Variables}).
+
 @item Cause: Ollama server is not running
-@env{OLLAMA_MODEL} is set but @code{curl http://localhost:11434/api/tags}
-returns @samp{Connection refused}.
+Codebud stops with @samp{Ollama is not reachable at
+http://localhost:11434}.
 
 @emph{Fix:} start the server:
 @example

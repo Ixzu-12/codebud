@@ -59,10 +59,14 @@ a CPU (@pxref{Project Search Evaluation}).  Models that expect task prefixes
 get them automatically: @code{nomic-embed-text} (@samp{search_document:} /
 @samp{search_query:}) and @code{qwen3-embedding} (an instruction on
 queries).
+@item @env{CODEBUD_BACKEND}
+@tab @code{ollama}
+@tab Which LLM backend gets the prompts: @code{ollama} or @code{openai}.
+There is no fallback between them (@pxref{LLM Backend Variables}).
 @item @env{OPENAI_API_KEY}
 @tab @emph{(none)}
-@tab When set, enables the OpenAI fallback backend if Ollama is
-unavailable (requires @code{codebud[openai]}).
+@tab API key for the @code{openai} backend; used only when
+@env{CODEBUD_BACKEND} is @code{openai} (requires @code{codebud[openai]}).
 @item @env{OPENAI_MODEL}
 @tab @code{gpt-3.5-turbo}
 @tab OpenAI model to use when the OpenAI backend is active.
@@ -135,6 +139,7 @@ from, highest first:
 
 @multitable @columnfractions .30 .32 .38
 @headitem Key @tab Variable @tab Type
+@item @code{backend} @tab @env{CODEBUD_BACKEND} @tab @code{"ollama"} / @code{"openai"} (user file only)
 @item @code{model} @tab @env{OLLAMA_MODEL} @tab string
 @item @code{ollama_base_url} @tab @env{OLLAMA_BASE_URL} @tab string (user file only)
 @item @code{embed_model} @tab @env{EMBED_MODEL} @tab string
@@ -147,9 +152,9 @@ from, highest first:
 @end multitable
 
 @cindex egress settings
-@strong{Settings that make data leave the machine} --- the Ollama URL, the
-OpenAI key and web search --- are accepted only from your own file or the
-environment.  In a project's file they are ignored with a warning: cloning
+@strong{Settings that make data leave the machine} --- the backend, the
+Ollama URL, the OpenAI key and web search --- are accepted only from your
+own file or the environment.  In a project's file they are ignored with a warning: cloning
 a repository must never be able to send your prompts somewhere else.  The
 same goes for unknown keys, values of the wrong type and a file that is not
 valid TOML: Codebud warns once and carries on without them.
@@ -169,27 +174,41 @@ later have it built in.
 @cindex Ollama backend
 @cindex OpenAI backend
 
-Codebud supports two LLM backends, selected by priority:
+@cindex CODEBUD_BACKEND
+Codebud supports two LLM backends.  You choose one with
+@env{CODEBUD_BACKEND} (or @code{backend} in @file{config.toml}); there is
+no fallback from one to the other:
 
-@enumerate
-@item
-@strong{Ollama} (preferred) --- used when @env{OLLAMA_MODEL} is set and
-the Ollama server at @env{OLLAMA_BASE_URL} is reachable.
-Codebud streams tokens using @code{stream=True} so that the HTTP
-connection never times out during the long prefill phase on CPU-only
-hardware.
+@table @code
+@item ollama
+The default.  Uses the Ollama server at @env{OLLAMA_BASE_URL} with
+@env{OLLAMA_MODEL}.  Codebud streams tokens using @code{stream=True} so
+that the HTTP connection never times out during the long prefill phase on
+CPU-only hardware.
 
-@item
-@strong{OpenAI} (fallback) --- used when @env{OPENAI_API_KEY} is set and
-Ollama is not configured or not reachable.  Needs the optional client:
-@code{pip install "codebud[openai]"}; without it Codebud logs a warning
-saying so.  The OpenAI call is
-non-streaming and uses @code{temperature=0} for deterministic output.
-@end enumerate
+@item openai
+Sends prompts to OpenAI with @env{OPENAI_API_KEY} and @env{OPENAI_MODEL}.
+Needs the optional client: @code{pip install "codebud[openai]"}.  The call
+is non-streaming and uses @code{temperature=0} for deterministic output.
+Your prompts --- including project context and conversation history ---
+leave this machine, so @command{run}, @command{plan} and @command{chat}
+say so when they start, the chat toolbar shows @samp{☁ OpenAI}, and
+@command{codebud doctor} names the backend.
+@end table
 
-If neither backend is configured, @command{codebud} logs a warning; the
-planner gets no plan, and Codebud falls back to a plain chat reply, which
-is then empty (@pxref{No Plan or an Empty Reply}).
+Setting @env{OPENAI_API_KEY} alone does nothing: earlier versions sent
+prompts to OpenAI by themselves whenever Ollama was unset or unreachable,
+and that fallback is gone.  When the chosen backend cannot be used,
+Codebud stops with a message saying why, for example:
+
+@example
+Plan error: Ollama is not reachable at http://localhost:11434. Prompts are
+never sent anywhere else unless you choose CODEBUD_BACKEND=openai.
+@end example
+
+@noindent
+A project's @file{.codebud/config.toml} cannot choose the backend
+(@pxref{Configuration File}).
 
 @subsection Pointing at a remote Ollama instance
 

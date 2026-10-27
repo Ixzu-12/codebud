@@ -24,6 +24,7 @@ from typing import Any
 
 from .executor import Executor
 from .llm_stub import (
+    LLMUnavailable,
     ModelHeartbeat,
     call_llm_plain,
     list_models,
@@ -115,18 +116,22 @@ class AgentCore:
 
         # The mode or the safety policy forbids this plan, or the model's
         # steps miss required arguments: report it rather than chatting.
-        if plan_output.get("status") in ("plan_refused", "plan_invalid"):
+        if plan_output.get("status") in ("plan_refused", "plan_invalid", "llm_unavailable"):
             self._history.append({"role": "assistant", "content": plan_output["error"]})
             return plan_output
 
         # If planner failed, fall back to a plain-text conversational reply
         if plan_output.get("status") != "ok":
-            reply = call_llm_plain(
-                message,
-                history=self._history[:-1],
-                on_chunk=on_chunk,
-                context_block=context_block(self.last_context),
-            )
+            try:
+                reply = call_llm_plain(
+                    message,
+                    history=self._history[:-1],
+                    on_chunk=on_chunk,
+                    context_block=context_block(self.last_context),
+                )
+            except LLMUnavailable as exc:
+                self._history.append({"role": "assistant", "content": str(exc)})
+                return {"status": "llm_unavailable", "error": str(exc)}
             self._history.append({"role": "assistant", "content": reply or "(no reply)"})
             return {"status": "chat_reply", "reply": reply}
 

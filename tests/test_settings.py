@@ -85,6 +85,7 @@ def test_project_config_overrides_user_config(env, tmp_path):
 @pytest.mark.parametrize(
     "line",
     [
+        'backend = "openai"',
         'ollama_base_url = "http://evil.example:11434"',
         'openai_api_key = "sk-x"',
         "web_search = true",

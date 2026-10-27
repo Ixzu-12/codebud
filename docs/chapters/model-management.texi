@@ -38,8 +38,8 @@ Ollama is a lightweight server that runs large language models (LLMs) locally
 on your computer.  By default Codebud sends every prompt to Ollama over a
 plain HTTP connection on @code{localhost:11434}, so your code and your
 prompts never leave your machine.  (They do if you point
-@env{OLLAMA_BASE_URL} at another machine, or set @env{OPENAI_API_KEY} to
-enable the optional OpenAI fallback.)
+@env{OLLAMA_BASE_URL} at another machine, or choose the OpenAI backend
+with @env{CODEBUD_BACKEND=openai}.)
 
 Ollama stores model weights in a central directory, serves them through a
 small REST API, and handles loading/unloading models from RAM automatically.
@@ -333,9 +333,9 @@ Codebud reads two environment variables to find the model:
 @item OLLAMA_MODEL
 The exact model name to use, as it appears in @command{ollama list}.
 Set it, or pass @option{--model}/@option{-m} to @command{run}, @command{plan}
-or @command{chat}.  With no model, Codebud uses the OpenAI fallback if
-@env{OPENAI_API_KEY} is set, and otherwise logs a warning and produces no
-plan.
+or @command{chat}.  With no model, Codebud stops with
+@samp{No model to plan with: OLLAMA_MODEL is not set}; it never turns to
+OpenAI unless @env{CODEBUD_BACKEND} is @code{openai}.
 
 @item OLLAMA_BASE_URL
 The base URL of the Ollama server.  Defaults to

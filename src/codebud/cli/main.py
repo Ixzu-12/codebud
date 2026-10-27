@@ -343,6 +343,15 @@ class _ChatCheckpoint:
             self.session.close()
 
 
+def _announce_backend() -> None:
+    """Say once, on stderr, when prompts are going to leave this machine."""
+    from codebud.cli.display import print_warning
+    from codebud.llm_stub import backend, backend_description
+
+    if backend() == "openai":
+        print_warning(f"LLM backend: {backend_description()} (CODEBUD_BACKEND=openai).")
+
+
 def _may_change_files(agent, step: dict) -> bool:
     """Whether running ``step`` can have changed files in the project."""
     return step.get("tool") in ("file_write", "patch") or agent.is_powerful(step)
@@ -1238,6 +1247,8 @@ def main():
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.subcommand in ("run", "plan", "chat"):
+        _announce_backend()
     if getattr(args, "no_rag", False):
         os.environ["CODEBUD_RAG"] = "0"
 

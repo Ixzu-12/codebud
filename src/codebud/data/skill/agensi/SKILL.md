@@ -65,7 +65,8 @@ sudo make install           # or: ./configure --prefix=$HOME/.local && make inst
 ```
 
 Or: `pip install .` from the clone (add `"[rag]"` for project search,
-`"[openai]"` only if they want the optional OpenAI fallback).
+`"[openai]"` only if they want the optional OpenAI backend, chosen with
+`CODEBUD_BACKEND=openai`).
 
 Then:
 

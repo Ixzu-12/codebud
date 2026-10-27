@@ -38,7 +38,7 @@ codebud skill install --for claude    # or: --for openclaw
 
 Alternatively, install it with pip like any Python package:
 `pip install .` (add `"[rag]"` for project search, `"[openai]"` for the
-optional OpenAI fallback).
+optional OpenAI backend).
 
 ## Project search
 
@@ -139,8 +139,9 @@ search).
 | `CODEBUD_RAG` | `1` | Set to `0` to plan without project context from `codebud index` |
 | `CODEBUD_RAG_HINTS` | `1` | Set to `0` to stop chat from suggesting `/index` |
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
-| `OPENAI_API_KEY` | — | Fallback to OpenAI if Ollama is unavailable (needs `pip install "codebud[openai]"`) |
-| `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the OpenAI fallback |
+| `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
+| `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |
+| `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the `openai` backend |
 | `XDG_DATA_HOME` / `XDG_CONFIG_HOME` | `~/.local/share` / `~/.config` | Where codebud keeps data / your policy files |
 
 Run `codebud config` to see the resolved values (all but `OPENAI_MODEL`),

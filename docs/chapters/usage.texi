@@ -536,6 +536,9 @@ It checks:
 @enumerate
 @item Python version (3.10 or later required)
 @item The @code{codebud} package is importable
+@item Which LLM backend gets the prompts, and whether it is local
+(@env{CODEBUD_BACKEND}; fails for an unknown backend, or @code{openai}
+without @env{OPENAI_API_KEY})
 @item @env{OLLAMA_MODEL} environment variable is set
 @item The Ollama server is reachable at @env{OLLAMA_BASE_URL}
 (default @code{http://localhost:11434})
@@ -1094,14 +1097,18 @@ The dedicated embedding model used by the @code{search_embeddings}
 tool.  Defaults to @code{all-minilm},
 independent of @env{OLLAMA_MODEL}.
 
+@item CODEBUD_BACKEND
+@code{ollama} (default) or @code{openai}: which backend gets the prompts.
+There is no fallback between them (@pxref{LLM Backend Variables}).
+
 @item OPENAI_API_KEY
-When set, Codebud falls back to the OpenAI API if Ollama is not
-reachable (install the optional client with
-@code{pip install "codebud[openai]"}).  The model used is @code{gpt-3.5-turbo} unless overridden
-by @env{OPENAI_MODEL}.
+The API key for the @code{openai} backend, used only when
+@env{CODEBUD_BACKEND} is @code{openai} (install the optional client with
+@code{pip install "codebud[openai]"}).  The model used is
+@code{gpt-3.5-turbo} unless overridden by @env{OPENAI_MODEL}.
 
 @item OPENAI_MODEL
-The OpenAI model to use when @env{OPENAI_API_KEY} is set.
+The OpenAI model to use with the @code{openai} backend.
 Default: @code{gpt-3.5-turbo}.
 
 @item CODEBUD_RAG

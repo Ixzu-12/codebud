@@ -25,6 +25,8 @@ def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     monkeypatch.setattr(paths, "LEGACY_DATA_DIR", None)
     # Embeddings use the deterministic offline stub, never a live Ollama.
     monkeypatch.setenv("CODEBUD_EMBED_STUB", "1")
+    # The developer's own backend choice must not change test results.
+    monkeypatch.delenv("CODEBUD_BACKEND", raising=False)
 
     # doctor's RAM check reads /proc/meminfo; with a model loaded the real
     # machine can be "low on RAM" and break unrelated doctor tests. Tests

@@ -194,7 +194,8 @@ Codebud itself (@code{numpy} so the project-search tests run)
 @item the @command{codebud} CLI entry point (maps to @code{codebud.cli.main:main}); @code{python -m codebud} works too
 @end itemize
 
-The optional OpenAI fallback backend needs the @code{openai} client, which
+The optional OpenAI backend (@env{CODEBUD_BACKEND=openai}) needs the
+@code{openai} client, which
 is not installed by default:
 
 @example

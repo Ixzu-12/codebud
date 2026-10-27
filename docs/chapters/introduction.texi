@@ -9,8 +9,8 @@ step-by-step plan, validates it against a safety policy, executes each step
 using built-in tools (file I/O, shell commands, unified-diff patching,
 web search, embeddings), and records what happened in a persistent memory
 timeline.  By default no data leaves your machine: prompts go to a local
-Ollama, unless you point Codebud at a remote one or enable the optional
-OpenAI fallback.
+Ollama, unless you point Codebud at a remote one or choose the OpenAI
+backend (@env{CODEBUD_BACKEND=openai}).
 
 @menu
 * What Codebud Does::           The agent loop in one paragraph.

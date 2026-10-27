@@ -525,24 +525,25 @@ it also provides @code{call_llm_plain()} (conversational fallback),
 
 It selects a backend in this priority order:
 
-@enumerate
-@item
-@strong{Ollama} (preferred) --- if @env{OLLAMA_MODEL} is set and the
-server at @env{OLLAMA_BASE_URL} responds to @code{GET /api/tags}.  Uses
-@code{POST /api/generate} with @code{stream=True}, @code{temperature=0}
-and the same @code{num_ctx} on every request; HTTP proxies are bypassed
-for a local server.
+@table @strong
+@item ollama
+(@env{CODEBUD_BACKEND} unset or @code{ollama}) --- needs
+@env{OLLAMA_MODEL} and a server at @env{OLLAMA_BASE_URL} that responds to
+@code{GET /api/tags}.  Uses @code{POST /api/generate} with
+@code{stream=True}, @code{temperature=0} and the same @code{num_ctx} on
+every request; HTTP proxies are bypassed for a local server.
 
-@item
-@strong{OpenAI} (fallback) --- if @env{OPENAI_API_KEY} is set and the
-optional @code{codebud[openai]} extra is installed.  Uses a non-streaming
+@item openai
+(@env{CODEBUD_BACKEND=openai} only) --- needs @env{OPENAI_API_KEY} and the
+optional @code{codebud[openai]} extra.  Uses a non-streaming
 @code{client.chat.completions.create()} call with @code{temperature=0}.
+@end table
 
-@item
-@strong{No-op} --- logs a warning and returns an empty string, which the
-planner converts to @code{plan_error} and @code{AgentCore} to an (empty)
-chat reply.
-@end enumerate
+@noindent
+There is no fallback between them.  When the chosen backend cannot be
+used, @code{call_llm()} raises @code{LLMUnavailable} with the reason; the
+planner returns it as @code{llm_unavailable}, which @code{AgentCore}
+reports instead of attempting a chat reply.
 
 The @code{on_chunk} callback receives each text fragment from the Ollama
 streaming response.  The CLI passes @code{ProgressIndicator.on_chunk} here

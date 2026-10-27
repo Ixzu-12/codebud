@@ -18,6 +18,22 @@ _RESET = "\033[0m" if _IS_TTY else ""
 _RULES: list[tuple[str, str, str]] = [
     # (substring to match, explanation, fix command)
     (
+        "Ollama is not reachable",
+        "The Ollama server did not answer. Codebud never sends prompts elsewhere "
+        "unless you chose another backend.",
+        "Start it (sudo systemctl start ollama, or: ollama serve), then run `codebud doctor`.",
+    ),
+    (
+        "OLLAMA_MODEL is not set",
+        "Codebud does not know which model to plan with.",
+        "export OLLAMA_MODEL=qwen2.5-coder:3b-instruct-q4_K_M  (or `model` in config.toml)",
+    ),
+    (
+        "CODEBUD_BACKEND",
+        "The chosen LLM backend cannot be used as configured.",
+        "Run `codebud doctor`; `codebud config` shows where the backend setting comes from.",
+    ),
+    (
         "Connection refused",
         "The Ollama server is not running.",
         "sudo systemctl start ollama  (or: ollama serve)",

@@ -107,7 +107,11 @@ class ChatInput:
         return self._session.prompt(prompt)
 
     def _toolbar(self) -> str:
-        return toolbar_text(self.agent.get_mode(), self.agent.get_model(), *self._usage, self._rag)
+        from codebud.llm_stub import backend, openai_model
+
+        # Prompts going to the cloud must stay visible, not just be chosen once.
+        model = f"☁ OpenAI {openai_model()}" if backend() == "openai" else self.agent.get_model()
+        return toolbar_text(self.agent.get_mode(), model, *self._usage, self._rag)
 
     def _build_session(self) -> PromptSession:
         bindings = KeyBindings()

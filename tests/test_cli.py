@@ -516,6 +516,7 @@ class TestSubcommandRouting:
         self._run_main(["config"])
         out = capsys.readouterr().out
         for name in (
+            "CODEBUD_BACKEND",
             "OLLAMA_MODEL",
             "OLLAMA_BASE_URL",
             "CODEBUD_NUM_CTX",
