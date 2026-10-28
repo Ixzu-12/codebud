@@ -11,6 +11,7 @@ import sys
 
 from codebud.cli import common
 from codebud.cli.admin import apply_retention, cmd_index
+from codebud.cli.steps import policy_for_mode, run_steps
 from codebud.modes import MODES
 
 # chat warns once the next planner prompt reaches this share of num_ctx.
@@ -87,11 +88,6 @@ class _ChatCheckpoint:
     def close(self) -> None:
         if self.session is not None:
             self.session.close()
-
-
-def _may_change_files(agent, step: dict) -> bool:
-    """Whether running ``step`` can have changed files in the project."""
-    return step.get("tool") in ("file_write", "patch") or agent.is_powerful(step)
 
 
 def _chat_sources(agent) -> None:
@@ -173,8 +169,6 @@ def cmd_chat(args):
         print_plan,
         print_rule,
         print_status,
-        print_step_header,
-        print_step_result,
         print_warning,
     )
     from codebud.cli.errors import print_error
@@ -470,63 +464,15 @@ def cmd_chat(args):
                     continue  # show revised plan for another review
 
                 # y / yes / anything else → proceed to execution
-                steps = plan.get("plan", [])
-                changed_files = False
-                for i, step in enumerate(steps, 1):
-                    if agent.get_mode() == "full-auto":
-                        print_step_header(i, step)
-                        step_approval = "y"  # unattended: no step prompts
-                    elif agent.get_mode() == "auto":
-                        # Plan approved once; only powerful steps (code
-                        # runners, file-changing commands) and web searches
-                        # ask again. (full-auto runs them unattended.)
-                        print_step_header(i, step)
-                        reason = agent.confirmation_reason(step)
-                        if reason:
-                            print_warning(reason)
-                            try:
-                                step_approval = input("  Run it? [y/N] ").strip().lower()
-                            except (EOFError, KeyboardInterrupt):
-                                step_approval = "n"
-                        else:
-                            step_approval = "y"
-                    else:
-                        print_step_header(i, step)
-                        try:
-                            step_approval = (
-                                input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
-                            )
-                        except (EOFError, KeyboardInterrupt):
-                            step_approval = "q"
-
-                    if step_approval == "q":
-                        break
-                    if step_approval == "a":
-                        for j, s in enumerate(steps[i - 1 :], i):
-                            print_step_header(j, s)
-                            result = agent.executor.execute_plan({"status": "ok", "plan": [s]})
-                            changed_files |= _may_change_files(agent, s)
-                            if result.get("status") == "ok":
-                                out = result["results"].get(s["id"], {})
-                                print_step_result(out, verbose=args.verbose)
-                                last_step_output = out
-                            else:
-                                print_error(str(result), label="Execution error")
-                        break
-                    if not step_approval.startswith("y"):
-                        print_status("-- skipped")
-                        continue
-
-                    result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
-                    changed_files |= _may_change_files(agent, step)
-                    if result.get("status") == "ok":
-                        out = result["results"].get(step["id"], {})
-                        print_step_result(out, verbose=args.verbose)
-                        last_step_output = out
-                    else:
-                        print_error(str(result), label="Execution error")
-                        break
-                if changed_files:
+                outcome = run_steps(
+                    agent,
+                    plan.get("plan", []),
+                    policy_for_mode(agent.get_mode()),
+                    verbose=args.verbose,
+                )
+                if outcome.last_output is not None:
+                    last_step_output = outcome.last_output
+                if outcome.changed_files:
                     hint = hints.after_changes()
                     if hint:
                         print_status(hint)

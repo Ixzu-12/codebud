@@ -18,6 +18,7 @@ nobase_python_PYTHON = \
 	codebud/cli/main.py \
 	codebud/cli/parser.py \
 	codebud/cli/run.py \
+	codebud/cli/steps.py \
 	codebud/core.py \
 	codebud/executor.py \
 	codebud/fsutil.py \

@@ -589,6 +589,8 @@ src/codebud/                   the package
 │   ├── common.py          helpers shared by subcommands (agent, --model,
 │   │                      privacy/backend notices, confirming deletions)
 │   ├── run.py             codebud run, codebud plan
+│   ├── steps.py           the one step loop for run, plan -x and chat
+│   │                      (approval policies ask / auto / full-auto)
 │   ├── chat.py            codebud chat: REPL, slash commands, sessions
 │   ├── admin.py           doctor, sessions, index, skill, history,
 │   │                      models, config, version

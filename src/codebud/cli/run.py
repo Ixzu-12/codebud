@@ -9,15 +9,13 @@ import json
 import sys
 
 from codebud.cli import common
+from codebud.cli.steps import run_steps
 
 
 def cmd_run(args):
     from codebud.cli.display import (
         ProgressIndicator,
         print_plan,
-        print_status,
-        print_step_header,
-        print_step_result,
         print_warning,
     )
     from codebud.cli.errors import print_error
@@ -45,57 +43,17 @@ def cmd_run(args):
 
         print_plan(plan, verbose=args.verbose)
 
-        steps = plan.get("plan", [])
-        approve_all = not args.interactive
-        # Without -i, steps run unprompted, except powerful ones (code
-        # runners, file-changing commands) and web searches (data leaves
-        # the machine), which need a "y" unless --yes.
-        confirm_some = not args.interactive and not args.yes
-        unconfirmed = 0
-        for i, step in enumerate(steps, 1):
-            print_step_header(i, step)
-
-            reason = agent.confirmation_reason(step) if confirm_some else None
-            if reason:
-                print_warning(reason)
-                try:
-                    answer = input("  Run it? [y/N] ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    print(file=sys.stderr)
-                    unconfirmed += 1
-                    print_status("-- not run: no one to confirm")
-                    continue
-                if not answer.startswith("y"):
-                    print_status("-- skipped")
-                    continue
-
-            if not approve_all:
-                try:
-                    approval = input(f"  Execute step {i}? [y/N/a(all)/q(quit)] ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    approval = "q"
-
-                if approval == "q":
-                    print_status("-- aborted")
-                    break
-                if approval == "a":
-                    approve_all = True
-                elif not approval.startswith("y"):
-                    print_status("-- skipped")
-                    continue
-
-            result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
-            if result.get("status") == "ok":
-                out = result["results"].get(step["id"], {})
-                print_step_result(out, verbose=args.verbose, full=True)
-            else:
-                err = str(result)
-                print_error(err, label="Execution error")
-                sys.exit(1)
-
-        if unconfirmed:
+        # -i asks before every step; otherwise steps run unprompted except
+        # powerful ones and web searches, which need a "y" unless --yes.
+        policy = "ask" if args.interactive else "full-auto" if args.yes else "auto"
+        outcome = run_steps(
+            agent, plan.get("plan", []), policy, verbose=args.verbose, full_output=True
+        )
+        if outcome.failed:
+            sys.exit(1)
+        if outcome.unconfirmed:
             print_warning(
-                f"{unconfirmed} step(s) were not run because no one could confirm them "
+                f"{outcome.unconfirmed} step(s) were not run because no one could confirm them "
                 "(powerful commands, web search). Re-run with --yes to allow them unattended."
             )
             sys.exit(1)
@@ -107,8 +65,6 @@ def cmd_plan(args):
     from codebud.cli.display import (
         ProgressIndicator,
         print_plan,
-        print_step_header,
-        print_step_result,
     )
     from codebud.cli.errors import print_error
 
@@ -146,14 +102,10 @@ def cmd_plan(args):
         if not args.execute:
             return
 
-        for i, step in enumerate(plan.get("plan", []), 1):
-            print_step_header(i, step)
-            result = agent.executor.execute_plan({"status": "ok", "plan": [step]})
-            if result.get("status") == "ok":
-                out = result["results"].get(step["id"], {})
-                print_step_result(out, verbose=args.verbose, full=True)
-            else:
-                print_error(str(result), label="Execution error")
-                sys.exit(1)
+        outcome = run_steps(
+            agent, plan.get("plan", []), "full-auto", verbose=args.verbose, full_output=True
+        )
+        if outcome.failed:
+            sys.exit(1)
     finally:
         agent.close()
