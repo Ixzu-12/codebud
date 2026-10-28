@@ -56,6 +56,7 @@ This manual is divided into the following chapters:
 * Architecture::            How the components fit together.
 * Tools Reference::         Every built-in tool documented.
 * Safety and Sandbox::      How Codebud limits what the LLM can do.
+* Privacy::                 What stays on your machine, and how to check.
 * Development::             Adding tools, running tests, iterating on prompts.
 * Troubleshooting::         Common failures and how to fix them.
 * Glossary::                Key terms defined.
@@ -72,6 +73,7 @@ This manual is divided into the following chapters:
 @include chapters/architecture.texi
 @include chapters/tools-reference.texi
 @include chapters/safety-and-sandbox.texi
+@include chapters/privacy.texi
 @include chapters/development.texi
 @include chapters/troubleshooting.texi
 @include chapters/glossary.texi

@@ -1,0 +1,231 @@
+@node Privacy
+@chapter Privacy
+@cindex privacy
+
+Codebud is privacy-first: by default nothing you type, nothing in your
+project and nothing it runs leaves your machine, the data it keeps is
+readable only by you, and every way data @emph{can} leave is a choice you
+make, shown when it is in effect.  This chapter says exactly what that
+covers and what it does not.
+
+@menu
+* Privacy at a Glance::          The defaults in one table.
+* What Codebud Stores::          Files on disk, who can read them, masking.
+* Where Data Can Go::            Every outbound connection and its switch.
+* Choosing How Private::         Privacy levels, isolation, unattended work.
+* Checking Privacy::             doctor, config and the local-only test.
+* What Privacy Does Not Cover::  The limits, plainly.
+@end menu
+
+
+@node Privacy at a Glance
+@section Privacy at a Glance
+@cindex privacy defaults
+
+@multitable @columnfractions .34 .66
+@headitem Topic @tab Default
+@item Prompts and replies
+@tab Sent only to the Ollama on this machine (@code{localhost:11434}).
+@item Cloud models
+@tab Never used unless you choose @env{CODEBUD_BACKEND=openai}; never a
+fallback when Ollama is down.
+@item Telemetry, update checks
+@tab None.  Codebud contacts nothing on its own behalf.
+@item Web search
+@tab Off; when on, every query is shown and (outside @code{full-auto})
+confirmed.
+@item Command steps
+@tab Isolated: no network, project-only writes, your secrets hidden.
+@item Stored data
+@tab Owner-only files (0700/0600); secrets masked as @samp{[redacted]}.
+@item Retention
+@tab Kept until you delete it; deletion lists what it removes and asks.
+@item A cloned repository
+@tab Cannot change any of the above through its @file{.codebud/config.toml}.
+@end multitable
+
+
+@node What Codebud Stores
+@section What Codebud Stores
+@cindex stored data
+
+Everything lives in two directories (@pxref{Files and Directories}):
+
+@table @file
+@item ~/.local/share/codebud/
+(@env{XDG_DATA_HOME}) --- @file{memory/entries.jsonl}, the history of
+executed steps with their output; @file{sessions/}, saved chat
+conversations; @file{index/}, project indexes with copies of your
+files' text (@pxref{The index Subcommand}).
+@item ~/.config/codebud/
+(@env{XDG_CONFIG_HOME}) --- your @file{config.toml} and policy files.
+@end table
+
+@noindent
+Nothing else is written outside your project, except what the steps you
+approve do there.
+
+@subheading Readable only by you
+
+Directories are created 0700 and files 0600, whatever your
+@code{umask}; @command{codebud doctor} warns if anything in these
+directories is readable by other users and gives the @command{chmod}
+that fixes it.
+
+@subheading Secrets are masked
+
+Before a session or a step is saved, API keys and tokens, private keys,
+passwords in URLs and secret-looking assignments are replaced by
+@samp{[redacted]} (@env{CODEBUD_MASK_SECRETS}, on by default).  What is
+sent to the model is not changed.  Secret files (@file{.env},
+@file{*.pem}, @file{id_rsa}, @dots{}) are never put into a project index.
+
+@subheading Deleting
+
+@example
+codebud sessions --delete @var{name}         @r{# one conversation}
+codebud sessions --purge [--older-than 30]  @r{# many}
+codebud history --purge                     @r{# the step history}
+codebud index --drop                        @r{# a project index}
+@end example
+
+@noindent
+Each lists the files it removes and asks first (@option{--yes} for
+scripts).  @code{session_retention_days} in your @file{config.toml}
+deletes old sessions automatically (@pxref{The sessions Subcommand}).
+
+
+@node Where Data Can Go
+@section Where Data Can Go
+@cindex outbound connections
+@cindex egress
+
+These are all the connections Codebud makes.  @command{codebud doctor}
+lists the ones currently enabled on its @samp{Outbound:} line.
+
+@table @asis
+@item The Ollama server (@env{OLLAMA_BASE_URL})
+Prompts --- your request, the conversation, retrieved project context ---
+and text to embed for project search.  By default this is
+@code{localhost}, so nothing leaves the machine.  A server on another
+machine is announced when a command starts and shown in the chat
+toolbar; over plain @code{http} it is refused unless you allow it, since
+your code would cross the network unencrypted (@pxref{LLM Backend
+Variables}).
+
+@item OpenAI
+Only with @env{CODEBUD_BACKEND=openai}: then prompts go to OpenAI, which
+Codebud announces when a command starts and marks with @samp{☁ OpenAI}
+in the chat toolbar.
+
+@item DuckDuckGo
+Only with @env{WEB_SEARCH_ENABLED=1}: the model's search queries go to
+@code{lite.duckduckgo.com}.  Each query is printed, and confirmed before
+it is sent except in @code{full-auto} mode (@pxref{web_search}).
+
+@item Steps that declare @code{"network": true}
+A command such as @command{pip install} may reach the internet when the
+plan says it needs to; the step is shown and confirmed like a web search
+(@pxref{Isolated Steps}).  Every other command step has no network.
+@end table
+
+@noindent
+Outside Codebud: @command{ollama pull} downloads models from Ollama's
+registry, and Ollama itself is configured separately; neither sends your
+prompts anywhere.
+
+A project's @file{.codebud/config.toml} cannot set any of these switches
+(the backend, the Ollama URL, plain-http opt-in, the OpenAI key, web
+search), nor the privacy level, secret masking or retention: cloning a
+repository must never redirect your data or weaken your privacy.
+
+
+@node Choosing How Private
+@section Choosing How Private
+@cindex privacy levels, overview
+
+How much Codebud asks (the mode, @pxref{Agent Modes}) and what it may
+reach (the privacy level) are separate dials:
+
+@table @code
+@item locked
+Nothing leaves this machine: a backend that is not local, web search and
+network steps are refused, and command steps must be isolated or they do
+not run.
+@item private
+The default: everything above.
+@item trusted
+For trusted environments: command steps run unisolated, and web searches
+and network steps run without asking.
+@end table
+
+@noindent
+Choose with @option{--privacy}, @code{/privacy} in @command{chat}, or
+@code{privacy =} in your @file{config.toml} (@pxref{Privacy Levels}).
+@strong{No level lifts the safety rules}: the allow-list, the refused
+arguments and the confirmation of powerful commands always apply.
+
+Fully unattended work is always possible: @code{full-auto} mode asks
+nothing, at the default level too; @code{trusted} additionally drops
+isolation.  The level in effect is announced, shown in the toolbar and
+recorded in the session file; a resumed session never silently becomes
+@code{trusted}.
+
+
+@node Checking Privacy
+@section Checking Privacy
+@cindex privacy, checking
+
+@example
+codebud doctor
+@end example
+
+@noindent
+reports, among the rest:
+
+@example
+  [PASS] LLM backend: ollama at http://localhost:11434 (local)
+  [PASS] Privacy: private (data leaves only where you chose)
+  [PASS] Isolation: bubblewrap: no network, project-only writes, secrets hidden
+  [PASS] Outbound: none - prompts, code and searches stay on this machine
+  [PASS] Data and config files are private (owner only)
+@end example
+
+@command{codebud config} shows each setting and where it came from
+(environment, project or user @file{config.toml}, default).  The test
+suite includes @file{tests/test_local_only.py}, which refuses every
+connection to an address that is not this machine and runs planning,
+execution, indexing and search against a local Ollama --- with an OpenAI
+key present --- so a change that reached outward would fail it.
+
+
+@node What Privacy Does Not Cover
+@section What Privacy Does Not Cover
+@cindex privacy, limits
+
+@itemize
+@item
+@strong{What you send is what the backend sees.}  With a remote Ollama or
+the OpenAI backend, your requests, conversation and retrieved project
+context go there; their privacy is that server's.
+
+@item
+@strong{File tools are not isolated.}  @code{file_read},
+@code{file_write} and @code{patch} run inside Codebud, with your rights;
+only command steps are sandboxed (@pxref{What Is Not Protected}).
+
+@item
+@strong{Isolation needs bubblewrap and user namespaces.}  On macOS, the
+BSDs, in many containers and where user namespaces are blocked, command
+steps are not isolated (a warning at @code{private}, refused at
+@code{locked}).
+
+@item
+@strong{Masking is pattern-based.}  It catches common token formats and
+secret-looking assignments, not every secret; the project index keeps
+your files' text as it is.
+
+@item
+@strong{Your terminal and Ollama are your own.}  Scrollback, shell
+history and Ollama's logs are outside Codebud's control.
+@end itemize

@@ -67,11 +67,13 @@ access to everything that happened earlier in the session.
 Codebud was built around three constraints:
 
 @table @strong
-@item Privacy by default
-All inference happens through Ollama on your own hardware.  No prompt,
-file name, or command output ever reaches an external server.  An internet
-connection is only needed when you explicitly enable the DuckDuckGo web
-search tool (@env{WEB_SEARCH_ENABLED=1}).
+@item Privacy first
+By default all inference happens through Ollama on your own hardware: no
+prompt, file name or command output reaches an external server, command
+steps run isolated, and stored data is private and masked.  Every way
+data can leave --- a remote Ollama, a cloud backend, web search, a step
+that needs the network --- is your explicit choice, and shown while it
+is in effect (@pxref{Privacy}).
 
 @item CPU-first
 The recommended model (@code{qwen2.5-coder:3b-instruct-q4_K_M}) runs on a
