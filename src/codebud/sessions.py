@@ -30,6 +30,7 @@ from typing import Any
 
 from . import paths
 from .fsutil import atomic_write_text, create_private, private_dir
+from .redact import for_storage
 
 logger = logging.getLogger(__name__)
 
@@ -194,8 +195,12 @@ class Session:
     # ------------------------------------------------------------------
 
     def save(self, history: list[dict[str, str]], model: str, mode: str = "") -> None:
-        """Checkpoint ``history``, ``model`` and agent ``mode`` atomically."""
-        self.history = list(history)
+        """Checkpoint ``history``, ``model`` and agent ``mode`` atomically.
+
+        Secrets in the history are masked first (redact.py); the caller's
+        live history is not changed.
+        """
+        self.history = for_storage(list(history))
         self.model = model
         self.mode = mode
         self.updated = _now_iso()

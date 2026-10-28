@@ -29,6 +29,7 @@ from typing import Any
 
 from . import paths
 from .fsutil import atomic_write_text, create_private, private_dir
+from .redact import for_storage
 
 # Overridable for tests; None means the default location in the data dir.
 MEMORY_PATH: str | None = None
@@ -76,7 +77,8 @@ class MemoryStore:
         """
         snapshot = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "data": {"step": step, "result": result},
+            # Secrets in commands and their output are masked (redact.py).
+            "data": for_storage({"step": step, "result": result}),
         }
 
         # Appending only touches the end of the file, so earlier entries

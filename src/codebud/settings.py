@@ -13,7 +13,8 @@ configuration file. Where a value comes from, highest first:
 4. the default.
 
 Egress settings decide whether data leaves the machine (the backend, the
-Ollama URL, plain-http opt-in, the OpenAI key, web search). A project file
+Ollama URL, plain-http opt-in, the OpenAI key, web search); protective
+ones guard stored data (secret masking). A project file may set neither. A project file
 must not set them: cloning a repository must never redirect your prompts.
 Such keys in a project file are ignored with a warning, as are unknown
 keys, values of the wrong type and files that are not valid TOML.
@@ -50,6 +51,7 @@ class Setting:
     kind: type  # str, int or bool
     egress: bool = False  # may make data leave the machine
     secret: bool = False  # never displayed
+    protective: bool = False  # protects stored data; weakening it is the user's call
 
 
 SETTINGS = [
@@ -64,6 +66,7 @@ SETTINGS = [
     Setting("openai_api_key", "OPENAI_API_KEY", None, str, egress=True, secret=True),
     Setting("openai_model", "OPENAI_MODEL", "gpt-3.5-turbo", str),
     Setting("web_search", "WEB_SEARCH_ENABLED", False, bool, egress=True),
+    Setting("mask_secrets", "CODEBUD_MASK_SECRETS", True, bool, protective=True),
 ]
 BY_KEY = {s.key: s for s in SETTINGS}
 BY_ENV = {s.env: s for s in SETTINGS}
@@ -115,13 +118,14 @@ def _read(path: Path | None, source: str) -> dict[str, str]:
         if setting is None:
             _warn("Ignoring unknown setting '%s' in %s", key, path)
             continue
-        if source == "project config" and setting.egress:
+        if source == "project config" and (setting.egress or setting.protective):
+            why = "decides where data is sent" if setting.egress else "protects your stored data"
             _warn(
-                "Ignoring '%s' in %s: it can only be set in %s or the environment, "
-                "since it decides where data is sent",
+                "Ignoring '%s' in %s: it can only be set in %s or the environment, since it %s",
                 key,
                 path,
                 user_config_file(),
+                why,
             )
             continue
         # bool is a subclass of int: require the exact type.

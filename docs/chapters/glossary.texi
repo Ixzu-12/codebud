@@ -225,6 +225,12 @@ The @code{SafetyEngine} class in @file{src/codebud/safety.py}.  It loads the
 three policy JSON files and applies whole-word validation to every
 @code{command} step in a plan.
 
+@item Secret masking
+Replacing API keys, tokens, private keys and passwords with
+@samp{[redacted]} before chat sessions and step history are saved.  On by
+default (@env{CODEBUD_MASK_SECRETS}); prompts sent to the model are not
+changed.  @xref{Files and Directories}.
+
 @item Skill
 A @file{SKILL.md} file (Markdown with a @code{name}/@code{description}
 frontmatter) that teaches an agent such as Claude Code or OpenClaw when and

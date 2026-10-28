@@ -64,6 +64,11 @@ queries).
 @tab Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain
 http (prompts unencrypted on the network).  Remote https and local servers
 need nothing (@pxref{LLM Backend Variables}).
+@item @env{CODEBUD_MASK_SECRETS}
+@tab @code{1}
+@tab Mask secrets (API keys, tokens, private keys, passwords) as
+@samp{[redacted]} in saved sessions and step history.  @code{0} turns it
+off (@pxref{Files and Directories}).
 @item @env{CODEBUD_BACKEND}
 @tab @code{ollama}
 @tab Which LLM backend gets the prompts: @code{ollama} or @code{openai}.
@@ -155,13 +160,16 @@ from, highest first:
 @item @code{openai_api_key} @tab @env{OPENAI_API_KEY} @tab string (user file only)
 @item @code{openai_model} @tab @env{OPENAI_MODEL} @tab string
 @item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
+@item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
 @end multitable
 
 @cindex egress settings
 @strong{Settings that make data leave the machine} --- the backend, the
 Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
-accepted only from your own file or the environment.  In a project's file they are ignored with a warning: cloning
-a repository must never be able to send your prompts somewhere else.  The
+accepted only from your own file or the environment, and so is
+@code{mask_secrets}, which protects what is stored.  In a project's file
+they are ignored with a warning: cloning a repository must never be able
+to send your prompts somewhere else or weaken your privacy.  The
 same goes for unknown keys, values of the wrong type and a file that is not
 valid TOML: Codebud warns once and carries on without them.
 
@@ -534,6 +542,23 @@ that fixes it:
 @example
 chmod -R go-rwx ~/.local/share/codebud
 @end example
+
+@cindex secret masking
+@cindex [redacted]
+Secrets are masked before anything is stored: in saved chat sessions and
+in the step history, API keys and tokens in well-known formats (OpenAI
+and Anthropic @samp{sk-@dots{}}, GitHub, AWS, Slack, Google, JWTs),
+private-key blocks, @samp{Bearer} tokens, passwords in URLs, and
+literal values given to secret-looking names (@code{api_key = "@dots{}"},
+@code{DB_PASSWORD=@dots{}}) become @samp{[redacted]}.  The names stay, so
+the history still reads; ordinary code such as @code{token = get_token()}
+is left alone.  Prompts sent to the model are not changed --- only what is
+written to disk --- so a resumed session shows @samp{[redacted]} where
+the original had a secret.  The project index is not masked: it holds
+your files' text as it is (secret files are never indexed;
+@pxref{The index Subcommand}).  Set @env{CODEBUD_MASK_SECRETS} to
+@samp{0} (or @code{mask_secrets = false} in your own
+@file{config.toml}) to store everything verbatim.
 
 Versions before October 2026 kept runtime data in a @file{data/} directory
 inside the source checkout.  On first start, Codebud copies anything found

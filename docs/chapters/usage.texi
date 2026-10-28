@@ -434,7 +434,9 @@ by @option{--resume}; an explicit @option{--mode} takes precedence.
 Every chat is saved automatically to @file{$XDG_DATA_HOME/codebud/sessions/}
 (by default @file{~/.local/share/codebud/sessions/};
 @pxref{Files and Directories}) after each turn
-and when it ends; the last line printed tells you how to resume it:
+and when it ends, readable only by you and with secrets such as API keys
+masked as @samp{[redacted]}; the last line printed tells you how to
+resume it:
 
 @example
 [4] You: quit
@@ -1100,6 +1102,11 @@ https or an SSH tunnel, or allowed with @env{CODEBUD_ALLOW_REMOTE_HTTP}
 @item CODEBUD_ALLOW_REMOTE_HTTP
 Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain http.
 Default: @code{0}.
+
+@item CODEBUD_MASK_SECRETS
+Default: @code{1}: API keys, tokens, private keys and passwords are saved
+as @samp{[redacted]} in sessions and step history.  Set to @code{0} to
+store them verbatim (@pxref{Files and Directories}).
 
 @item CODEBUD_NUM_CTX
 The context window, in tokens, requested from Ollama on every call.

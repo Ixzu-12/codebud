@@ -28,6 +28,7 @@ nobase_python_PYTHON = \
 	codebud/rag/indexer.py \
 	codebud/rag/search.py \
 	codebud/rag/store.py \
+	codebud/redact.py \
 	codebud/safety.py \
 	codebud/sandbox.py \
 	codebud/sessions.py \

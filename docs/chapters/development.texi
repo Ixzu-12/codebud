@@ -85,6 +85,8 @@ tests/
 │                                cache invalidation (skips without numpy)
 ├── test_rag_store.py            index store: permissions, model binding,
 │                                replace/remove, keyword search
+├── test_redact.py               secret masking: formats, contexts, no
+│                                false positives; sessions and history
 ├── test_remote_ollama.py        remote Ollama: https notice, plain http
 │                                refused unless allowed
 ├── test_safety_executor_patcher.py  safety policy, executor, patching
