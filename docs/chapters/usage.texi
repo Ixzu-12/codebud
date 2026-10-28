@@ -519,7 +519,7 @@ not after slash commands):
 @end example
 
 With the default @env{CODEBUD_NUM_CTX} of 8,192 tokens and a first-turn
-prompt of about 1,050 tokens, this only appears after a substantial
+prompt of about 1,080 tokens, this only appears after a substantial
 conversation.
 
 @code{/model @var{name}} validates the model is downloaded and blocks

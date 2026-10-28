@@ -59,6 +59,13 @@ def _good_plan(tool="command"):
 
 
 class TestPromptContent:
+    def test_prompt_asks_for_careful_but_effective_work(self):
+        """User principle 2026-10-28: act safely -- competent, not timid."""
+        prompt = LLMPlanner(_make_registry(), _make_safety())._build_prompt("x")
+        assert "Work carefully but get the job done" in prompt
+        assert "read a file before changing it" in prompt
+        assert "never delete or overwrite anything the request did not ask for" in prompt
+
     def test_few_shot_examples_in_prompt(self):
         planner = LLMPlanner(_make_registry(), _make_safety())
         prompt = planner._build_prompt("list files")

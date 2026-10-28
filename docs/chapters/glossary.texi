@@ -258,7 +258,7 @@ phase on CPU-only hardware.
 @item Token
 The fundamental unit of LLM input and output.  Roughly one word, or
 one to four characters for English text.  Codebud's planning prompts are
-about 1,050 tokens on the first turn of a session; generated plans are
+about 1,080 tokens on the first turn of a session; generated plans are
 50--100 tokens.
 
 @item Token rate

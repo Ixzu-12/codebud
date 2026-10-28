@@ -350,7 +350,7 @@ embedded in the GGUF file --- no Python required.
 
 The model counts its context in tokens, not characters or words.  Codebud's
 planning prompt (system instructions + examples + user request) is about
-1,050 tokens on the first turn of a session, and grows with conversation
+1,080 tokens on the first turn of a session, and grows with conversation
 history.  The context window --- the longest combined prompt + response the
 model sees --- is whatever the client asks for when the model is loaded.
 Ollama 0.40 defaults to 4,096 tokens; Codebud asks for 8,192 on every

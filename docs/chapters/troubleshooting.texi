@@ -83,7 +83,7 @@ Measured on an Intel i7-8550U (2018 laptop CPU) with the 3B model and Ollama
 
 @multitable @columnfractions .40 .20 .40
 @headitem Phase @tab Time @tab Notes
-@item Prefill, first request (~1,046 tokens) @tab ~30 s @tab Processing the whole planning prompt
+@item Prefill, first request (~1,080 tokens) @tab ~30 s @tab Processing the whole planning prompt
 @item Prefill, later requests @tab ~2--2.6 s @tab Ollama reuses the cached start of the prompt
 @item Whole request, prompt cached @tab ~8 s @tab Typical @command{codebud plan}
 @end multitable
