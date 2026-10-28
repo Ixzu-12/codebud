@@ -100,6 +100,8 @@ tests/
 ├── test_settings.py             config.toml: precedence, project-file
 │                                egress rule, bad entries, sources
 ├── test_skill.py                SKILL.md variants (default, Agensi), skill CLI
+├── test_steps.py                shared step loop: approval policies, the
+│                                first failure stops the run
 └── test_tools.py                tool and doctor regression tests
 @end example
 
