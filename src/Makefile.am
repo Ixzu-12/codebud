@@ -20,6 +20,7 @@ nobase_python_PYTHON = \
 	codebud/cli/run.py \
 	codebud/cli/steps.py \
 	codebud/core.py \
+	codebud/engagement.py \
 	codebud/executor.py \
 	codebud/fsutil.py \
 	codebud/isolation.py \
