@@ -30,6 +30,7 @@ Makefile.in
 docs/version.texi
 docs/stamp-vti
 docs/*.info
+docs/*.info-[0-9]*
 docs/codebud.html
 docs/codebud.pdf
 docs/codebud.aux
