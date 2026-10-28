@@ -732,6 +732,35 @@ class TestSubcommandRouting:
         self._run_main(["run", flag, "do something"])
         assert agent.executor.execute_plan.call_count == 2
 
+    def test_plan_execute_asks_like_run(self, monkeypatch, capsys):
+        """plan -x used to run powerful steps and web searches unasked."""
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
+        prompts = []
+        monkeypatch.setattr("builtins.input", lambda p="": prompts.append(p) or "n")
+        rc = self._run_main(["plan", "-x", "do something"])
+        assert agent.executor.execute_plan.call_count == 1  # only the harmless step
+        assert prompts == ["  Run it? [y/N] "]
+        assert rc == 0
+
+    def test_plan_execute_unattended_needs_yes(self, monkeypatch, capsys):
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
+
+        def eof(_prompt=""):
+            raise EOFError
+
+        monkeypatch.setattr("builtins.input", eof)
+        assert self._run_main(["plan", "-x", "do something"]) == 1
+        assert "--yes" in capsys.readouterr().err
+
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        assert self._run_main(["plan", "-x", "--yes", "do something"]) in (0, None)
+        assert agent.executor.execute_plan.call_count == 2
+
     def test_run_interactive_approves_each_step(self, monkeypatch):
         """run -i prompts per-step; 'y' each time executes both steps."""
         agent = self._fake_agent_with_plan(self._two_step_plan())

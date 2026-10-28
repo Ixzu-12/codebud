@@ -16,7 +16,6 @@ def cmd_run(args):
     from codebud.cli.display import (
         ProgressIndicator,
         print_plan,
-        print_warning,
     )
     from codebud.cli.errors import print_error
 
@@ -49,14 +48,7 @@ def cmd_run(args):
         outcome = run_steps(
             agent, plan.get("plan", []), policy, verbose=args.verbose, full_output=True
         )
-        if outcome.failed:
-            sys.exit(1)
-        if outcome.unconfirmed:
-            print_warning(
-                f"{outcome.unconfirmed} step(s) were not run because no one could confirm them "
-                "(powerful commands, web search). Re-run with --yes to allow them unattended."
-            )
-            sys.exit(1)
+        _exit_on_failure(outcome)
     finally:
         agent.close()
 
@@ -102,10 +94,26 @@ def cmd_plan(args):
         if not args.execute:
             return
 
+        # Same rules as run: powerful steps and web searches need a "y"
+        # unless --yes.
+        policy = "full-auto" if args.yes else "auto"
         outcome = run_steps(
-            agent, plan.get("plan", []), "full-auto", verbose=args.verbose, full_output=True
+            agent, plan.get("plan", []), policy, verbose=args.verbose, full_output=True
         )
-        if outcome.failed:
-            sys.exit(1)
+        _exit_on_failure(outcome)
     finally:
         agent.close()
+
+
+def _exit_on_failure(outcome) -> None:
+    """Exit 1 if a step failed, or a step was left unrun for want of a "y"."""
+    from codebud.cli.display import print_warning
+
+    if outcome.failed:
+        sys.exit(1)
+    if outcome.unconfirmed:
+        print_warning(
+            f"{outcome.unconfirmed} step(s) were not run because no one could confirm them "
+            "(powerful commands, web search). Re-run with --yes to allow them unattended."
+        )
+        sys.exit(1)

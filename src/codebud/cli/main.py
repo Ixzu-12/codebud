@@ -11,7 +11,8 @@ Subcommands
                   --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   plan "<msg>"    Plan only — print the plan without executing
                   --execute/-x also runs the steps and prints full output
-                  (cannot combine with --json)
+                  (cannot combine with --json); like run, powerful steps and
+                  web searches ask first unless --yes
                   --model/-m <name> overrides OLLAMA_MODEL, validated + warmed first
   chat            Interactive REPL: multiple requests in one session
                   /rag, /sources and /index work with the project index;

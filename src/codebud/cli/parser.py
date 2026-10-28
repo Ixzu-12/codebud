@@ -95,6 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Also execute the plan's steps and print their full output (cannot combine with --json).",
     )
+    p_plan.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="With --execute: run powerful commands and web searches without asking.",
+    )
 
     # chat
     p_chat = sub.add_parser("chat", help="Interactive multi-turn session.", parents=[model_parent])

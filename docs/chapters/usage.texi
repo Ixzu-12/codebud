@@ -254,6 +254,12 @@ untruncated step output the same way @command{run} does --- pass
 codebud plan -x "delete all .pyc files"
 @end example
 
+@noindent
+The steps follow the same rules as in @command{run}: powerful commands
+and web searches ask @samp{Run it? [y/N]} first, and without a terminal
+they are skipped and @command{plan} exits with status 1, unless you add
+@option{--yes} (or @option{-y}).
+
 @option{--execute} and @option{--json} cannot be combined: executing
 steps has side effects, and @option{--json} output is meant to be
 piped into scripts, so mixing the two would be ambiguous.  @command{plan}
