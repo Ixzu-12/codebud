@@ -69,6 +69,10 @@ need nothing (@pxref{LLM Backend Variables}).
 @tab Mask secrets (API keys, tokens, private keys, passwords) as
 @samp{[redacted]} in saved sessions and step history.  @code{0} turns it
 off (@pxref{Files and Directories}).
+@item @env{CODEBUD_SESSION_RETENTION_DAYS}
+@tab @code{0}
+@tab Delete chat sessions not used for this many days when a chat starts.
+@code{0} keeps them forever (@pxref{The sessions Subcommand}).
 @item @env{CODEBUD_BACKEND}
 @tab @code{ollama}
 @tab Which LLM backend gets the prompts: @code{ollama} or @code{openai}.
@@ -161,13 +165,15 @@ from, highest first:
 @item @code{openai_model} @tab @env{OPENAI_MODEL} @tab string
 @item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
 @item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
+@item @code{session_retention_days} @tab @env{CODEBUD_SESSION_RETENTION_DAYS} @tab integer (user file only)
 @end multitable
 
 @cindex egress settings
 @strong{Settings that make data leave the machine} --- the backend, the
 Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
-accepted only from your own file or the environment, and so is
-@code{mask_secrets}, which protects what is stored.  In a project's file
+accepted only from your own file or the environment, and so are
+@code{mask_secrets} and @code{session_retention_days}, which protect what
+is stored.  In a project's file
 they are ignored with a warning: cloning a repository must never be able
 to send your prompts somewhere else or weaken your privacy.  The
 same goes for unknown keys, values of the wrong type and a file that is not

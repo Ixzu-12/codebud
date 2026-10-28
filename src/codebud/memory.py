@@ -175,3 +175,26 @@ class MemoryStore:
             f"moved it to {backup} and started a new history",
             file=sys.stderr,
         )
+
+
+# ----------------------------------------------------------------------
+# Deleting (phase 8, B2)
+# ----------------------------------------------------------------------
+
+
+def history_files() -> list[str]:
+    """The step-history files that exist (what `codebud history --purge` removes)."""
+    return [p for p in (_path(),) if os.path.exists(p)]
+
+
+def purge() -> list[str]:
+    """Delete the step history; return the paths removed."""
+    if not os.path.isdir(os.path.dirname(_path())):
+        return []
+    create_private(f"{_path()}.lock")
+    with open(f"{_path()}.lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        removed = history_files()
+        for path in removed:
+            os.remove(path)
+    return removed

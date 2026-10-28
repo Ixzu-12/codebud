@@ -20,8 +20,9 @@ Subcommands
                   --mode <ask|auto|full-auto|plan|edit> sets the agent mode
                   --resume [SESSION] continues a saved session
   doctor          Check the environment (Ollama, model, policy files, RAM, disk)
-  history         Show past step executions (-n/--limit, --json)
-  sessions        List saved chat sessions (-n/--limit, --json)
+  history         Show past step executions (-n/--limit, --json; --purge)
+  sessions        List saved chat sessions (-n/--limit, --json;
+                  --delete SESSION, --purge [--older-than DAYS], --yes)
   index [PATH]    Build or refresh the project index for search
                   --status, --rebuild, --drop [--yes]
                   (run, plan and chat take --no-rag to plan without it)
@@ -469,6 +470,7 @@ def cmd_chat(args):
     from codebud import sessions
 
     resumed = _open_session_to_resume(args) if args.resume is not None else None
+    apply_retention()  # after the resumed session is locked, so it is kept
 
     agent = _make_agent()
     if resumed is not None and resumed.mode:
@@ -817,11 +819,78 @@ def cmd_doctor(_args):
 # ---------------------------------------------------------------------------
 
 
+def _delete_sessions(args) -> None:
+    """codebud sessions --delete REF / --purge [--older-than DAYS]."""
+    from codebud import sessions
+
+    if args.delete:
+        try:
+            ids = [sessions.resolve(args.delete)]
+        except sessions.SessionNotFoundError as exc:
+            print(f"codebud: {exc}", file=sys.stderr)
+            sys.exit(1)
+        if any(s["id"] == ids[0] and s["in_use"] for s in sessions.list_sessions()):
+            print(f"codebud: session {ids[0]} is open in a codebud chat.", file=sys.stderr)
+            sys.exit(1)
+        question = f"Delete session {args.delete}?"
+    else:
+        candidates, in_use = sessions.deletion_candidates(args.older_than)
+        for session_id in in_use:
+            print(f"(skipping {session_id}: open in a codebud chat)")
+        ids = [c["id"] for c in candidates]
+        if not ids:
+            print("Nothing to delete.")
+            return
+        age = f" not used for {args.older_than}+ days" if args.older_than is not None else ""
+        question = f"Delete {_plural(len(ids), 'session')}{age}?"
+    files = [path for session_id in ids for path in sessions.session_files(session_id)]
+    if not _confirm_deletion(files, question, args.yes):
+        print("Kept.")
+        sys.exit(1)
+    try:
+        sessions.delete(ids)
+    except sessions.SessionInUseError as exc:  # opened between listing and deleting
+        print(f"codebud: {exc}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Deleted {_plural(len(ids), 'session')}.")
+
+
+def apply_retention() -> None:
+    """Delete sessions older than session_retention_days, if the user set it.
+
+    0 (the default) keeps sessions forever (decision D12e). Sessions open
+    in a chat -- including one being resumed -- are never deleted.
+    """
+    from codebud import sessions
+    from codebud.cli.display import print_status, print_warning
+
+    raw = os.environ.get("CODEBUD_SESSION_RETENTION_DAYS", "0")
+    try:
+        days = int(raw)
+    except ValueError:
+        print_warning(f"Ignoring CODEBUD_SESSION_RETENTION_DAYS={raw!r}: not a number of days.")
+        return
+    if days <= 0:
+        return
+    candidates, _in_use = sessions.deletion_candidates(days)
+    if not candidates:
+        return
+    ids = [c["id"] for c in candidates]
+    sessions.delete(ids)
+    print_status(
+        f"Deleted {_plural(len(ids), 'session')} not used for {days}+ days "
+        f"(session_retention_days): {', '.join(ids)}"
+    )
+
+
 def cmd_sessions(args):
     """List saved chat sessions, most recently updated first."""
     from codebud import sessions
     from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_GREEN, _OUT_RESET
 
+    if args.delete or args.purge:
+        _delete_sessions(args)
+        return
     found = sessions.list_sessions()
     shown = found[: args.limit] if args.limit else found
 
@@ -843,6 +912,22 @@ def cmd_sessions(args):
         if s["first_request"]:
             print(f"  {s['first_request'][:100]}")
     print(f"\n{_OUT_DIM}Resume with: codebud chat --resume <id or name>{_OUT_RESET}")
+
+
+def _confirm_deletion(paths: list[str], question: str, yes: bool) -> bool:
+    """List what would be deleted and ask; --yes skips the question.
+
+    Without a terminal and without --yes nothing is deleted: codebud exits
+    with status 1 (deleting user data always needs a deliberate yes).
+    """
+    for path in paths:
+        print(f"  {path}")
+    if yes:
+        return True
+    if not sys.stdin.isatty():
+        print("codebud: not deleting without confirmation; re-run with --yes.", file=sys.stderr)
+        sys.exit(1)
+    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
 
 
 def _plural(n: int, word: str) -> str:
@@ -888,19 +973,12 @@ def cmd_index(args):
         if not directory.is_dir():
             print(f"No index for {root}.")
             return
-        if not args.yes:
-            if not sys.stdin.isatty():
-                print(
-                    f"codebud: not deleting {directory} without confirmation; re-run with --yes.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            answer = input(f"Delete the index in {directory}? [y/N] ").strip().lower()
-            if answer not in ("y", "yes"):
-                print("Kept.")
-                sys.exit(1)
-        for path in indexer.drop_index(root):
-            print(f"removed {path}")
+        files = sorted(str(p) for p in directory.iterdir())
+        if not _confirm_deletion(files, f"Delete the index in {directory}?", args.yes):
+            print("Kept.")
+            sys.exit(1)
+        removed = indexer.drop_index(root)
+        print(f"Deleted the index ({_plural(len(removed), 'file')}).")
         return
 
     show = not _no_progress(args)
@@ -960,8 +1038,21 @@ def cmd_history(args):
     This is persisted, cross-session execution history (MemoryStore), distinct
     from the in-session conversation history shown by /history in `chat`.
     """
+    from codebud import memory
     from codebud.cli.display import _OUT_CYAN, _OUT_DIM, _OUT_GREEN, _OUT_RED, _OUT_RESET
     from codebud.memory import MemoryStore
+
+    if args.purge:
+        files = memory.history_files()
+        if not files:
+            print("Nothing to delete.")
+            return
+        if not _confirm_deletion(files, "Delete the step history?", args.yes):
+            print("Kept.")
+            sys.exit(1)
+        memory.purge()
+        print("Deleted the step history.")
+        return
 
     store = MemoryStore()
     entries = store.history[-args.limit :] if args.limit else store.history
@@ -1180,6 +1271,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show at most N most-recent entries (0 = all). Default: 20.",
     )
     p_history.add_argument("--json", action="store_true", help="Output raw JSON entries.")
+    p_history.add_argument(
+        "--purge", action="store_true", help="Delete the step history (asks first)."
+    )
+    p_history.add_argument("--yes", "-y", action="store_true", help="Do not ask before --purge.")
 
     # sessions
     p_sessions = sub.add_parser("sessions", help="List saved chat sessions.")
@@ -1191,6 +1286,19 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Show at most N most recent sessions (0 = all). Default: 20.",
     )
     p_sessions.add_argument("--json", action="store_true", help="Output raw JSON.")
+    deleting = p_sessions.add_mutually_exclusive_group()
+    deleting.add_argument("--delete", metavar="SESSION", help="Delete one session (ID or name).")
+    deleting.add_argument(
+        "--purge", action="store_true", help="Delete all sessions not open in a chat."
+    )
+    p_sessions.add_argument(
+        "--older-than",
+        type=int,
+        metavar="DAYS",
+        default=None,
+        help="With --purge: only sessions not used for DAYS days.",
+    )
+    p_sessions.add_argument("--yes", "-y", action="store_true", help="Do not ask before deleting.")
 
     # index
     p_index = sub.add_parser("index", help="Build or refresh the project index for search.")

@@ -533,6 +533,7 @@ class TestSubcommandRouting:
             "CODEBUD_RAG_HINTS",
             "WEB_SEARCH_ENABLED",
             "CODEBUD_MASK_SECRETS",
+            "CODEBUD_SESSION_RETENTION_DAYS",
         ):
             assert name in out, name
 

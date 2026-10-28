@@ -25,7 +25,7 @@ import logging
 import os
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import paths
@@ -173,13 +173,7 @@ class Session:
     @classmethod
     def open(cls, ref: str) -> "Session":
         """Open the session whose ID or name is ``ref``."""
-        session_id = ref
-        if not os.path.exists(_path(ref)):
-            matches = [d["id"] for d in _all_session_data() if d.get("name") == ref]
-            if not matches:
-                raise SessionNotFoundError(f"No session with ID or name '{ref}'.")
-            session_id = matches[0]
-
+        session_id = resolve(ref)
         lock = _try_lock(session_id)
         if lock is None:
             raise SessionInUseError(f"Session '{ref}' is open in another codebud chat.")
@@ -274,6 +268,72 @@ def list_sessions() -> list[dict[str, Any]]:
         )
     summaries.sort(key=lambda s: s["updated"], reverse=True)
     return summaries
+
+
+def resolve(ref: str) -> str:
+    """The ID of the session whose ID or name is ``ref``."""
+    if os.path.exists(_path(ref)):
+        return ref
+    matches = [d["id"] for d in _all_session_data() if d.get("name") == ref]
+    if not matches:
+        raise SessionNotFoundError(f"No session with ID or name '{ref}'.")
+    return matches[0]
+
+
+# ----------------------------------------------------------------------
+# Deleting (phase 8, B2: sessions are kept until the user deletes them)
+# ----------------------------------------------------------------------
+
+
+def _older_than(updated: str, days: int) -> bool:
+    try:
+        when = datetime.fromisoformat(updated)
+    except ValueError:
+        return False  # unknown age: never deleted by age
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return when < datetime.now(timezone.utc) - timedelta(days=days)
+
+
+def deletion_candidates(older_than_days: int | None = None):
+    """(sessions to delete, IDs skipped because they are open) -- by age if given.
+
+    Sessions open in a chat are never deleted.
+    """
+    candidates, in_use = [], []
+    for summary in list_sessions():
+        if older_than_days is not None and not _older_than(summary["updated"], older_than_days):
+            continue
+        if summary["in_use"]:
+            in_use.append(summary["id"])
+        else:
+            candidates.append(summary)
+    return candidates, in_use
+
+
+def session_files(session_id: str) -> list[str]:
+    """The files of a session that exist: its JSON and its lock."""
+    return [p for p in (_path(session_id), _lock_path(session_id)) if os.path.exists(p)]
+
+
+def delete(session_ids: list[str]) -> list[str]:
+    """Delete these sessions' files; return the paths removed.
+
+    Each session is locked while its files are removed, so a chat cannot
+    open it meanwhile; one already open raises SessionInUseError.
+    """
+    removed = []
+    for session_id in session_ids:
+        lock = _try_lock(session_id)
+        if lock is None:
+            raise SessionInUseError(f"Session '{session_id}' is open in a codebud chat.")
+        try:
+            for path in session_files(session_id):
+                os.remove(path)
+                removed.append(path)
+        finally:
+            lock.close()
+    return removed
 
 
 def most_recent_available() -> str | None:

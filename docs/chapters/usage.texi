@@ -614,6 +614,9 @@ The entries are stored as JSON Lines in
 contacting Ollama.  @xref{MemoryStore}, for the file format and how it is
 kept safe against crashes and concurrent writers.
 
+@command{codebud history --purge} deletes the history after listing the
+file and asking (@option{--yes} to skip the question, e.g.@: in scripts).
+
 
 @node The sessions Subcommand
 @section The @command{sessions} Subcommand
@@ -640,6 +643,26 @@ Resume with: codebud chat --resume <id or name>
 
 @samp{(open)} marks a session that another chat currently has open; it
 cannot be resumed until that chat ends.  @xref{Saved Sessions}.
+
+@cindex deleting sessions
+@cindex session retention
+Sessions are kept until you delete them:
+
+@example
+codebud sessions --delete work           @r{# one session, by ID or name}
+codebud sessions --purge                 @r{# every session not open in a chat}
+codebud sessions --purge --older-than 30 @r{# only those unused for 30+ days}
+@end example
+
+@noindent
+Each lists the files it would remove and asks @samp{[y/N]}; without a
+terminal it deletes nothing unless you add @option{--yes}.  A session
+open in another chat is never deleted.  To have old sessions removed
+automatically, set @code{session_retention_days} in your
+@file{config.toml} (or @env{CODEBUD_SESSION_RETENTION_DAYS}): each
+@command{chat} then starts by deleting sessions not used for that many
+days, and says which.  The default, @code{0}, keeps them forever; a
+project's @file{config.toml} cannot set it.
 
 
 @node The index Subcommand
@@ -1102,6 +1125,11 @@ https or an SSH tunnel, or allowed with @env{CODEBUD_ALLOW_REMOTE_HTTP}
 @item CODEBUD_ALLOW_REMOTE_HTTP
 Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain http.
 Default: @code{0}.
+
+@item CODEBUD_SESSION_RETENTION_DAYS
+Default: @code{0} (keep sessions forever).  A positive number makes each
+@command{chat} start by deleting sessions not used for that many days
+(@pxref{The sessions Subcommand}).
 
 @item CODEBUD_MASK_SECRETS
 Default: @code{1}: API keys, tokens, private keys and passwords are saved

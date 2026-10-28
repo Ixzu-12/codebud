@@ -69,6 +69,8 @@ tests/
 ├── test_planner.py              prompt content, retry, context budget
 ├── test_private_files.py        data dirs 0700 / files 0600 whatever the
 │                                umask; doctor warning
+├── test_purge.py                sessions --delete/--purge, history
+│                                --purge, confirmation, retention limit
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo
 │                                node, Markdown heading, line windows
 ├── test_rag_cli.py              codebud index: build, --status, --rebuild,
