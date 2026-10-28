@@ -9,6 +9,10 @@ for executing shell commands. It ensures:
 - Safe working directory
 - Structured stdout/stderr/returncode output
 
+Each command is isolated according to the privacy level (isolation.py):
+no network unless the step declared it, project-only writes, secrets
+hidden.
+
 The sandbox does NOT:
 - validate plans
 - validate tool usage
@@ -18,6 +22,8 @@ The sandbox does NOT:
 import shlex
 import subprocess
 from typing import Any
+
+from codebud import isolation
 
 
 class Sandbox:
@@ -38,9 +44,10 @@ class Sandbox:
     # Public API
     # ------------------------------------------------------------------
 
-    def run_command(self, cmd: str) -> dict[str, Any]:
+    def run_command(self, cmd: str, network: bool = False) -> dict[str, Any]:
         """
-        Execute a shell command safely.
+        Execute a shell command safely, isolated (isolation.prepare());
+        ``network`` is the step's declaration that it needs the internet.
 
         Returns:
         {
@@ -54,10 +61,12 @@ class Sandbox:
         if self._is_dangerous(cmd):
             return {"stdout": "", "stderr": f"Blocked dangerous command: {cmd}", "returncode": 1}
 
+        argv, refusal = isolation.prepare(shlex.split(cmd), network=network)
+        if refusal:
+            return {"stdout": "", "stderr": refusal, "returncode": 1}
+
         try:
-            process = subprocess.run(
-                shlex.split(cmd), capture_output=True, text=True, timeout=self.timeout
-            )
+            process = subprocess.run(argv, capture_output=True, text=True, timeout=self.timeout)
 
             return {
                 "stdout": process.stdout,

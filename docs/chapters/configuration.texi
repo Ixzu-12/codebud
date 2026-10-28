@@ -12,6 +12,7 @@ keeps its files.
 * Configuration File::              The same settings in config.toml.
 * LLM Backend Variables::           Choosing Ollama or OpenAI.
 * Privacy Levels::                  locked, private, trusted.
+* Isolated Steps::                  No network, project-only writes, secrets hidden.
 * Feature Flags::                   Enabling optional features.
 * Policy JSON Files::               The three safety configuration files.
 * Harmless Commands::               Commands always allowed.
@@ -307,19 +308,22 @@ says what it may reach:
 Nothing leaves this machine.  Prompts and embeddings may only go to an
 Ollama on this machine: the @code{openai} backend and a remote
 @env{OLLAMA_BASE_URL} are refused with a message saying why.  Web search
-is off, even with @env{WEB_SEARCH_ENABLED}.  For sensitive code and
-hostile networks.
+is off, even with @env{WEB_SEARCH_ENABLED}.  Command steps run isolated
+and may not use the network; where isolation is unavailable they are
+refused.  For sensitive code and hostile networks.
 
 @item private
 The default.  Data leaves only where you chose --- the backend, a remote
 Ollama, web search --- and each is announced, shown in
 @command{codebud doctor}, and (for web search) confirmed in @code{ask}
-and @code{auto} mode.
+and @code{auto} mode.  Command steps run isolated
+(@pxref{Isolated Steps}).
 
 @item trusted
-For trusted environments and unattended work: web searches run without
-confirmation.  Announced when a command starts, shown in the chat
-toolbar and recorded in the session file.
+For trusted environments and unattended work: command steps run
+unisolated, and web searches and network steps without confirmation.
+Announced when a command starts, shown in the chat toolbar and recorded
+in the session file.
 @end table
 
 @noindent
@@ -342,6 +346,57 @@ saved with.
 codebud --privacy locked chat                 @r{# for this session}
 codebud --privacy trusted run --yes "..."     @r{# a trusted script}
 @end example
+
+
+@node Isolated Steps
+@section Isolated Steps
+@cindex isolation
+@cindex bubblewrap
+@cindex network steps
+
+At privacy level @code{private} (the default) and @code{locked}, every
+@code{command} step runs inside a bubblewrap sandbox (@command{bwrap}, the
+tool Flatpak uses), without root:
+
+@itemize
+@item no network --- unless the step declares @code{"network": true};
+@item the whole file system read-only, except the project directory and a
+fresh, private @file{/tmp};
+@item your secrets hidden: @file{~/.ssh}, @file{~/.gnupg}, @file{~/.aws},
+@file{~/.kube}, @file{~/.docker}, keyrings, @file{~/.password-store},
+@file{.netrc}, @file{.pgpass}, @file{.pypirc}, @file{.npmrc},
+@file{.git-credentials}, and Codebud's own data and configuration;
+@item stopped together with Codebud.
+@end itemize
+
+A step that needs the internet --- @command{pip install},
+@command{git fetch} --- declares it (the planner is told how), and is then
+shown and confirmed like a web search: in @code{ask} and @code{auto} mode
+and in @command{codebud run} (unless @option{--yes}); in
+@code{full-auto} it runs unattended.  At @code{locked} such steps are
+refused.  At @code{trusted} steps are not isolated at all.
+
+Tools that write outside the project, such as a package manager's cache
+in @file{~/.cache}, fail inside the sandbox; run them at @code{trusted}
+or outside Codebud.
+
+@subheading Where isolation is not available
+
+Without bubblewrap, @command{unshare} (util-linux) still cuts the network,
+but leaves the file system unprotected.  Where neither works --- macOS,
+the BSDs, containers, systems that block unprivileged user namespaces
+(older Debian, Ubuntu 24.04 and later without an AppArmor profile for
+@command{bwrap}) --- steps are not isolated: at @code{private} Codebud
+warns once and runs them; at @code{locked} it refuses command steps.
+@command{codebud doctor} shows which applies:
+
+@example
+  [PASS] Isolation: bubblewrap: no network, project-only writes, secrets hidden
+@end example
+
+Install bubblewrap with your package manager (@command{pacman -S
+bubblewrap}, @command{apt install bubblewrap}, @command{dnf install
+bubblewrap}).
 
 
 @node Feature Flags

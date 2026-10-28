@@ -562,6 +562,8 @@ without @env{OPENAI_API_KEY}, or a remote Ollama over plain http that is
 not allowed)
 @item The privacy level, and whether the backend fits it (fails at
 @code{locked} with a backend that is not on this machine)
+@item How command steps are isolated (bubblewrap, @command{unshare}, or a
+warning that they are not --- a failure at @code{locked})
 @item Where data can leave this machine: the OpenAI API, a remote Ollama
 host, DuckDuckGo for web search --- or @samp{Outbound: none}
 @item @env{OLLAMA_MODEL} environment variable is set

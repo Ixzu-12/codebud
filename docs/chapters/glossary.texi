@@ -108,6 +108,12 @@ Search that combines several rankings.  Codebud's project search fuses
 embedding similarity, BM25 keyword matches and exact symbol names with
 reciprocal-rank fusion.
 
+@item Isolation
+Running each @code{command} step in a bubblewrap sandbox: no network
+unless declared, read-only file system except the project, secrets
+hidden.  On at privacy levels @code{private} and @code{locked}.
+@xref{Isolated Steps}.
+
 @item JSON plan
 The structured output produced by the @code{LLMPlanner}: a dict with
 @code{"status": "ok"} and a @code{"plan"} array of step dicts, each

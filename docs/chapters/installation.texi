@@ -262,8 +262,10 @@ sudo make install            @r{# into /usr/local by default}
 @command{configure} needs Python 3.10 or later with the @code{requests}
 and @code{prompt_toolkit} modules (and, on 3.10 only, @code{tomli}), and
 prints the package names for your system if they are missing.  It only warns if @command{ollama} is not
-found, since Ollama may run on another machine, and if @code{numpy} is
-missing, since only project search needs it.  The summary at the end
+found, since Ollama may run on another machine, if @code{numpy} is
+missing, since only project search needs it, and if @command{bwrap}
+(bubblewrap) is missing, since without it command steps are not isolated
+(@pxref{Isolated Steps}).  The summary at the end
 shows what was found:
 
 @example
@@ -274,6 +276,7 @@ shows what was found:
     tests (pytest):  yes
     project search:  yes (numpy)
     ollama:          /usr/bin/ollama
+    isolation:       /usr/bin/bwrap
 @end example
 
 @command{make install} installs:

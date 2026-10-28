@@ -128,6 +128,9 @@ def egress_reason(step: dict[str, Any]) -> str | None:
     if step.get("tool") == "web_search":
         query = step.get("args", {}).get("query", "")
         return f'Web search: sends "{query}" to DuckDuckGo.'
+    args = step.get("args", {})
+    if step.get("tool") == "command" and args.get("network"):
+        return f'Network: "{args.get("cmd", "")}" may reach the internet.'
     return None
 
 
@@ -167,6 +170,9 @@ class SafetyEngine:
         tool = step.get("tool")
         if not step_allowed(self.mode, step):
             return f"{tool} is not allowed in {self.mode} mode"
+        if tool == "command" and step.get("args", {}).get("network"):
+            if privacy.level() == "locked":
+                return "steps that need the network are not allowed at privacy level locked"
         if tool == "command":
             return self._command_refusal(step.get("args", {}).get("cmd", ""))
         return None

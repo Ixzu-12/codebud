@@ -113,6 +113,26 @@ def check_privacy() -> CheckResult:
     return True, label, ""
 
 
+def check_isolation() -> CheckResult:
+    """How command steps are isolated at the current privacy level."""
+    from codebud import isolation, privacy
+
+    level = privacy.level()
+    if level == "trusted":
+        return True, "Isolation: off (privacy is trusted)", ""
+    kind = isolation.available()
+    label = f"Isolation: {isolation.describe(kind)}"
+    if kind == "bwrap":
+        return True, label, ""
+    hint = (
+        "Install bubblewrap (pacman -S bubblewrap / apt install bubblewrap / "
+        "dnf install bubblewrap) and allow unprivileged user namespaces."
+    )
+    if kind is None and level == "locked":
+        return False, label + " -- privacy is locked, so command steps are refused", hint
+    return None, label, hint
+
+
 def check_outbound() -> CheckResult:
     """Every place data can leave this machine to, given the settings."""
     from urllib.parse import urlsplit
@@ -303,6 +323,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_agent_importable,
     check_backend,
     check_privacy,
+    check_isolation,
     check_outbound,
     check_ollama_model_set,
     check_ollama_reachable,

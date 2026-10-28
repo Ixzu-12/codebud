@@ -86,6 +86,14 @@ AS_IF([test -z "$OLLAMA"], [
 (https://ollama.com), local or remote via OLLAMA_BASE_URL])
 ])
 
+# Isolated command steps (runtime only): bubblewrap.
+AC_PATH_PROG([BWRAP], [bwrap])
+AS_IF([test -z "$BWRAP"], [
+  AC_MSG_WARN([bwrap (bubblewrap) was not found; command steps will run without
+isolation (no network sandbox, secrets not hidden). Install it with your
+package manager: bubblewrap])
+])
+
 AC_CONFIG_FILES([Makefile src/Makefile docs/Makefile])
 AC_OUTPUT
 
@@ -97,4 +105,5 @@ AC_MSG_NOTICE([
     tests (pytest):  $codebud_have_pytest
     project search:  $codebud_have_numpy (numpy)
     ollama:          ${OLLAMA:-not found}
+    isolation:       ${BWRAP:-not found (steps not isolated)}
 ])

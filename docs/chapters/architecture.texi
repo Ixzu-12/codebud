@@ -564,6 +564,7 @@ src/codebud/                   the package
 ├── planner.py         LLMPlanner (prompt + parse + retry)
 ├── executor.py        Executor (step-by-step runner)
 ├── privacy.py         privacy level: locked / private / trusted
+├── isolation.py       bubblewrap / unshare wrapping for command steps
 ├── redact.py          mask secrets before sessions/history are saved
 ├── safety.py          SafetyEngine (policy validation)
 ├── modes.py           agent modes (ask, auto, full-auto, plan, edit)

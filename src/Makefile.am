@@ -22,6 +22,7 @@ nobase_python_PYTHON = \
 	codebud/core.py \
 	codebud/executor.py \
 	codebud/fsutil.py \
+	codebud/isolation.py \
 	codebud/llm_stub.py \
 	codebud/memory.py \
 	codebud/modes.py \

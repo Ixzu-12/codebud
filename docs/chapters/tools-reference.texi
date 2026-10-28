@@ -154,6 +154,13 @@ searching files with @command{grep}, checking running processes, and so on.
 @code{shlex.split()} --- shell metacharacters (@code{&&}, @code{|},
 @code{>}) are @emph{not} interpreted, and pipelines are not supported:
 @command{sh} is not on the allow-list.
+
+@item network
+@emph{Optional.}  @code{true} if the command needs the internet
+(@command{pip install}, @command{git fetch}).  Every other command runs
+without network (@pxref{Isolated Steps}).  A network step is shown and
+confirmed like a web search, runs unattended in @code{full-auto}, and is
+refused at privacy level @code{locked}.
 @end table
 
 @subsection Returns

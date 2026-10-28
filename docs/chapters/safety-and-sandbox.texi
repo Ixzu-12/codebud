@@ -150,8 +150,13 @@ as literal argument characters, not operators, so @code{ls; rm -rf ~} is
 just @command{ls} with two odd arguments.  Pipelines are not supported:
 @code{sh} is not on the allow-list.
 
+@strong{Isolation.}  At privacy level @code{private} (the default) and
+@code{locked}, every command runs isolated with bubblewrap: no network
+unless the step declared it, the file system read-only except the project
+and a fresh @file{/tmp}, and your secrets hidden (@pxref{Isolated Steps}).
+
 @noindent
-Source: @file{src/codebud/sandbox.py}
+Source: @file{src/codebud/sandbox.py}, @file{src/codebud/isolation.py}
 
 
 @node How a Command Gets Through
@@ -235,14 +240,17 @@ aware of the following limitations:
 
 @itemize
 @item
-@strong{No output inspection.}  The sandbox runs commands but does not
-inspect what they write to the filesystem.  A @code{file_write} step can
-write any content to any writable path without safety checks.
+@strong{File tools are not isolated.}  Isolation applies to
+@code{command} steps, which run as separate processes.
+@code{file_read}, @code{file_write} and @code{patch} run inside Codebud
+itself, so a @code{file_write} step can write to any path your user can
+write; the planner is told to keep changes inside the project.
 
 @item
-@strong{No network firewall.}  Commands launched via the @code{command}
-tool can make network calls.  The sandbox does not restrict outbound
-connections.
+@strong{Network only where isolation works.}  With bubblewrap, command
+steps have no network unless they declare it; at privacy level
+@code{trusted}, or where isolation is unavailable at @code{private}, they
+can reach the network (@pxref{Isolated Steps}).
 
 @item
 @strong{No privilege escalation guard.}  @code{"sudo"} is not in the

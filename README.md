@@ -15,6 +15,8 @@ yay -S ollama          # or: paru -S ollama
 sudo systemctl enable --now ollama
 ollama pull qwen2.5-coder:3b-instruct-q4_K_M
 ollama pull all-minilm    # optional: small embedding model for project search
+# Optional but recommended: bubblewrap isolates command steps (no network,
+# project-only writes, secrets hidden): pacman -S bubblewrap / apt install bubblewrap
 
 # 3. Get codebud and install it (GNU Autotools)
 git clone https://github.com/mkhellat/codebud.git
