@@ -3,7 +3,7 @@
 @cindex introduction
 @cindex overview
 
-Codebud is a local-first, CPU-friendly coding agent.  You describe a task in
+Codebud is a privacy-first, local, CPU-friendly coding agent.  You describe a task in
 plain English; Codebud asks a locally-running language model to produce a
 step-by-step plan, validates it against a safety policy, executes each step
 using built-in tools (file I/O, shell commands, unified-diff patching,

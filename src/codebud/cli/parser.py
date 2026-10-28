@@ -26,7 +26,7 @@ KNOWN_SUBCOMMANDS = {
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codebud",
-        description="Codebud — local-first coding agent using Ollama.",
+        description="Codebud — privacy-first, local coding agent using Ollama.",
     )
     parser.add_argument(
         "--no-progress",

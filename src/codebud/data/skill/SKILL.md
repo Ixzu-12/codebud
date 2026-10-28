@@ -1,6 +1,6 @@
 ---
 name: codebud
-description: Local-first coding agent that plans and runs multi-step coding tasks (read files, run commands, write patches) on-device with Ollama, no API key or network needed. Use it to delegate a coding task to a local model, e.g. when the user wants work done privately or offline.
+description: Privacy-first, local coding agent that plans and runs multi-step coding tasks (read files, run commands, write patches) on-device with Ollama, no API key or network needed. Use it to delegate a coding task to a local model, e.g. when the user wants work done privately or offline.
 metadata:
   {
     "openclaw": {
@@ -10,7 +10,7 @@ metadata:
   }
 ---
 
-# Codebud — local-first coding agent
+# Codebud — privacy-first, local coding agent
 
 Codebud turns a natural-language request into a plan of steps (read a file,
 run a command, write or patch a file) and executes them, using a model that

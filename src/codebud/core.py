@@ -2,7 +2,7 @@
 codebud/core.py
 
 This module defines the AgentCore class, the central orchestrator of the
-local-first coding agent. It coordinates:
+privacy-first, local coding agent. It coordinates:
 
 - LLM-driven planning
 - Step execution

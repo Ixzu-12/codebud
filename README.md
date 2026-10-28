@@ -1,8 +1,10 @@
-# Codebud — Local-First Coding Agent
+# Codebud — Privacy-First, Local Coding Agent
 
-Codebud is a local-first coding agent that turns natural-language requests into
+Codebud is a privacy-first, local coding agent that turns natural-language requests into
 executable plans using a locally-running LLM (Ollama + Qwen2.5-Coder).
-No data leaves your machine.
+By default no data leaves your machine: no cloud model, no telemetry,
+isolated command steps and owner-only, secret-masked history (see the
+manual's Privacy chapter).
 
 ## Quick start
 
