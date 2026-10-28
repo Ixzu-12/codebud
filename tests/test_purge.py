@@ -166,7 +166,7 @@ def test_retention_limit_removes_old_sessions_when_chat_starts(monkeypatch, caps
     old = _session(days_old=10)
     new = _session()
     monkeypatch.setenv("CODEBUD_SESSION_RETENTION_DAYS", "7")
-    from codebud.cli.main import apply_retention
+    from codebud.cli.admin import apply_retention
 
     apply_retention()
     assert _ids() == [new]
@@ -176,7 +176,7 @@ def test_retention_limit_removes_old_sessions_when_chat_starts(monkeypatch, caps
 def test_no_limit_by_default(monkeypatch):
     _session(days_old=3650)
     monkeypatch.delenv("CODEBUD_SESSION_RETENTION_DAYS", raising=False)
-    from codebud.cli.main import apply_retention
+    from codebud.cli.admin import apply_retention
 
     apply_retention()
     assert len(_ids()) == 1

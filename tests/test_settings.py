@@ -155,7 +155,7 @@ def test_web_search_switch_is_read_when_used(env):
 
 
 def test_config_shows_where_each_value_comes_from(env, tmp_path, capsys):
-    from codebud.cli.main import cmd_config
+    from codebud.cli.admin import cmd_config
 
     env.chdir(tmp_path)
     env.setenv("OLLAMA_MODEL", "m")

@@ -1,0 +1,119 @@
+"""
+codebud/cli/common.py
+
+Helpers shared by the subcommands: creating the agent, the progress and
+--model handling, the start-up notices about privacy and the backend,
+and confirming deletions.
+Subcommands call them through this module (common.make_agent()), so
+tests can replace them in one place.
+"""
+
+import os
+import sys
+
+
+def make_agent():
+    from codebud.core import AgentCore
+
+    return AgentCore()
+
+
+def no_progress(args) -> bool:
+    return getattr(args, "no_progress", False) or not sys.stderr.isatty()
+
+
+def apply_model_override(args) -> bool:
+    """Handle --model/-m: validate it's downloaded, warm it with live progress,
+    then set OLLAMA_MODEL so agent construction picks it up.
+
+    Returns False (after printing an error) if the override was requested but
+    invalid, so the caller can abort before spending time on planning.
+    """
+    requested = getattr(args, "model", None)
+    if not requested:
+        return True
+
+    from codebud.cli.display import ProgressIndicator
+    from codebud.llm_stub import list_models, warm_model_sync
+
+    available = list_models()
+    if not available:
+        print("Cannot reach Ollama to verify --model.", file=sys.stderr)
+        return False
+    if requested not in available:
+        print(
+            f"Model '{requested}' is not downloaded. Run: ollama pull {requested}", file=sys.stderr
+        )
+        return False
+
+    prog = ProgressIndicator(no_progress=no_progress(args))
+    prog.start()
+    try:
+        ok = warm_model_sync(requested, on_chunk=prog.on_chunk)
+    finally:
+        prog.stop()
+    if not ok:
+        print(f"Failed to warm up '{requested}'.", file=sys.stderr)
+        return False
+
+    os.environ["OLLAMA_MODEL"] = requested
+    return True
+
+
+def announce_privacy() -> None:
+    """Say on stderr when the privacy level is not the default."""
+    from codebud import privacy
+    from codebud.cli.display import print_status, print_warning
+
+    current = privacy.level()
+    if current == "trusted":
+        print_warning(
+            "Privacy: trusted -- web searches (and, where isolation is available, "
+            "steps) run without asking and not isolated; the allow-list still applies."
+        )
+    elif current == "locked":
+        print_status("Privacy: locked -- nothing leaves this machine; web search is off.")
+
+
+def announce_backend() -> None:
+    """Say once, on stderr, when prompts are going to leave this machine."""
+    from urllib.parse import urlsplit
+
+    from codebud import privacy
+    from codebud.cli.display import print_warning
+    from codebud.llm_stub import (
+        backend,
+        backend_description,
+        is_remote,
+        ollama_base,
+        remote_http_refusal,
+    )
+
+    if privacy.level() == "locked":
+        return  # nothing leaves; a backend off this machine gets its own error
+    if backend() == "openai":
+        print_warning(f"LLM backend: {backend_description()} (CODEBUD_BACKEND=openai).")
+    elif is_remote(ollama_base()) and not remote_http_refusal(ollama_base()):
+        # (A refused plain-http server gets its own error, not this notice.)
+        host = urlsplit(ollama_base()).hostname
+        print_warning(f"LLM backend: {backend_description()}: prompts are sent to {host}.")
+
+
+def confirm_deletion(paths: list[str], question: str, yes: bool) -> bool:
+    """List what would be deleted and ask; --yes skips the question.
+
+    Without a terminal and without --yes nothing is deleted: codebud exits
+    with status 1 (deleting user data always needs a deliberate yes).
+    """
+    for path in paths:
+        print(f"  {path}")
+    if yes:
+        return True
+    if not sys.stdin.isatty():
+        print("codebud: not deleting without confirmation; re-run with --yes.", file=sys.stderr)
+        sys.exit(1)
+    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+
+
+def plural(n: int, word: str) -> str:
+    return f"{n} {word}" + ("" if n == 1 else "s")

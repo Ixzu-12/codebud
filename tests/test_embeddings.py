@@ -206,7 +206,7 @@ def test_doctor_only_warns_when_embed_model_is_missing(monkeypatch, capsys):
 
 
 def test_config_shows_the_resolved_embed_model(monkeypatch, capsys):
-    from codebud.cli.main import cmd_config
+    from codebud.cli.admin import cmd_config
 
     monkeypatch.delenv("EMBED_MODEL", raising=False)
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")

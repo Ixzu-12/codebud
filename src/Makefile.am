@@ -7,12 +7,17 @@ nobase_python_PYTHON = \
 	codebud/__init__.py \
 	codebud/__main__.py \
 	codebud/cli/__init__.py \
+	codebud/cli/admin.py \
+	codebud/cli/chat.py \
 	codebud/cli/chat_input.py \
+	codebud/cli/common.py \
 	codebud/cli/display.py \
 	codebud/cli/doctor.py \
 	codebud/cli/errors.py \
 	codebud/cli/index_hints.py \
 	codebud/cli/main.py \
+	codebud/cli/parser.py \
+	codebud/cli/run.py \
 	codebud/core.py \
 	codebud/executor.py \
 	codebud/fsutil.py \

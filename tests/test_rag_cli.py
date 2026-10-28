@@ -136,9 +136,9 @@ def test_drop_without_an_index(project, capsys):
 
 def test_options_are_exclusive(project, capsys):
     with pytest.raises(SystemExit):
-        from codebud.cli.main import _build_parser
+        from codebud.cli.parser import build_parser
 
-        _build_parser().parse_args(["index", "--status", "--drop"])
+        build_parser().parse_args(["index", "--status", "--drop"])
 
 
 def test_index_runs_from_a_subdirectory_of_a_git_project(tmp_path, monkeypatch):

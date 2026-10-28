@@ -108,7 +108,9 @@ tests/
 @itemize
 @item
 @strong{No live network.}  All LLM calls are mocked with
-@code{patch("codebud.planner.call_llm", ...)} or equivalent.
+@code{patch("codebud.planner.call_llm", ...)} or equivalent.  CLI tests replace the agent with a fake through
+@code{codebud.cli.common.make_agent}, the one place every subcommand
+creates it.
 
 @item
 @strong{Local by default, proven.}  @file{test_local_only.py} refuses

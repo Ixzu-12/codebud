@@ -103,7 +103,7 @@ Troubleshooting · Glossary.
 ## Project layout
 
 ```
-src/codebud/    The package: agent, CLI (cli/main.py), tools, default policy
+src/codebud/    The package: agent, CLI (cli/), tools, default policy
 docs/           GNU Texinfo manual
 scripts/        Developer scripts (benchmark, search and plan evals)
 tests/          Test suite (pytest)

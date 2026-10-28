@@ -142,10 +142,10 @@ def test_cli_flag_sets_the_level(monkeypatch):
 
 
 def test_cli_flag_rejects_unknown_levels(capsys):
-    from codebud.cli.main import _build_parser
+    from codebud.cli.parser import build_parser
 
     with pytest.raises(SystemExit):
-        _build_parser().parse_args(["--privacy", "open", "version"])
+        build_parser().parse_args(["--privacy", "open", "version"])
 
 
 @pytest.mark.parametrize(
@@ -153,17 +153,17 @@ def test_cli_flag_rejects_unknown_levels(capsys):
     [("trusted", "err", "not isolated"), ("locked", "err", "nothing leaves this machine")],
 )
 def test_start_announces_trusted_and_locked(monkeypatch, capsys, level, stream, text):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
     monkeypatch.setenv("CODEBUD_PRIVACY", level)
-    cli._announce_privacy()
+    common.announce_privacy()
     assert text in getattr(capsys.readouterr(), stream)
 
 
 def test_private_is_not_announced(capsys):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
-    cli._announce_privacy()
+    common.announce_privacy()
     assert capsys.readouterr().err == ""
 
 
@@ -194,11 +194,11 @@ def test_session_file_records_the_level(monkeypatch):
 
 
 def test_locked_neither_announces_nor_lists_a_refused_backend(monkeypatch, capsys):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
     monkeypatch.setenv("CODEBUD_PRIVACY", "locked")
     monkeypatch.setenv("CODEBUD_BACKEND", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "k")
-    cli._announce_backend()
+    common.announce_backend()
     assert capsys.readouterr().err == ""
     assert "Outbound: none" in doctor.check_outbound()[1]

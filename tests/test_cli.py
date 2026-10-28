@@ -376,7 +376,7 @@ class TestModelOverride:
     def test_valid_model_sets_env_and_constructs_agent(self, monkeypatch):
         monkeypatch.setattr("codebud.llm_stub.list_models", lambda: ["good-model"])
         monkeypatch.setattr("codebud.llm_stub.warm_model_sync", lambda model, on_chunk=None: True)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         seen = {}
 
@@ -396,14 +396,14 @@ class TestModelOverride:
             def close(self):
                 pass
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: FakeAgent())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: FakeAgent())
         rc = self._run_main(["run", "--model", "good-model", "do something"])
         assert rc == 0
         assert seen["model_at_call"] == "good-model"
 
     def test_undownloaded_model_aborts_before_planning(self, monkeypatch, capsys):
         monkeypatch.setattr("codebud.llm_stub.list_models", lambda: ["other-model"])
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         called = {}
 
@@ -411,7 +411,7 @@ class TestModelOverride:
             called["made"] = True
             raise AssertionError("agent should never be constructed")
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", fail_make_agent)
+        monkeypatch.setattr("codebud.cli.common.make_agent", fail_make_agent)
         rc = self._run_main(["run", "--model", "missing-model", "do something"])
         assert rc == 1
         assert "made" not in called
@@ -421,9 +421,9 @@ class TestModelOverride:
 
     def test_unreachable_ollama_aborts(self, monkeypatch, capsys):
         monkeypatch.setattr("codebud.llm_stub.list_models", lambda: [])
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr(
-            "codebud.cli.main._make_agent",
+            "codebud.cli.common.make_agent",
             lambda: (_ for _ in ()).throw(AssertionError("should not construct")),
         )
 
@@ -435,9 +435,9 @@ class TestModelOverride:
     def test_warmup_failure_aborts(self, monkeypatch, capsys):
         monkeypatch.setattr("codebud.llm_stub.list_models", lambda: ["good-model"])
         monkeypatch.setattr("codebud.llm_stub.warm_model_sync", lambda model, on_chunk=None: False)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr(
-            "codebud.cli.main._make_agent",
+            "codebud.cli.common.make_agent",
             lambda: (_ for _ in ()).throw(AssertionError("should not construct")),
         )
 
@@ -453,7 +453,7 @@ class TestModelOverride:
             raise AssertionError("should not be called without --model")
 
         monkeypatch.setattr("codebud.llm_stub.list_models", fail)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         class FakeAgent:
             executor = MagicMock()
@@ -470,7 +470,7 @@ class TestModelOverride:
             def close(self):
                 pass
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: FakeAgent())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: FakeAgent())
         rc = self._run_main(["run", "do something"])
         assert rc == 0
 
@@ -555,7 +555,7 @@ class TestSubcommandRouting:
             def close(self):
                 pass
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: FakeAgent())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: FakeAgent())
         rc = self._run_main(["run", "do something"])
         assert rc == 1
 
@@ -578,7 +578,7 @@ class TestSubcommandRouting:
             def close(self):
                 pass
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: FakeAgent())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: FakeAgent())
         self._run_main(["run", "do something"])
         captured = capsys.readouterr()
         assert captured.err.count("LLM returned empty output") == 1
@@ -610,9 +610,9 @@ class TestSubcommandRouting:
             def close(self):
                 pass
 
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: FakeAgent())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: FakeAgent())
         # Suppress progress output
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         self._run_main(["list files"])
         assert ran.get("msg") == "list files"
 
@@ -661,8 +661,8 @@ class TestSubcommandRouting:
 
     def test_run_asks_before_a_powerful_step(self, monkeypatch, capsys):
         agent = self._fake_agent_with_plan(self._powerful_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         prompts = []
         monkeypatch.setattr("builtins.input", lambda p="": prompts.append(p) or "n")
 
@@ -675,8 +675,8 @@ class TestSubcommandRouting:
     def test_run_unattended_powerful_step_fails_with_hint(self, monkeypatch, capsys):
         """No one to answer (stdin closed): the step is not run and run exits 1."""
         agent = self._fake_agent_with_plan(self._powerful_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         def eof(_prompt=""):
             raise EOFError
@@ -689,8 +689,8 @@ class TestSubcommandRouting:
 
     def test_run_asks_before_a_web_search_and_shows_the_query(self, monkeypatch, capsys):
         agent = self._fake_agent_with_plan(_web_search_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr("builtins.input", lambda p="": "n")
         self._run_main(["run", "find the latest ruff release"])
         err = capsys.readouterr().err
@@ -699,8 +699,8 @@ class TestSubcommandRouting:
 
     def test_run_unattended_web_search_fails_with_hint(self, monkeypatch, capsys):
         agent = self._fake_agent_with_plan(_web_search_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         def eof(_prompt=""):
             raise EOFError
@@ -713,8 +713,8 @@ class TestSubcommandRouting:
 
     def test_run_yes_allows_web_search(self, monkeypatch):
         agent = self._fake_agent_with_plan(_web_search_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr("builtins.input", lambda p="": pytest.fail("asked"))
         self._run_main(["run", "--yes", "find it"])
         assert agent.executor.execute_plan.call_count == 1
@@ -722,8 +722,8 @@ class TestSubcommandRouting:
     @pytest.mark.parametrize("flag", ["--yes", "-y"])
     def test_run_yes_runs_powerful_steps_without_asking(self, monkeypatch, flag):
         agent = self._fake_agent_with_plan(self._powerful_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         def fail_input(_prompt=""):
             raise AssertionError("--yes must not prompt")
@@ -735,8 +735,8 @@ class TestSubcommandRouting:
     def test_run_interactive_approves_each_step(self, monkeypatch):
         """run -i prompts per-step; 'y' each time executes both steps."""
         agent = self._fake_agent_with_plan(self._two_step_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr("builtins.input", lambda _prompt="": "y")
 
         self._run_main(["run", "-i", "do something"])
@@ -745,8 +745,8 @@ class TestSubcommandRouting:
     def test_run_interactive_skip_step(self, monkeypatch, capsys):
         """run -i with 'n' skips that step but continues to the next."""
         agent = self._fake_agent_with_plan(self._two_step_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         answers = iter(["n", "y"])
         monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
@@ -759,8 +759,8 @@ class TestSubcommandRouting:
     def test_run_interactive_quit_aborts(self, monkeypatch, capsys):
         """run -i with 'q' stops before executing any further steps."""
         agent = self._fake_agent_with_plan(self._two_step_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr("builtins.input", lambda _prompt="": "q")
 
         self._run_main(["run", "-i", "do something"])
@@ -771,8 +771,8 @@ class TestSubcommandRouting:
     def test_run_interactive_all_approves_remaining_steps(self, monkeypatch):
         """run -i with 'a' approves the current and all remaining steps without further prompts."""
         agent = self._fake_agent_with_plan(self._two_step_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
         monkeypatch.setattr("builtins.input", lambda _prompt="": "a")
 
         self._run_main(["run", "-i", "do something"])
@@ -781,8 +781,8 @@ class TestSubcommandRouting:
     def test_run_non_interactive_does_not_prompt(self, monkeypatch):
         """Without -i, run executes all steps without calling input()."""
         agent = self._fake_agent_with_plan(self._two_step_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         def fail_input(_prompt=""):
             raise AssertionError("input() should not be called without -i")
@@ -825,8 +825,8 @@ class TestSubcommandRouting:
                 pass
 
         agent = FakeAgent()
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         self._run_main(["run", "do something"])
         captured = capsys.readouterr()
@@ -878,8 +878,8 @@ class TestPlanSubcommand:
     def test_plan_default_does_not_execute(self, monkeypatch):
         """Plain `codebud plan` never touches the executor — dry-run only."""
         agent = self._fake_agent_with_plan(_good_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         self._run_main(["plan", "do something"])
         assert not agent.executor.execute_plan.called
@@ -887,8 +887,8 @@ class TestPlanSubcommand:
     def test_plan_execute_runs_steps_and_shows_full_output(self, monkeypatch, capsys):
         full_output = "\n".join(f"line{i}" for i in range(1, 30))
         agent = self._fake_agent_with_plan(_good_plan(), stdout=full_output)
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         self._run_main(["plan", "--execute", "do something"])
         assert agent.executor.execute_plan.called
@@ -899,8 +899,8 @@ class TestPlanSubcommand:
 
     def test_plan_execute_and_json_rejected(self, monkeypatch, capsys):
         agent = self._fake_agent_with_plan(_good_plan())
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         rc = self._run_main(["plan", "--execute", "--json", "do something"])
         assert rc == 2
@@ -1137,8 +1137,8 @@ class _ChatHarness:
         from codebud.cli import main as run_agent
 
         agent = agent or FakeChatAgent()
-        monkeypatch.setattr("codebud.cli.main._make_agent", lambda: agent)
-        monkeypatch.setattr("codebud.cli.main._no_progress", lambda _: True)
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
 
         it = iter(inputs)
 

@@ -151,7 +151,7 @@ def test_chunks_are_dropped_before_history_when_the_prompt_is_full(monkeypatch):
 
 
 def test_config_shows_codebud_rag(monkeypatch, capsys):
-    from codebud.cli.main import cmd_config
+    from codebud.cli.admin import cmd_config
 
     monkeypatch.delenv("CODEBUD_RAG", raising=False)
     cmd_config(None)

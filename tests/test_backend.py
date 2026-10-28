@@ -117,13 +117,13 @@ def test_error_hint_points_at_doctor():
 
 
 def test_run_plan_and_chat_announce_a_cloud_backend(monkeypatch, capsys):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
     monkeypatch.setenv("CODEBUD_BACKEND", "openai")
-    cli._announce_backend()
+    common.announce_backend()
     assert "prompts leave this machine" in capsys.readouterr().err
     monkeypatch.setenv("CODEBUD_BACKEND", "ollama")
-    cli._announce_backend()
+    common.announce_backend()
     assert capsys.readouterr().err == ""
 
 

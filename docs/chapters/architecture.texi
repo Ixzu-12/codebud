@@ -583,7 +583,15 @@ src/codebud/                   the package
 │   ├── SKILL.md           default skill (Claude / OpenClaw)
 │   └── agensi/SKILL.md    Agensi marketplace hand-off skill
 ├── cli/
-│   ├── main.py            CLI entry point (the codebud command)
+│   ├── main.py            CLI entry point (the codebud command): config,
+│   │                      notices, dispatch to the subcommands
+│   ├── parser.py          the command-line grammar
+│   ├── common.py          helpers shared by subcommands (agent, --model,
+│   │                      privacy/backend notices, confirming deletions)
+│   ├── run.py             codebud run, codebud plan
+│   ├── chat.py            codebud chat: REPL, slash commands, sessions
+│   ├── admin.py           doctor, sessions, index, skill, history,
+│   │                      models, config, version
 │   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
 │   ├── display.py         ProgressIndicator, plan printer, step printer
 │   ├── doctor.py          health checks

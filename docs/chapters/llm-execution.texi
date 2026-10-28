@@ -1263,7 +1263,7 @@ it.
 The complete call chain for a single user request:
 
 @example
-src/codebud/cli/main.py cmd_run / cmd_chat
+src/codebud/cli/run.py cmd_run / cli/chat.py cmd_chat
   → AgentCore.handle_user_message(message, on_chunk=prog.on_chunk)
       → rag.context.retrieve(message, history)  [if the project has an index]
       → LLMPlanner.generate_plan(message, on_chunk=on_chunk, history=...,

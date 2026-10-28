@@ -75,15 +75,15 @@ def test_embeddings_follow_the_same_rule(monkeypatch):
 
 
 def test_remote_server_is_announced(monkeypatch, capsys):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
     monkeypatch.delenv("CODEBUD_BACKEND", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", REMOTE_HTTPS)
-    cli._announce_backend()
+    common.announce_backend()
     err = capsys.readouterr().err
     assert "remote" in err and "gpu-box.example" in err
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    cli._announce_backend()
+    common.announce_backend()
     assert capsys.readouterr().err == ""
 
 
@@ -140,10 +140,10 @@ def test_error_hint_offers_https_or_a_tunnel():
 
 
 def test_no_notice_for_a_refused_server(monkeypatch, capsys):
-    from codebud.cli import main as cli
+    from codebud.cli import common
 
     monkeypatch.delenv("CODEBUD_BACKEND", raising=False)
     monkeypatch.delenv("CODEBUD_ALLOW_REMOTE_HTTP", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", REMOTE_HTTP)
-    cli._announce_backend()
+    common.announce_backend()
     assert capsys.readouterr().err == ""
