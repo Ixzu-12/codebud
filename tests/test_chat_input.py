@@ -141,3 +141,11 @@ def test_toolbar_is_drawn_on_a_terminal():
     assert "mode: edit" in text
     assert "qwen2.5-coder:3b-instruct-q4_K_M" in text
     assert "context 14%" in text
+
+
+def test_every_listed_slash_command_has_a_handler_and_vice_versa():
+    """/help and the "/" menu come from SLASH_COMMANDS; chat dispatches by
+    SLASH_HANDLERS. A command in only one of them would be broken or hidden."""
+    from codebud.cli.chat import SLASH_HANDLERS
+
+    assert {name for name, _desc in chat_input.SLASH_COMMANDS} == set(SLASH_HANDLERS)

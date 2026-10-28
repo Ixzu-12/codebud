@@ -6,11 +6,23 @@ plan review and step execution, and saving and resuming sessions.
 """
 
 import argparse
+import contextlib
 import os
 import sys
+from dataclasses import dataclass
+from typing import Any
 
-from codebud.cli import common
+from codebud.cli import chat_input, common
 from codebud.cli.admin import apply_retention, cmd_index
+from codebud.cli.display import (
+    ProgressIndicator,
+    print_assistant_reply,
+    print_plan,
+    print_rule,
+    print_status,
+    print_warning,
+)
+from codebud.cli.errors import print_error
 from codebud.cli.steps import policy_for_mode, run_steps
 from codebud.modes import MODES
 
@@ -90,11 +102,152 @@ class _ChatCheckpoint:
             self.session.close()
 
 
-def _chat_sources(agent) -> None:
-    """/sources: the chunks the last request was given as project context."""
-    from codebud.cli.display import print_status
+@dataclass
+class ChatState:
+    """What a chat keeps between turns (and slash commands may change)."""
 
-    hits = agent.last_context
+    args: Any
+    agent: Any
+    checkpoint: Any
+    hints: Any
+    turn: int = 0
+    last_plan: dict | None = None
+    last_step_output: dict | None = None
+
+
+def _with_progress(state: ChatState, work):
+    """Run ``work(on_chunk)`` with the progress indicator; return its result."""
+    prog = ProgressIndicator(no_progress=common.no_progress(state.args))
+    prog.start()
+    try:
+        return work(prog.on_chunk)
+    finally:
+        prog.stop()
+
+
+# ---------------------------------------------------------------------------
+# Slash commands: handler(state, rest) -- rest is the text after the command.
+# chat_input.SLASH_COMMANDS lists them for /help and the "/" menu; a test
+# keeps the two in step.
+# ---------------------------------------------------------------------------
+
+
+def _slash_help(state: ChatState, rest: str) -> None:
+    print(chat_input.help_text(), file=sys.stderr)
+
+
+def _slash_clear(state: ChatState, rest: str) -> None:
+    state.agent.clear_history()
+    state.last_plan = None
+    state.turn = 0
+    print_status("History cleared.\n")
+
+
+def _slash_history(state: ChatState, rest: str) -> None:
+    history = state.agent.get_history()
+    if not history:
+        print_status("(no history yet)\n")
+        return
+    for i, t in enumerate(history, 1):
+        print(f"  [{i}] {t['role'].upper()}: {t['content'][:120]}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def _slash_undo(state: ChatState, rest: str) -> None:
+    if state.agent.undo_last_turn():
+        state.turn = max(0, state.turn - 1)
+        print_status("Last turn removed.\n")
+    else:
+        state.turn = 0
+        print_status("History cleared (nothing left to undo).\n")
+
+
+def _slash_mode(state: ChatState, rest: str) -> None:
+    if not rest:
+        print_status(
+            f"Mode: {state.agent.get_mode()}  (choose with /mode <name>: {', '.join(MODES)})\n"
+        )
+        return
+    _ok, msg = state.agent.set_mode(rest)
+    print_status(f"{msg}\n")
+
+
+def _slash_privacy(state: ChatState, rest: str) -> None:
+    from codebud import privacy
+
+    if rest:
+        wanted = rest.lower()
+        if wanted not in privacy.LEVELS:
+            print_status(
+                f"Unknown privacy level '{wanted}'. Choose one of: {', '.join(privacy.LEVELS)}.\n"
+            )
+            return
+        os.environ["CODEBUD_PRIVACY"] = wanted
+        common.announce_privacy()
+    print_status(
+        f"Privacy: {privacy.level()}  (choose with /privacy <name>: {', '.join(privacy.LEVELS)})\n"
+    )
+
+
+def _slash_save(state: ChatState, rest: str) -> None:
+    from codebud import sessions
+
+    checkpoint = state.checkpoint
+    try:
+        if rest:
+            sessions.validate_name(rest)
+        checkpoint.save(force=True)
+        if rest:
+            checkpoint.session.set_name(rest)
+    except (sessions.SessionError, OSError) as exc:
+        print_status(f"{exc}\n")
+        return
+    print_status(
+        f"Session saved: {checkpoint.ref}  (resume with: codebud chat --resume {checkpoint.ref})\n"
+    )
+
+
+def _slash_compact(state: ChatState, rest: str) -> None:
+    _ok, msg = _with_progress(
+        state, lambda on_chunk: state.agent.compact_history(on_chunk=on_chunk)
+    )
+    print_status(f"{msg}\n")
+
+
+def _slash_doctor(state: ChatState, rest: str) -> None:
+    from codebud.cli.doctor import run_doctor
+
+    run_doctor()
+
+
+def _slash_model(state: ChatState, rest: str) -> None:
+    if not rest:
+        print_status(f"Active model: {state.agent.get_model() or '(not set)'}\n")
+        return
+    _ok, msg = _with_progress(
+        state, lambda on_chunk: state.agent.set_model(rest, on_chunk=on_chunk)
+    )
+    print_status(f"{msg}\n")
+
+
+def _slash_models(state: ChatState, rest: str) -> None:
+    from codebud.cli.display import _GREEN, _RESET
+    from codebud.llm_stub import list_models
+
+    names = list_models()
+    if not names:
+        print_status("Cannot reach Ollama to list models.\n")
+        return
+    active = state.agent.get_model()
+    for name in names:
+        marker = f"  {_GREEN}<-- active{_RESET}" if name == active else ""
+        print(f"  {name}{marker}", file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def _slash_sources(state: ChatState, rest: str) -> None:
+    """The chunks the last request was given as project context."""
+    hits = state.agent.last_context
     if not hits:
         print_status("(no project context was used for the last request)\n")
         return
@@ -106,11 +259,12 @@ def _chat_sources(agent) -> None:
     print(file=sys.stderr)
 
 
-def _chat_rag(agent, words: list[str]) -> None:
-    """/rag [on|off]: show or switch project context for this session."""
-    from codebud.cli.display import print_status
+def _slash_rag(state: ChatState, rest: str) -> None:
+    """Show or switch project context for this session."""
     from codebud.rag import indexer
 
+    agent = state.agent
+    words = rest.split()
     if words:
         if words[0].lower() not in ("on", "off"):
             print_status("Use /rag on or /rag off (or /rag to show the state).\n")
@@ -129,17 +283,15 @@ def _chat_rag(agent, words: list[str]) -> None:
         else ""
     )
     print_status(
-        f"Index: {common.plural(status['files'], 'file')}, {common.plural(status['chunks'], 'chunk')}, "
+        f"Index: {common.plural(status['files'], 'file')}, "
+        f"{common.plural(status['chunks'], 'chunk')}, "
         f"{status['model']}, updated {status['updated']}{stale}\n"
     )
 
 
-def _chat_index(words: list[str]) -> None:
-    """/index [status|rebuild]: run `codebud index` without leaving chat."""
-    import contextlib
-
-    from codebud.cli.display import print_status
-
+def _slash_index(state: ChatState, rest: str) -> None:
+    """Run `codebud index` without leaving chat."""
+    words = rest.split()
     action = words[0].lower() if words else ""
     if action not in ("", "status", "rebuild"):
         print_status("Use /index, /index status or /index rebuild.\n")
@@ -159,19 +311,142 @@ def _chat_index(words: list[str]) -> None:
         except SystemExit:
             pass  # cmd_index already printed the error; the chat goes on
     print(file=sys.stderr)
+    state.hints.refreshed()
+
+
+def _slash_plan(state: ChatState, rest: str) -> None:
+    if state.last_plan:
+        print_plan(state.last_plan, verbose=state.args.verbose)
+    else:
+        print_status("(no plan yet)\n")
+
+
+def _slash_output(state: ChatState, rest: str) -> None:
+    out = state.last_step_output
+    if out is None:
+        print_status("(no step output yet)\n")
+        return
+    stdout = (out.get("stdout") or "").rstrip()
+    if stdout:
+        print(stdout, file=sys.stderr)
+    else:
+        print_status("(last step produced no stdout)")
+    print(file=sys.stderr)
+
+
+SLASH_HANDLERS = {
+    "/help": _slash_help,
+    "/history": _slash_history,
+    "/clear": _slash_clear,
+    "/undo": _slash_undo,
+    "/compact": _slash_compact,
+    "/save": _slash_save,
+    "/mode": _slash_mode,
+    "/privacy": _slash_privacy,
+    "/rag": _slash_rag,
+    "/sources": _slash_sources,
+    "/index": _slash_index,
+    "/doctor": _slash_doctor,
+    "/model": _slash_model,
+    "/models": _slash_models,
+    "/plan": _slash_plan,
+    "/output": _slash_output,
+}
+
+
+def _handle_slash(state: ChatState, message: str) -> None:
+    command, _, rest = message.partition(" ")
+    handler = SLASH_HANDLERS.get(command.lower())
+    if handler is None:
+        print_status(f"Unknown command: {command.lower()}  (try /help)\n")
+        return
+    handler(state, rest.strip())
+
+
+# ---------------------------------------------------------------------------
+# A request: plan, review, run
+# ---------------------------------------------------------------------------
+
+
+def _report_unusable(plan: dict) -> bool:
+    """Print a chat reply or plan error; True if ``plan`` cannot be run."""
+    if plan.get("status") == "chat_reply":
+        print_assistant_reply(plan.get("reply", ""))
+        return True
+    if plan.get("status") != "ok":
+        print_error(plan.get("error", "unknown error"), label="Plan error")
+        return True
+    return False
+
+
+def _handle_request(state: ChatState, message: str) -> None:
+    agent = state.agent
+    plan = _with_progress(state, lambda on_chunk: agent.handle_user_message(message, on_chunk))
+    state.turn += 1
+    if _report_unusable(plan):
+        return
+
+    state.last_plan = plan
+    if agent.get_mode() == "plan":
+        print_plan(plan, verbose=state.args.verbose)
+        print_status("plan mode: not executed (switch with /mode ask to run plans)\n")
+        return
+
+    # Review: run it, revise it (with an optional note), or skip it.
+    while True:
+        print_plan(plan, verbose=state.args.verbose)
+        if agent.get_mode() == "full-auto":
+            review = "y"  # unattended: no plan approval
+        else:
+            try:
+                review = input("  Run this plan? [y/N/r(evise)[: note]] ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print(file=sys.stderr)
+                review = "n"
+
+        if review.lower() == "n" or review == "":
+            print_status("-- skipped")
+            return
+        if not review.lower().startswith("r"):
+            break  # y / yes / anything else: run it
+        feedback = review[1:].lstrip(": ").strip()
+        revision = message if not feedback else f"{message} (revision note: {feedback})"
+        print(file=sys.stderr)
+        plan = _with_progress(
+            state, lambda on_chunk, text=revision: agent.handle_user_message(text, on_chunk)
+        )
+        if _report_unusable(plan):
+            return
+
+    outcome = run_steps(
+        agent, plan.get("plan", []), policy_for_mode(agent.get_mode()), verbose=state.args.verbose
+    )
+    if outcome.last_output is not None:
+        state.last_step_output = outcome.last_output
+    if outcome.changed_files:
+        hint = state.hints.after_changes()
+        if hint:
+            print_status(hint)
+
+
+# ---------------------------------------------------------------------------
+# The session
+# ---------------------------------------------------------------------------
+
+
+def _warn_if_context_is_filling(agent) -> None:
+    used, total = agent.context_usage()
+    if used >= _CONTEXT_WARN_RATIO * total:
+        print_warning(
+            f"Context {round(100 * used / total)}% full (~{used:,} of {total:,} tokens). "
+            "Use /compact to summarise older turns."
+        )
 
 
 def cmd_chat(args):
-    from codebud.cli import chat_input
-    from codebud.cli.display import (
-        ProgressIndicator,
-        print_assistant_reply,
-        print_plan,
-        print_rule,
-        print_status,
-        print_warning,
-    )
-    from codebud.cli.errors import print_error
+    from codebud import sessions
+    from codebud.cli.index_hints import IndexHints, rag_indicator
+    from codebud.rag.indexer import project_root
 
     try:
         import readline as _rl  # noqa: F401 — enables arrow-key history and Ctrl+R in input()
@@ -182,8 +457,6 @@ def cmd_chat(args):
 
     if not common.apply_model_override(args):
         sys.exit(1)
-
-    from codebud import sessions
 
     resumed = _open_session_to_resume(args) if args.resume is not None else None
     apply_retention()  # after the resumed session is locked, so it is kept
@@ -199,33 +472,30 @@ def cmd_chat(args):
         file=sys.stderr,
     )
 
-    from codebud.cli.index_hints import IndexHints, rag_indicator
-    from codebud.rag.indexer import project_root
-
-    turn = 0
-    checked_turn = 0
-    last_plan = None
-    last_step_output = None
-    checkpoint = _ChatCheckpoint(agent, resumed)
     root = project_root()
-    hints = IndexHints(agent, root)
+    state = ChatState(
+        args=args,
+        agent=agent,
+        checkpoint=_ChatCheckpoint(agent, resumed),
+        hints=IndexHints(agent, root),
+    )
     reader = chat_input.ChatInput(agent, rag_state=lambda: rag_indicator(agent, root))
+    checked_turn = 0
     if resumed is not None:
         agent.restore_history(resumed.history)
-        turn = sum(1 for t in resumed.history if t.get("role") == "user")
-        checked_turn = turn
-        print_status(f"Resumed session {checkpoint.ref} ({len(resumed.history)} entries).")
+        state.turn = checked_turn = sum(1 for t in resumed.history if t.get("role") == "user")
+        print_status(f"Resumed session {state.checkpoint.ref} ({len(resumed.history)} entries).")
         for t in resumed.history[-2:]:
             print_status(f"  {t['role'].upper()}: {t['content'][:120]}")
         print(file=sys.stderr)
 
     def autosave():
         try:
-            checkpoint.save()
+            state.checkpoint.save()
         except (sessions.SessionError, OSError) as exc:
             print_warning(f"Could not save the session: {exc}")
 
-    start_hint = hints.at_start()
+    start_hint = state.hints.at_start()
     if start_hint:
         print_status(start_hint + "\n")
 
@@ -234,18 +504,12 @@ def cmd_chat(args):
             autosave()
             # After each completed turn (not after slash commands), warn
             # if the next planner prompt would fill most of the context.
-            if turn and turn != checked_turn:
-                checked_turn = turn
-                used, total = agent.context_usage()
-                if used >= _CONTEXT_WARN_RATIO * total:
-                    print_warning(
-                        f"Context {round(100 * used / total)}% full "
-                        f"(~{used:,} of {total:,} tokens). "
-                        "Use /compact to summarise older turns."
-                    )
+            if state.turn and state.turn != checked_turn:
+                checked_turn = state.turn
+                _warn_if_context_is_filling(agent)
             print_rule()
             try:
-                message = reader.read(f"[{turn + 1}] You: ").strip()
+                message = reader.read(f"[{state.turn + 1}] You: ").strip()
             except (EOFError, KeyboardInterrupt):
                 print(file=sys.stderr)
                 break
@@ -253,234 +517,14 @@ def cmd_chat(args):
                 continue  # an accidental Enter must not end the session
             if message.lower() in ("quit", "exit", "q"):
                 break
-
-            # --- slash command handling ---
             if message.startswith("/"):
-                cmd = message.split()[0].lower()
-                if cmd == "/help":
-                    print(chat_input.help_text(), file=sys.stderr)
-                    continue
-                if cmd == "/clear":
-                    agent.clear_history()
-                    last_plan = None
-                    turn = 0
-                    print_status("History cleared.\n")
-                    continue
-                if cmd == "/history":
-                    history = agent.get_history()
-                    if not history:
-                        print_status("(no history yet)\n")
-                    else:
-                        for i, t in enumerate(history, 1):
-                            role = t["role"].upper()
-                            print(f"  [{i}] {role}: {t['content'][:120]}", file=sys.stderr)
-                        print(file=sys.stderr)
-                    continue
-                if cmd == "/undo":
-                    if agent.undo_last_turn():
-                        turn = max(0, turn - 1)
-                        print_status("Last turn removed.\n")
-                    else:
-                        turn = 0
-                        print_status("History cleared (nothing left to undo).\n")
-                    continue
-                if cmd == "/mode":
-                    parts = message.split(maxsplit=1)
-                    if len(parts) == 1:
-                        print_status(
-                            f"Mode: {agent.get_mode()}  (choose with /mode <name>: "
-                            f"{', '.join(MODES)})\n"
-                        )
-                        continue
-                    ok, msg = agent.set_mode(parts[1].strip())
-                    print_status(f"{msg}\n")
-                    continue
-                if cmd == "/privacy":
-                    from codebud import privacy
-
-                    parts = message.split(maxsplit=1)
-                    if len(parts) > 1:
-                        wanted = parts[1].strip().lower()
-                        if wanted not in privacy.LEVELS:
-                            print_status(
-                                f"Unknown privacy level '{wanted}'. "
-                                f"Choose one of: {', '.join(privacy.LEVELS)}.\n"
-                            )
-                            continue
-                        os.environ["CODEBUD_PRIVACY"] = wanted
-                        common.announce_privacy()
-                    print_status(
-                        f"Privacy: {privacy.level()}  (choose with /privacy <name>: "
-                        f"{', '.join(privacy.LEVELS)})\n"
-                    )
-                    continue
-                if cmd == "/save":
-                    parts = message.split(maxsplit=1)
-                    try:
-                        if len(parts) > 1:
-                            sessions.validate_name(parts[1].strip())
-                        checkpoint.save(force=True)
-                        if len(parts) > 1:
-                            checkpoint.session.set_name(parts[1].strip())
-                    except (sessions.SessionError, OSError) as exc:
-                        print_status(f"{exc}\n")
-                        continue
-                    print_status(
-                        f"Session saved: {checkpoint.ref}  "
-                        f"(resume with: codebud chat --resume {checkpoint.ref})\n"
-                    )
-                    continue
-                if cmd == "/compact":
-                    prog = ProgressIndicator(no_progress=common.no_progress(args))
-                    prog.start()
-                    try:
-                        ok, msg = agent.compact_history(on_chunk=prog.on_chunk)
-                    finally:
-                        prog.stop()
-                    print_status(f"{msg}\n")
-                    continue
-                if cmd == "/doctor":
-                    from codebud.cli.doctor import run_doctor
-
-                    run_doctor()
-                    continue
-                if cmd == "/model":
-                    parts = message.split(maxsplit=1)
-                    if len(parts) == 1:
-                        print_status(f"Active model: {agent.get_model() or '(not set)'}\n")
-                        continue
-                    requested = parts[1].strip()
-                    prog = ProgressIndicator(no_progress=common.no_progress(args))
-                    prog.start()
-                    try:
-                        ok, msg = agent.set_model(requested, on_chunk=prog.on_chunk)
-                    finally:
-                        prog.stop()
-                    print_status(f"{msg}\n")
-                    continue
-                if cmd == "/models":
-                    from codebud.llm_stub import list_models
-
-                    names = list_models()
-                    if not names:
-                        print_status("Cannot reach Ollama to list models.\n")
-                        continue
-                    from codebud.cli.display import _GREEN, _RESET
-
-                    active = agent.get_model()
-                    for name in names:
-                        marker = f"  {_GREEN}<-- active{_RESET}" if name == active else ""
-                        print(f"  {name}{marker}", file=sys.stderr)
-                    print(file=sys.stderr)
-                    continue
-                if cmd == "/sources":
-                    _chat_sources(agent)
-                    continue
-                if cmd == "/rag":
-                    _chat_rag(agent, message.split()[1:])
-                    continue
-                if cmd == "/index":
-                    _chat_index(message.split()[1:])
-                    hints.refreshed()
-                    continue
-                if cmd == "/plan":
-                    if last_plan:
-                        print_plan(last_plan, verbose=args.verbose)
-                    else:
-                        print_status("(no plan yet)\n")
-                    continue
-                if cmd == "/output":
-                    if last_step_output is not None:
-                        stdout = (last_step_output.get("stdout") or "").rstrip()
-                        if stdout:
-                            print(stdout, file=sys.stderr)
-                        else:
-                            print_status("(last step produced no stdout)")
-                        print(file=sys.stderr)
-                    else:
-                        print_status("(no step output yet)\n")
-                    continue
-                print_status(f"Unknown command: {cmd}  (try /help)\n")
+                _handle_slash(state, message)
                 continue
-
-            prog = ProgressIndicator(no_progress=common.no_progress(args))
-            prog.start()
-            try:
-                plan = agent.handle_user_message(message, on_chunk=prog.on_chunk)
-            finally:
-                prog.stop()
-
-            turn += 1
-
-            if plan.get("status") == "chat_reply":
-                print_assistant_reply(plan.get("reply", ""))
-                continue
-
-            if plan.get("status") != "ok":
-                err = plan.get("error", "unknown error")
-                print_error(err, label="Plan error")
-                continue
-
-            last_plan = plan
-            if agent.get_mode() == "plan":
-                print_plan(plan, verbose=args.verbose)
-                print_status("plan mode: not executed (switch with /mode ask to run plans)\n")
-                continue
-            # --- plan review loop: accept / revise / skip ---
-            while True:
-                print_plan(plan, verbose=args.verbose)
-                if agent.get_mode() == "full-auto":
-                    review = "y"  # unattended: no plan approval
-                else:
-                    try:
-                        review = input("  Run this plan? [y/N/r(evise)[: note]] ").strip()
-                    except (EOFError, KeyboardInterrupt):
-                        print(file=sys.stderr)
-                        review = "n"
-
-                if review.lower() == "n" or review == "":
-                    print_status("-- skipped")
-                    break
-
-                if review.lower().startswith("r"):
-                    feedback = review[1:].lstrip(": ").strip()
-                    revision_msg = (
-                        message if not feedback else f"{message} (revision note: {feedback})"
-                    )
-                    print(file=sys.stderr)
-                    prog = ProgressIndicator(no_progress=common.no_progress(args))
-                    prog.start()
-                    try:
-                        plan = agent.handle_user_message(revision_msg, on_chunk=prog.on_chunk)
-                    finally:
-                        prog.stop()
-                    if plan.get("status") == "chat_reply":
-                        print_assistant_reply(plan.get("reply", ""))
-                        break
-                    if plan.get("status") != "ok":
-                        err = plan.get("error", "unknown error")
-                        print_error(err, label="Plan error")
-                        break
-                    continue  # show revised plan for another review
-
-                # y / yes / anything else → proceed to execution
-                outcome = run_steps(
-                    agent,
-                    plan.get("plan", []),
-                    policy_for_mode(agent.get_mode()),
-                    verbose=args.verbose,
-                )
-                if outcome.last_output is not None:
-                    last_step_output = outcome.last_output
-                if outcome.changed_files:
-                    hint = hints.after_changes()
-                    if hint:
-                        print_status(hint)
-                break  # done executing — exit review loop
-
+            _handle_request(state, message)
             print(file=sys.stderr)
     finally:
         autosave()
+        checkpoint = state.checkpoint
         if checkpoint.session is not None:
             print_status(
                 f"Session saved: {checkpoint.ref}  "
