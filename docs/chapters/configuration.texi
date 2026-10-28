@@ -11,6 +11,7 @@ keeps its files.
 * Environment Variables Overview::  Variables that control Codebud.
 * Configuration File::              The same settings in config.toml.
 * LLM Backend Variables::           Choosing Ollama or OpenAI.
+* Privacy Levels::                  locked, private, trusted.
 * Feature Flags::                   Enabling optional features.
 * Policy JSON Files::               The three safety configuration files.
 * Harmless Commands::               Commands always allowed.
@@ -69,6 +70,10 @@ need nothing (@pxref{LLM Backend Variables}).
 @tab Mask secrets (API keys, tokens, private keys, passwords) as
 @samp{[redacted]} in saved sessions and step history.  @code{0} turns it
 off (@pxref{Files and Directories}).
+@item @env{CODEBUD_PRIVACY}
+@tab @code{private}
+@tab What Codebud may reach: @code{locked}, @code{private} or
+@code{trusted} (@pxref{Privacy Levels}).
 @item @env{CODEBUD_SESSION_RETENTION_DAYS}
 @tab @code{0}
 @tab Delete chat sessions not used for this many days when a chat starts.
@@ -166,14 +171,15 @@ from, highest first:
 @item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
 @item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
 @item @code{session_retention_days} @tab @env{CODEBUD_SESSION_RETENTION_DAYS} @tab integer (user file only)
+@item @code{privacy} @tab @env{CODEBUD_PRIVACY} @tab @code{"locked"} / @code{"private"} / @code{"trusted"} (user file only)
 @end multitable
 
 @cindex egress settings
 @strong{Settings that make data leave the machine} --- the backend, the
 Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
 accepted only from your own file or the environment, and so are
-@code{mask_secrets} and @code{session_retention_days}, which protect what
-is stored.  In a project's file
+@code{mask_secrets}, @code{session_retention_days} and @code{privacy},
+which protect your data.  In a project's file
 they are ignored with a warning: cloning a repository must never be able
 to send your prompts somewhere else or weaken your privacy.  The
 same goes for unknown keys, values of the wrong type and a file that is not
@@ -282,6 +288,59 @@ must be reached directly, list it in @env{NO_PROXY}:
 
 @example
 export NO_PROXY=gpu-box.example
+@end example
+
+
+@node Privacy Levels
+@section Privacy Levels
+@cindex privacy levels
+@cindex CODEBUD_PRIVACY
+@cindex locked
+@cindex trusted
+
+Two independent dials decide how Codebud behaves.  The @dfn{mode}
+(@pxref{Agent Modes}) says how much it asks; the @dfn{privacy level}
+says what it may reach:
+
+@table @code
+@item locked
+Nothing leaves this machine.  Prompts and embeddings may only go to an
+Ollama on this machine: the @code{openai} backend and a remote
+@env{OLLAMA_BASE_URL} are refused with a message saying why.  Web search
+is off, even with @env{WEB_SEARCH_ENABLED}.  For sensitive code and
+hostile networks.
+
+@item private
+The default.  Data leaves only where you chose --- the backend, a remote
+Ollama, web search --- and each is announced, shown in
+@command{codebud doctor}, and (for web search) confirmed in @code{ask}
+and @code{auto} mode.
+
+@item trusted
+For trusted environments and unattended work: web searches run without
+confirmation.  Announced when a command starts, shown in the chat
+toolbar and recorded in the session file.
+@end table
+
+@noindent
+@strong{Trust never lifts safety.}  The allow-list and the refused
+arguments (@pxref{The Safety Engine}) apply at every level, and
+powerful commands still ask in @code{auto} mode.
+
+Fully unattended work is always possible: in @code{full-auto} mode
+nothing asks, at the default @code{private} level too; @code{trusted}
+additionally removes the remaining privacy prompts.
+
+Choose the level with the global option @option{--privacy}, with
+@code{privacy = "locked"} in your own @file{config.toml}, with
+@env{CODEBUD_PRIVACY}, or in @command{chat} with
+@code{/privacy @var{level}}.  A project's @file{config.toml} cannot set it.
+A resumed session starts at the level you choose now, not the one it was
+saved with.
+
+@example
+codebud --privacy locked chat                 @r{# for this session}
+codebud --privacy trusted run --yes "..."     @r{# a trusted script}
 @end example
 
 

@@ -163,6 +163,7 @@ Users can adjust policy in `~/.config/codebud/` or a project’s `.codebud/`.
 | `OLLAMA_MODEL`       | *(required)*             | Model to plan with                   |
 | `OLLAMA_BASE_URL`    | `http://localhost:11434` | Ollama server                        |
 | `CODEBUD_NUM_CTX`    | `8192`                   | Context window requested from Ollama |
+| `CODEBUD_PRIVACY`    | `private`                | `locked`: nothing leaves the machine   |
 | `EMBED_MODEL`        | `all-minilm`             | Embedding model for project search   |
 | `CODEBUD_RAG`        | `1`                      | `0` plans without project context    |
 | `WEB_SEARCH_ENABLED` | `0`                      | `1` enables the web search tool      |

@@ -23,7 +23,8 @@ from typing import Any
 
 import requests
 
-from codebud.llm_stub import num_ctx, ollama_base, ollama_proxies, remote_http_refusal
+from codebud import privacy
+from codebud.llm_stub import is_remote, num_ctx, ollama_base, ollama_proxies, remote_http_refusal
 
 # all-minilm: on scripts/rag_eval.py it matched nomic-embed-text with hybrid
 # search while indexing 8x faster on a CPU (66 s vs 522 s for this repository).
@@ -69,6 +70,8 @@ def _task_prefixes(model: str) -> tuple[str, str]:
 
 def _ollama_embed_many(texts: list[str], model: str) -> list[list[float]]:
     refusal = remote_http_refusal(ollama_base())
+    if privacy.level() == "locked" and is_remote(ollama_base()):
+        refusal = privacy.locked_refusal(f"embedding text with the Ollama at {ollama_base()}")
     if refusal:
         raise EmbeddingUnavailable(refusal)
     try:

@@ -28,6 +28,7 @@ import logging
 import shlex
 from typing import Any
 
+from . import privacy
 from .modes import DEFAULT_MODE, step_allowed
 from .paths import policy_file
 
@@ -189,6 +190,10 @@ class SafetyEngine:
         """
         if self.is_powerful(step):
             return POWERFUL_REASON
+        # At privacy level "trusted" egress runs without asking; safety
+        # (powerful commands, the allow-list) is never lifted.
+        if not privacy.egress_needs_confirmation():
+            return None
         return egress_reason(step)
 
     def may_execute(self, step: dict[str, Any]) -> tuple[bool, str]:

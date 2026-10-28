@@ -326,7 +326,8 @@ the planner make better decisions.
 @cindex slash command menu
 
 On a terminal, the @samp{[@var{n}] You:} line has a persistent toolbar at
-the bottom of the screen showing the agent mode, the model, how full
+the bottom of the screen showing the agent mode, the privacy level, the
+model, how full
 the context window is and, when the project has an index, its state
 (@samp{RAG}, @samp{RAG stale} when files changed since it was built, or
 @samp{RAG off}; @pxref{The index Subcommand}):
@@ -334,7 +335,7 @@ the context window is and, when the project has an index, its state
 @example
 [3] You: _
 
- mode: ask · qwen2.5-coder:3b-instruct-q4_K_M · context 14% · RAG   (shift-tab: mode)
+ mode: ask · privacy: private · qwen2.5-coder:3b-instruct-q4_K_M · context 14% · RAG   (shift-tab: mode)
 @end example
 
 @itemize @bullet
@@ -371,6 +372,9 @@ switch (@pxref{Agent Modes}).
 gives it a name to resume by (@pxref{Saved Sessions}).
 @item @code{/compact} @tab Replace older turns with a short model-written
 summary, keeping the last exchange verbatim (@pxref{Compacting a Conversation}).
+@item @code{/privacy} @tab Show the privacy level, or
+@code{/privacy @var{level}} (@code{locked}, @code{private},
+@code{trusted}) to switch (@pxref{Privacy Levels}).
 @item @code{/rag} @tab Show whether requests get project context and how
 fresh the index is; @code{/rag on} or @code{/rag off} switches it for this
 session (@pxref{The index Subcommand}).
@@ -412,6 +416,10 @@ commands outside the lists are still rejected.
 @item @code{edit} @tab Only file tools (@code{file_read}, @code{file_write},
 @code{patch}); shell commands are refused.
 @end multitable
+
+@noindent
+The mode says how much Codebud asks; what it may reach is a separate dial,
+the privacy level (@pxref{Privacy Levels}).
 
 @example
 codebud chat --mode plan
@@ -546,6 +554,8 @@ It checks:
 (@env{CODEBUD_BACKEND}; fails for an unknown backend, @code{openai}
 without @env{OPENAI_API_KEY}, or a remote Ollama over plain http that is
 not allowed)
+@item The privacy level, and whether the backend fits it (fails at
+@code{locked} with a backend that is not on this machine)
 @item Where data can leave this machine: the OpenAI API, a remote Ollama
 host, DuckDuckGo for web search --- or @samp{Outbound: none}
 @item @env{OLLAMA_MODEL} environment variable is set
@@ -1060,18 +1070,23 @@ planner chose.  Cannot be combined with @option{--execute}.
 @section Global Options
 @cindex global options
 
-@option{--no-progress} and @option{--verbose} belong to @command{codebud}
-itself, so they must come @emph{before} the subcommand name
-(@command{codebud chat -v} is rejected):
+@option{--no-progress}, @option{--privacy} and @option{--verbose} belong
+to @command{codebud} itself, so they must come @emph{before} the
+subcommand name (@command{codebud chat -v} is rejected):
 
 @example
-codebud [--no-progress] [--verbose] @var{subcommand} ...
+codebud [--no-progress] [--privacy @var{level}] [--verbose] @var{subcommand} ...
 @end example
 
 @table @option
 @item --no-progress
 Disable the live spinner and timing summary.  The agent still runs;
 only the progress display is suppressed.
+
+@item --privacy locked|private|trusted
+What Codebud may reach for this run, overriding @file{config.toml}:
+@code{locked} keeps everything on this machine, @code{trusted} drops the
+privacy prompts (@pxref{Privacy Levels}).
 
 @item --verbose / -v
 Show step arguments in plans and, in @command{chat}, full step output
@@ -1125,6 +1140,10 @@ https or an SSH tunnel, or allowed with @env{CODEBUD_ALLOW_REMOTE_HTTP}
 @item CODEBUD_ALLOW_REMOTE_HTTP
 Set to @code{1} to allow a remote @env{OLLAMA_BASE_URL} over plain http.
 Default: @code{0}.
+
+@item CODEBUD_PRIVACY
+@code{locked}, @code{private} (default) or @code{trusted}: what Codebud may
+reach (@pxref{Privacy Levels}).
 
 @item CODEBUD_SESSION_RETENTION_DAYS
 Default: @code{0} (keep sessions forever).  A positive number makes each

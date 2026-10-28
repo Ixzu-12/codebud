@@ -64,6 +64,11 @@ meaning of a piece of text.  Texts with similar meaning have embeddings
 that point in similar directions in high-dimensional space.  Codebud
 generates embeddings with Ollama's @code{/api/embed} endpoint.
 
+@item Privacy level
+The second dial next to the mode: @code{locked} (nothing leaves this
+machine), @code{private} (the default) or @code{trusted} (no privacy
+prompts).  It never lifts the safety rules.  @xref{Privacy Levels}.
+
 @item Project context
 The chunks of the project index most relevant to a request, added to the
 planning prompt (and to plain chat replies) as reference material.  Off

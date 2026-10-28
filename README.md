@@ -141,6 +141,7 @@ search).
 | `WEB_SEARCH_ENABLED` | `0` | Set to `1` to enable DuckDuckGo search |
 | `CODEBUD_ALLOW_REMOTE_HTTP` | `0` | `1` allows a remote `OLLAMA_BASE_URL` over plain http (else refused) |
 | `CODEBUD_SESSION_RETENTION_DAYS` | `0` | Delete sessions unused for N days when chat starts (0 = keep forever) |
+| `CODEBUD_PRIVACY` | `private` | `locked` keeps everything on this machine; `trusted` drops privacy prompts |
 | `CODEBUD_MASK_SECRETS` | `1` | Mask API keys, tokens, passwords as `[redacted]` in saved sessions/history |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |

@@ -33,6 +33,8 @@ from urllib.parse import urlsplit
 
 import requests
 
+from codebud import privacy
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_BASE = "http://localhost:11434"
@@ -171,6 +173,13 @@ def call_llm(
     """
 
     chosen = backend()
+    if privacy.level() == "locked":
+        if chosen == "openai":
+            raise LLMUnavailable(
+                privacy.locked_refusal("the openai backend (prompts go to OpenAI)")
+            )
+        if is_remote(ollama_base()):
+            raise LLMUnavailable(privacy.locked_refusal(f"the Ollama at {ollama_base()}"))
     if chosen == "openai":
         return _call_openai(prompt)
     if chosen != "ollama":

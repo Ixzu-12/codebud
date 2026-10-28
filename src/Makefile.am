@@ -21,6 +21,7 @@ nobase_python_PYTHON = \
 	codebud/modes.py \
 	codebud/paths.py \
 	codebud/planner.py \
+	codebud/privacy.py \
 	codebud/rag/__init__.py \
 	codebud/rag/chunker.py \
 	codebud/rag/context.py \

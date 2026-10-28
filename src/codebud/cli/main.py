@@ -338,7 +338,9 @@ class _ChatCheckpoint:
             if not history and not force:
                 return
             self.session = sessions.Session.create()
-        self.session.save(history, self.agent.get_model(), mode=mode)
+        from codebud import privacy
+
+        self.session.save(history, self.agent.get_model(), mode=mode, privacy=privacy.level())
         self._saved = (history, mode)
 
     def close(self) -> None:
@@ -346,10 +348,26 @@ class _ChatCheckpoint:
             self.session.close()
 
 
+def _announce_privacy() -> None:
+    """Say on stderr when the privacy level is not the default."""
+    from codebud import privacy
+    from codebud.cli.display import print_status, print_warning
+
+    current = privacy.level()
+    if current == "trusted":
+        print_warning(
+            "Privacy: trusted -- web searches (and, where isolation is available, "
+            "steps) run without asking and not isolated; the allow-list still applies."
+        )
+    elif current == "locked":
+        print_status("Privacy: locked -- nothing leaves this machine; web search is off.")
+
+
 def _announce_backend() -> None:
     """Say once, on stderr, when prompts are going to leave this machine."""
     from urllib.parse import urlsplit
 
+    from codebud import privacy
     from codebud.cli.display import print_warning
     from codebud.llm_stub import (
         backend,
@@ -359,6 +377,8 @@ def _announce_backend() -> None:
         remote_http_refusal,
     )
 
+    if privacy.level() == "locked":
+        return  # nothing leaves; a backend off this machine gets its own error
     if backend() == "openai":
         print_warning(f"LLM backend: {backend_description()} (CODEBUD_BACKEND=openai).")
     elif is_remote(ollama_base()) and not remote_http_refusal(ollama_base()):
@@ -578,6 +598,25 @@ def cmd_chat(args):
                         continue
                     ok, msg = agent.set_mode(parts[1].strip())
                     print_status(f"{msg}\n")
+                    continue
+                if cmd == "/privacy":
+                    from codebud import privacy
+
+                    parts = message.split(maxsplit=1)
+                    if len(parts) > 1:
+                        wanted = parts[1].strip().lower()
+                        if wanted not in privacy.LEVELS:
+                            print_status(
+                                f"Unknown privacy level '{wanted}'. "
+                                f"Choose one of: {', '.join(privacy.LEVELS)}.\n"
+                            )
+                            continue
+                        os.environ["CODEBUD_PRIVACY"] = wanted
+                        _announce_privacy()
+                    print_status(
+                        f"Privacy: {privacy.level()}  (choose with /privacy <name>: "
+                        f"{', '.join(privacy.LEVELS)})\n"
+                    )
                     continue
                 if cmd == "/save":
                     parts = message.split(maxsplit=1)
@@ -1187,6 +1226,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Suppress the live progress indicator (useful when piping output).",
     )
     parser.add_argument(
+        "--privacy",
+        choices=("locked", "private", "trusted"),
+        default=None,
+        help="What codebud may reach: locked (nothing leaves this machine), private "
+        "(default), trusted (unattended: no egress prompts). Overrides config.toml.",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -1371,7 +1417,10 @@ def main():
 
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.privacy:
+        os.environ["CODEBUD_PRIVACY"] = args.privacy
     if args.subcommand in ("run", "plan", "chat"):
+        _announce_privacy()
         _announce_backend()
     if getattr(args, "no_rag", False):
         os.environ["CODEBUD_RAG"] = "0"

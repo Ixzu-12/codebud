@@ -91,15 +91,40 @@ def check_backend() -> CheckResult:
     return True, f"LLM backend: {backend_description()}", ""
 
 
+def check_privacy() -> CheckResult:
+    """The privacy level, and whether the chosen backend fits it."""
+    from codebud import privacy
+    from codebud.llm_stub import is_remote
+
+    current = privacy.level()
+    meaning = {
+        "locked": "nothing leaves this machine",
+        "private": "data leaves only where you chose",
+        "trusted": "no prompts before egress; the allow-list still applies",
+    }[current]
+    label = f"Privacy: {current} ({meaning})"
+    if current == "locked" and (backend() == "openai" or is_remote(ollama_base())):
+        return (
+            False,
+            label + " -- but the backend is not on this machine",
+            "Use a local Ollama (CODEBUD_BACKEND=ollama, OLLAMA_BASE_URL=http://localhost:11434), "
+            "or choose another privacy level.",
+        )
+    return True, label, ""
+
+
 def check_outbound() -> CheckResult:
     """Every place data can leave this machine to, given the settings."""
     from urllib.parse import urlsplit
 
+    from codebud import privacy
     from codebud.llm_stub import is_remote
     from codebud.tools.web_search import enabled as web_search_enabled
 
     destinations = []
-    if backend() == "openai":
+    if privacy.level() == "locked":
+        pass  # refused at this level, whatever is configured (see the privacy check)
+    elif backend() == "openai":
         destinations.append("OpenAI API (prompts)")
     elif is_remote(ollama_base()):
         destinations.append(f"{urlsplit(ollama_base()).hostname} (prompts, embeddings)")
@@ -277,6 +302,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_python_version,
     check_agent_importable,
     check_backend,
+    check_privacy,
     check_outbound,
     check_ollama_model_set,
     check_ollama_reachable,

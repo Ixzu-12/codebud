@@ -67,6 +67,7 @@ SETTINGS = [
     Setting("openai_model", "OPENAI_MODEL", "gpt-3.5-turbo", str),
     Setting("web_search", "WEB_SEARCH_ENABLED", False, bool, egress=True),
     Setting("mask_secrets", "CODEBUD_MASK_SECRETS", True, bool, protective=True),
+    Setting("privacy", "CODEBUD_PRIVACY", "private", str, protective=True),
     # 0 keeps sessions forever (decision D12e); a project file must not be
     # able to delete the user's sessions, hence protective.
     Setting("session_retention_days", "CODEBUD_SESSION_RETENTION_DAYS", 0, int, protective=True),

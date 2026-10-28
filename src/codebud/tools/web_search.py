@@ -32,9 +32,19 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def enabled() -> bool:
-    """Whether WEB_SEARCH_ENABLED allows outbound searches (read on each call)."""
+def _switched_on() -> bool:
     return os.environ.get("WEB_SEARCH_ENABLED", "").lower() in ("1", "true", "yes")
+
+
+def enabled() -> bool:
+    """Whether outbound searches are allowed (read on each call).
+
+    WEB_SEARCH_ENABLED switches them on; privacy level "locked" keeps them
+    off regardless.
+    """
+    from codebud import privacy
+
+    return _switched_on() and privacy.web_search_allowed()
 
 
 _DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
@@ -108,11 +118,14 @@ class WebSearchTool:
 
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         if not enabled():
+            reason = (
+                "Web search is off: privacy is locked (nothing leaves this machine)."
+                if _switched_on()
+                else "Web search is disabled. Set WEB_SEARCH_ENABLED=1 to enable outbound search."
+            )
             return {
                 "stdout": "",
-                "stderr": (
-                    "Web search is disabled. Set WEB_SEARCH_ENABLED=1 to enable outbound search."
-                ),
+                "stderr": reason,
                 "returncode": 1,
             }
 

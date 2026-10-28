@@ -36,6 +36,7 @@ SLASH_COMMANDS = [
     ("/compact", "summarise older turns to shrink the conversation history"),
     ("/save", "save the session now; /save <name> also names it for --resume"),
     ("/mode", "show the agent mode, or /mode <ask|auto|full-auto|plan|edit> to switch"),
+    ("/privacy", "show the privacy level, or /privacy <locked|private|trusted> to switch"),
     ("/rag", "show project search state, or /rag <on|off> to use the index or not"),
     ("/sources", "list the project files the last request was given as context"),
     ("/index", "build or refresh the project index; /index status shows what changed"),
@@ -61,12 +62,15 @@ def next_mode(current: str) -> str:
     return MODES[(index + 1) % len(MODES)]
 
 
-def toolbar_text(mode: str, model: str, used: int, total: int, rag: str = "") -> str:
+def toolbar_text(
+    mode: str, model: str, used: int, total: int, rag: str = "", privacy: str = ""
+) -> str:
     """Return the bottom toolbar line; ``rag`` is the index state, if any."""
     percent = round(100 * used / total) if total else 0
     rag_part = f" · {rag}" if rag else ""
+    privacy_part = f" · privacy: {privacy}" if privacy else ""
     return (
-        f" mode: {mode} · {model or '(no model)'} · context {percent}%{rag_part}"
+        f" mode: {mode}{privacy_part} · {model or '(no model)'} · context {percent}%{rag_part}"
         "   (shift-tab: mode)"
     )
 
@@ -117,7 +121,11 @@ class ChatInput:
             model = f"☁ OpenAI {openai_model()}"
         elif is_remote(ollama_base()):
             model = f"{model} @ {urlsplit(ollama_base()).hostname}"
-        return toolbar_text(self.agent.get_mode(), model, *self._usage, self._rag)
+        from codebud import privacy
+
+        return toolbar_text(
+            self.agent.get_mode(), model, *self._usage, self._rag, privacy=privacy.level()
+        )
 
     def _build_session(self) -> PromptSession:
         bindings = KeyBindings()

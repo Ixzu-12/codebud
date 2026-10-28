@@ -1723,3 +1723,20 @@ class TestChatProjectContext(_ChatHarness):
         agent = FakeChatAgent(plan_by_message={"write it": write})
         self._run_chat(monkeypatch, ["write it", "y", "y"], agent=agent)
         assert "Files changed: /index" in capsys.readouterr().err
+
+
+class TestChatPrivacy(_ChatHarness):
+    def test_privacy_command_shows_and_switches(self, monkeypatch, capsys):
+        import os
+
+        monkeypatch.setenv("CODEBUD_PRIVACY", "private")
+        self._run_chat(monkeypatch, ["/privacy", "/privacy locked", "/privacy open"])
+        err = capsys.readouterr().err
+        assert "Privacy: private" in err
+        assert "Privacy: locked" in err
+        assert "Unknown privacy level 'open'" in err
+        assert os.environ["CODEBUD_PRIVACY"] == "locked"
+
+    def test_help_lists_privacy(self, monkeypatch, capsys):
+        self._run_chat(monkeypatch, ["/help"])
+        assert "/privacy" in capsys.readouterr().err
