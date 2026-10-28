@@ -35,7 +35,8 @@ from .paths import policy_file
 logger = logging.getLogger(__name__)
 
 # Policy files, looked up by codebud/paths.policy_file(): the project's
-# .codebud/, then the user's config dir, then the defaults shipped with codebud.
+# .codebud/, then the user's config dir, then the defaults shipped with codebud
+# (the active profile's policy directory comes first, when it has one).
 HARMLESS_FILE = "harmless_commands.json"
 POWERFUL_FILE = "powerful_commands.json"
 TRUSTED_SEQ_FILE = "trusted_sequences.json"
@@ -148,6 +149,10 @@ class SafetyEngine:
     mode = DEFAULT_MODE
 
     def __init__(self):
+        self.reload()
+
+    def reload(self) -> None:
+        """(Re)read the policy files, e.g. after a profile switch."""
         self.harmless_commands = self._load_json(policy_file(HARMLESS_FILE))
         self.powerful_commands = self._load_json(policy_file(POWERFUL_FILE))
         self.trusted_sequences = self._load_json(policy_file(TRUSTED_SEQ_FILE))

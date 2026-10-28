@@ -43,8 +43,12 @@ def cmd_run(args):
         print_plan(plan, verbose=args.verbose)
 
         # -i asks before every step; otherwise steps run unprompted except
-        # powerful ones and web searches, which need a "y" unless --yes.
-        policy = "ask" if args.interactive else "full-auto" if args.yes else "auto"
+        # powerful ones and web searches, which need a "y" unless --yes
+        # (or a full-auto profile).
+        if args.interactive:
+            policy = "ask"
+        else:
+            policy = "full-auto" if common.unattended(args) else "auto"
         outcome = run_steps(
             agent, plan.get("plan", []), policy, verbose=args.verbose, full_output=True
         )
@@ -95,8 +99,8 @@ def cmd_plan(args):
             return
 
         # Same rules as run: powerful steps and web searches need a "y"
-        # unless --yes.
-        policy = "full-auto" if args.yes else "auto"
+        # unless --yes (or a full-auto profile).
+        policy = "full-auto" if common.unattended(args) else "auto"
         outcome = run_steps(
             agent, plan.get("plan", []), policy, verbose=args.verbose, full_output=True
         )

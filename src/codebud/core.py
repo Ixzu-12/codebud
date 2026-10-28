@@ -187,6 +187,10 @@ class AgentCore:
         self.safety.mode = mode
         return True, f"Mode: {mode}"
 
+    def reload_policy(self) -> None:
+        """Re-read the policy files (after a profile switch)."""
+        self.safety.reload()
+
     def get_model(self) -> str:
         """Return the active OLLAMA_MODEL, or '' if unset."""
         return os.environ.get("OLLAMA_MODEL", "")

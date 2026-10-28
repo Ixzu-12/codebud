@@ -20,12 +20,13 @@ output, and how to get help when something goes wrong.
 * The skill Subcommand::        Codebud's skill for other agents.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
+* The profiles Subcommand::     List the profiles.
 * The version Subcommand::      Show version information.
 * Progress Output::             Understanding the spinner and token counter.
 * Reading a Plan::              What the plan display means.
 * Reading Step Results::        What a step outcome looks like.
 * Verbose and JSON Output::     Getting more (or less) detail.
-* Global Options::              --no-progress, --verbose.
+* Global Options::              --no-progress, --privacy, --profile, --verbose.
 * Environment Variables::       The variables that control behaviour.
 * Backwards Compatibility::     Old invocation style still works.
 @end menu
@@ -381,6 +382,9 @@ summary, keeping the last exchange verbatim (@pxref{Compacting a Conversation}).
 @item @code{/privacy} @tab Show the privacy level, or
 @code{/privacy @var{level}} (@code{locked}, @code{private},
 @code{trusted}) to switch (@pxref{Privacy Levels}).
+@item @code{/profile} @tab Show the profile, or @code{/profile @var{name}}
+to switch: its mode, privacy level, policy and prompt apply at once
+(@pxref{Profiles}).
 @item @code{/rag} @tab Show whether requests get project context and how
 fresh the index is; @code{/rag on} or @code{/rag off} switches it for this
 session (@pxref{The index Subcommand}).
@@ -902,7 +906,27 @@ Files:
 
 Use this to confirm that your settings are actually being picked up, and
 to see which configuration and policy files are in effect
-(@pxref{Policy JSON Files}).
+(@pxref{Policy JSON Files}).  A privacy level set by a profile shows the
+profile as its source.
+
+
+@node The profiles Subcommand
+@section The @command{profiles} Subcommand
+@cindex profiles subcommand
+
+@command{profiles} lists the built-in profiles and your own, with their
+mode, privacy level, description and file; @samp{*} marks the active one
+(@pxref{Profiles}).
+
+@example
+$ codebud profiles
+* default        ask, privacy private         Ask before each step; data stays where you chose.
+                 built in
+  unattended     full-auto, privacy trusted   Fully unattended: nothing is asked, steps are not isolated. The allow-list still applies.
+                 built in
+
+Your own profiles: /home/you/.config/codebud/profiles/<name>.toml
+@end example
 
 
 @node The version Subcommand
@@ -1078,12 +1102,13 @@ planner chose.  Cannot be combined with @option{--execute}.
 @section Global Options
 @cindex global options
 
-@option{--no-progress}, @option{--privacy} and @option{--verbose} belong
-to @command{codebud} itself, so they must come @emph{before} the
-subcommand name (@command{codebud chat -v} is rejected):
+@option{--no-progress}, @option{--privacy}, @option{--profile} and
+@option{--verbose} belong to @command{codebud} itself, so they must come
+@emph{before} the subcommand name (@command{codebud chat -v} is
+rejected):
 
 @example
-codebud [--no-progress] [--privacy @var{level}] [--verbose] @var{subcommand} ...
+codebud [--no-progress] [--privacy @var{level}] [--profile @var{name}] [--verbose] @var{subcommand} ...
 @end example
 
 @table @option
@@ -1095,6 +1120,11 @@ only the progress display is suppressed.
 What Codebud may reach for this run, overriding @file{config.toml}:
 @code{locked} keeps everything on this machine, @code{trusted} drops the
 privacy prompts (@pxref{Privacy Levels}).
+
+@item --profile @var{name}
+Start with this profile: its mode, privacy level, policy files and
+planner instructions.  Built in: @code{default} and @code{unattended}
+(@pxref{Profiles}).
 
 @item --verbose / -v
 Show step arguments in plans and, in @command{chat}, full step output
@@ -1152,6 +1182,10 @@ Default: @code{0}.
 @item CODEBUD_PRIVACY
 @code{locked}, @code{private} (default) or @code{trusted}: what Codebud may
 reach (@pxref{Privacy Levels}).
+
+@item CODEBUD_PROFILE
+The profile to start with, by name (@pxref{Profiles}).  Default:
+@code{default}.
 
 @item CODEBUD_SESSION_RETENTION_DAYS
 Default: @code{0} (keep sessions forever).  A positive number makes each

@@ -7,6 +7,7 @@ directory codebud is started from.
 - Runtime data (memory, sessions, project indexes):
       $XDG_DATA_HOME/codebud            (default ~/.local/share/codebud)
 - Policy files (harmless/powerful commands, trusted sequences), first found:
+      the active profile's policy directory, if it has one (profiles.py)
       <project>/.codebud/               nearest one at or above the cwd
       $XDG_CONFIG_HOME/codebud          (default ~/.config/codebud)
       the defaults shipped with codebud
@@ -35,6 +36,9 @@ _SOURCE_ROOT = _PACKAGE_DIR.parent.parent
 # legacy_data_dir(). Tests set it (and CODEBUD_LEGACY_DATA_DIR) to an empty
 # temporary directory.
 LEGACY_DATA_DIR: Path | None = None
+
+# The active profile's policy directory (set by profiles.activate()).
+PROFILE_POLICY_DIR: Path | None = None
 
 
 def _xdg(var: str, fallback: str) -> Path:
@@ -65,7 +69,7 @@ def project_config_dir(start: Path | str | None = None) -> Path | None:
 def policy_file(name: str, start: Path | str | None = None) -> Path:
     """Return the policy file ``name`` that applies, by precedence."""
     project = project_config_dir(start)
-    for directory in (project, config_dir()):
+    for directory in (PROFILE_POLICY_DIR, project, config_dir()):
         if directory is not None and (directory / name).is_file():
             return directory / name
     return PACKAGED_POLICY_DIR / name

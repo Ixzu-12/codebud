@@ -12,6 +12,7 @@ keeps its files.
 * Configuration File::              The same settings in config.toml.
 * LLM Backend Variables::           Choosing Ollama or OpenAI.
 * Privacy Levels::                  locked, private, trusted.
+* Profiles::                        Mode, privacy, policy and prompt in one name.
 * Isolated Steps::                  No network, project-only writes, secrets hidden.
 * Feature Flags::                   Enabling optional features.
 * Policy JSON Files::               The three safety configuration files.
@@ -75,6 +76,9 @@ off (@pxref{Files and Directories}).
 @tab @code{private}
 @tab What Codebud may reach: @code{locked}, @code{private} or
 @code{trusted} (@pxref{Privacy Levels}).
+@item @env{CODEBUD_PROFILE}
+@tab @code{default}
+@tab The profile to start with (@pxref{Profiles}).
 @item @env{CODEBUD_SESSION_RETENTION_DAYS}
 @tab @code{0}
 @tab Delete chat sessions not used for this many days when a chat starts.
@@ -173,6 +177,7 @@ from, highest first:
 @item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
 @item @code{session_retention_days} @tab @env{CODEBUD_SESSION_RETENTION_DAYS} @tab integer (user file only)
 @item @code{privacy} @tab @env{CODEBUD_PRIVACY} @tab @code{"locked"} / @code{"private"} / @code{"trusted"} (user file only)
+@item @code{profile} @tab @env{CODEBUD_PROFILE} @tab a profile name (user file only)
 @end multitable
 
 @cindex egress settings
@@ -346,6 +351,75 @@ saved with.
 codebud --privacy locked chat                 @r{# for this session}
 codebud --privacy trusted run --yes "..."     @r{# a trusted script}
 @end example
+
+@noindent
+A profile sets the mode and the level together (@pxref{Profiles}).
+
+
+@node Profiles
+@section Profiles
+@cindex profiles
+@cindex CODEBUD_PROFILE
+@cindex unattended profile
+
+A @dfn{profile} names a combination of the two dials and what goes with
+them: the mode (how much Codebud asks), the privacy level (what it may
+reach), optionally a directory of policy files and extra instructions for
+the planner.  Two are built in:
+
+@table @code
+@item default
+@code{ask} mode, privacy @code{private}: Codebud asks before each step in
+@command{chat}, and command steps run isolated.
+
+@item unattended
+@code{full-auto} mode, privacy @code{trusted}: nothing is asked ---
+@command{run} and @command{plan --execute} behave as with @option{--yes}
+--- and command steps are not isolated.  For CI jobs and machines you
+trust.  The allow-list and the refused arguments still apply.
+@end table
+
+@noindent
+Choose one with the global option @option{--profile}, with
+@code{/profile @var{name}} in @command{chat}, with @env{CODEBUD_PROFILE},
+or with @code{profile = "@var{name}"} in your own @file{config.toml}:
+
+@example
+codebud --profile unattended run "fix the failing test"
+codebud profiles                    @r{# list them; * marks the active one}
+@end example
+
+@noindent
+What you say explicitly still wins over the profile: @option{--privacy}
+and @env{CODEBUD_PRIVACY} over its level, @option{--mode} over its mode,
+@option{-i} over a @code{full-auto} profile.  The profile wins over
+@code{privacy} in @file{config.toml}.  It is announced when a command
+starts (unless it is @code{default}), shown in the chat toolbar and
+recorded in the session file; like the privacy level, a resumed session
+does not bring its profile back.
+
+@subheading Your own profiles
+
+A profile is a TOML file, @file{~/.config/codebud/profiles/@var{name}.toml}
+(@env{XDG_CONFIG_HOME}); one named like a built-in replaces it.  Every
+key is optional:
+
+@example
+description = "Review only: edit files, no commands, nothing leaves"
+mode = "edit"                 # ask, auto, full-auto, plan, edit
+privacy = "locked"            # locked, private, trusted
+policy = "review-policy"      # directory, relative to this file
+prompt = "Never modify files under tests/."
+@end example
+
+@noindent
+@code{policy} names a directory holding any of the policy files
+(@pxref{Policy JSON Files}); those it has are used first, before the
+project's, yours and the shipped ones.  @code{prompt} is added to every
+planner prompt.  A profile file with a mistake --- an unknown key, a mode
+or level that does not exist, a missing policy directory --- is refused
+with a message rather than half applied.  A project cannot define or
+choose a profile, since a profile can lower the privacy level.
 
 
 @node Isolated Steps

@@ -92,9 +92,15 @@ class _ChatCheckpoint:
             if not history and not force:
                 return
             self.session = sessions.Session.create()
-        from codebud import privacy
+        from codebud import privacy, profiles
 
-        self.session.save(history, self.agent.get_model(), mode=mode, privacy=privacy.level())
+        self.session.save(
+            history,
+            self.agent.get_model(),
+            mode=mode,
+            privacy=privacy.level(),
+            profile=profiles.active().name,
+        )
         self._saved = (history, mode)
 
     def close(self) -> None:
@@ -186,6 +192,26 @@ def _slash_privacy(state: ChatState, rest: str) -> None:
         common.announce_privacy()
     print_status(
         f"Privacy: {privacy.level()}  (choose with /privacy <name>: {', '.join(privacy.LEVELS)})\n"
+    )
+
+
+def _slash_profile(state: ChatState, rest: str) -> None:
+    from codebud import profiles
+
+    if rest:
+        try:
+            profile = profiles.get(rest.strip())
+        except profiles.ProfileError as exc:
+            print_status(f"{exc}\n")
+            return
+        profiles.activate(profile, "/profile", explicit=True)
+        state.agent.reload_policy()  # the profile's policy files
+        state.agent.set_mode(profile.mode)
+        common.announce_privacy()
+    profile = profiles.active()
+    print_status(
+        f"Profile: {profile.name} ({profile.summary()})  "
+        f"(choose with /profile <name>: {', '.join(profiles.available())})\n"
     )
 
 
@@ -343,6 +369,7 @@ SLASH_HANDLERS = {
     "/save": _slash_save,
     "/mode": _slash_mode,
     "/privacy": _slash_privacy,
+    "/profile": _slash_profile,
     "/rag": _slash_rag,
     "/sources": _slash_sources,
     "/index": _slash_index,
@@ -462,8 +489,8 @@ def cmd_chat(args):
     apply_retention()  # after the resumed session is locked, so it is kept
 
     agent = common.make_agent()
-    if resumed is not None and resumed.mode:
-        agent.set_mode(resumed.mode)
+    if resumed is not None and resumed.mode and not args.profile:
+        agent.set_mode(resumed.mode)  # unless --profile chose the mode
     if args.mode:
         agent.set_mode(args.mode)  # an explicit --mode wins over the session's
     print(

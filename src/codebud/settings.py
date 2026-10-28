@@ -68,6 +68,8 @@ SETTINGS = [
     Setting("web_search", "WEB_SEARCH_ENABLED", False, bool, egress=True),
     Setting("mask_secrets", "CODEBUD_MASK_SECRETS", True, bool, protective=True),
     Setting("privacy", "CODEBUD_PRIVACY", "private", str, protective=True),
+    # A profile can lower the privacy level, so a project may not choose one.
+    Setting("profile", "CODEBUD_PROFILE", "default", str, protective=True),
     # 0 keeps sessions forever (decision D12e); a project file must not be
     # able to delete the user's sessions, hence protective.
     Setting("session_retention_days", "CODEBUD_SESSION_RETENTION_DAYS", 0, int, protective=True),
@@ -164,11 +166,32 @@ def apply() -> None:
             _applied[env] = (value, source)
 
 
+def from_environment(env: str) -> bool:
+    """Whether ``env`` was set outside codebud (not from a file or profile)."""
+    if env not in os.environ:
+        return False
+    applied = _applied.get(env)
+    return applied is None or applied[0] != os.environ[env]
+
+
+def set_value(env: str, value: str, source: str) -> None:
+    """Set ``env`` to ``value``, shown as coming from ``source``."""
+    os.environ[env] = value
+    _applied[env] = (value, source)
+
+
+def set_default(env: str, value: str, source: str) -> None:
+    """Like set_value(), unless the environment already sets ``env``."""
+    if not from_environment(env):
+        set_value(env, value, source)
+
+
 def resolve() -> dict[str, tuple[object, str]]:
     """{env var: (value, source)} for every setting, as codebud sees it now.
 
-    The source is "environment", "project config", "user config" or
-    "default"; values apply() copied in keep their file as the source.
+    The source is "environment", "project config", "user config",
+    "default", or what set it (a profile, --privacy); values apply()
+    copied in keep their file as the source.
     """
     files = _file_values()
     resolved = {}

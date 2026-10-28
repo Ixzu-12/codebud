@@ -33,6 +33,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from . import profiles
 from .llm_stub import LLMUnavailable, call_llm, num_ctx
 from .modes import prompt_note, step_allowed
 
@@ -259,7 +260,7 @@ User: "order me a pizza"
         tool_descriptions = self.tool_registry.describe_tools()
         safety_rules = self.safety_engine.describe_rules()
         history_block = self._format_history(history)
-        mode_block = prompt_note(getattr(self.safety_engine, "mode", ""))
+        mode_block = prompt_note(getattr(self.safety_engine, "mode", "")) + profiles.prompt_note()
 
         return f"""\
 You are a precise coding-agent planner. Your ONLY job is to output a JSON plan.

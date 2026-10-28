@@ -167,7 +167,8 @@ arguments and the confirmation of powerful commands always apply.
 
 Fully unattended work is always possible: @code{full-auto} mode asks
 nothing, at the default level too; @code{trusted} additionally drops
-isolation.  The level in effect is announced, shown in the toolbar and
+isolation.  The built-in profile @code{unattended} sets both
+(@option{--profile unattended}, @pxref{Profiles}).  The level in effect is announced, shown in the toolbar and
 recorded in the session file; a resumed session never silently becomes
 @code{trusted}.
 

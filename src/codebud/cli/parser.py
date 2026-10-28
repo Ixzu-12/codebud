@@ -19,6 +19,7 @@ KNOWN_SUBCOMMANDS = {
     "skill",
     "models",
     "config",
+    "profiles",
     "version",
 }
 
@@ -39,6 +40,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="What codebud may reach: locked (nothing leaves this machine), private "
         "(default), trusted (unattended: no egress prompts). Overrides config.toml.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="NAME",
+        help="Start with this profile: its mode, privacy level, policy and prompt "
+        "(built in: default, unattended; see `codebud profiles`).",
     )
     parser.add_argument(
         "--verbose",
@@ -205,6 +213,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # config
     sub.add_parser("config", help="Show resolved configuration.")
+
+    # profiles
+    sub.add_parser("profiles", help="List the profiles (built in and your own).")
 
     # version
     sub.add_parser("version", help="Show version information.")

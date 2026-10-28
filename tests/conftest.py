@@ -27,6 +27,15 @@ def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     monkeypatch.setenv("CODEBUD_EMBED_STUB", "1")
     # The developer's own backend choice must not change test results.
     monkeypatch.delenv("CODEBUD_BACKEND", raising=False)
+    # Nor their privacy level or profile; and main() activating a profile
+    # in one test must not leak into the next.
+    from codebud import profiles, settings
+
+    monkeypatch.delenv("CODEBUD_PRIVACY", raising=False)
+    monkeypatch.delenv("CODEBUD_PROFILE", raising=False)
+    monkeypatch.setattr(profiles, "_active", profiles.BUILTIN[profiles.DEFAULT])
+    monkeypatch.setattr(paths, "PROFILE_POLICY_DIR", None)
+    monkeypatch.setattr(settings, "_applied", {})
 
     # doctor's RAM check reads /proc/meminfo; with a model loaded the real
     # machine can be "low on RAM" and break unrelated doctor tests. Tests

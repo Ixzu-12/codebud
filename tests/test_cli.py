@@ -732,6 +732,33 @@ class TestSubcommandRouting:
         self._run_main(["run", flag, "do something"])
         assert agent.executor.execute_plan.call_count == 2
 
+    def test_unattended_profile_runs_without_asking(self, monkeypatch, capsys):
+        """--profile unattended: full-auto, so run asks nothing (phase 10)."""
+        import os
+
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
+        monkeypatch.setattr("builtins.input", lambda p="": pytest.fail("asked"))
+        assert self._run_main(["--profile", "unattended", "run", "do something"]) == 0
+        assert agent.executor.execute_plan.call_count == 2
+        assert os.environ["CODEBUD_PRIVACY"] == "trusted"
+        assert "Profile: unattended (full-auto, privacy trusted)" in capsys.readouterr().err
+
+    def test_interactive_beats_an_unattended_profile(self, monkeypatch):
+        agent = self._fake_agent_with_plan(self._powerful_plan())
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: agent)
+        monkeypatch.setattr("codebud.cli.common.no_progress", lambda _: True)
+        prompts = []
+        monkeypatch.setattr("builtins.input", lambda p="": prompts.append(p) or "n")
+        self._run_main(["--profile", "unattended", "run", "-i", "do something"])
+        assert len(prompts) == 2 and agent.executor.execute_plan.call_count == 0
+
+    def test_unknown_profile_exits_2(self, monkeypatch, capsys):
+        monkeypatch.setattr("codebud.cli.common.make_agent", lambda: pytest.fail("built"))
+        assert self._run_main(["--profile", "nope", "run", "x"]) == 2
+        assert "no profile 'nope'" in capsys.readouterr().err
+
     def test_plan_execute_asks_like_run(self, monkeypatch, capsys):
         """plan -x used to run powerful steps and web searches unasked."""
         agent = self._fake_agent_with_plan(self._powerful_plan())
@@ -1077,6 +1104,9 @@ class FakeChatAgent:
 
     def get_model(self):
         return self._model
+
+    def reload_policy(self):
+        self.policy_reloads = getattr(self, "policy_reloads", 0) + 1
 
     def get_mode(self):
         return getattr(self, "_mode", "ask")
@@ -1769,3 +1799,31 @@ class TestChatPrivacy(_ChatHarness):
     def test_help_lists_privacy(self, monkeypatch, capsys):
         self._run_chat(monkeypatch, ["/help"])
         assert "/privacy" in capsys.readouterr().err
+
+
+class TestChatProfile(_ChatHarness):
+    def test_profile_command_shows_and_switches(self, monkeypatch, capsys):
+        import os
+
+        agent = self._run_chat(monkeypatch, ["/profile", "/profile unattended", "/profile nope"])
+        err = capsys.readouterr().err
+        assert "Profile: default (ask, privacy private)" in err
+        assert "Profile: unattended (full-auto, privacy trusted)" in err
+        assert "no profile 'nope'" in err
+        assert agent.get_mode() == "full-auto" and agent.policy_reloads == 1
+        assert os.environ["CODEBUD_PRIVACY"] == "trusted"
+
+    def test_profile_flag_sets_the_starting_mode(self, monkeypatch, capsys):
+        # The fake agent is built before main() runs, so make_agent's
+        # set_mode is replaced by this check of the active profile.
+        from codebud import profiles
+
+        self._run_chat(monkeypatch, ["quit"], extra_argv=[])
+        assert profiles.active().name == "default"
+        with patch.object(sys, "argv", ["codebud", "--profile", "unattended", "profiles"]):
+            from codebud.cli import main as run_agent
+
+            run_agent.main()
+        assert profiles.active().name == "unattended"
+        out = capsys.readouterr().out
+        assert "* unattended" in out and "full-auto, privacy trusted" in out

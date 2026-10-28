@@ -312,6 +312,23 @@ def cmd_config(_args):
         print(f"  {_OUT_DIM}{name:<24}{_OUT_RESET} = {policy_file(name)}")
 
 
+def cmd_profiles(_args):
+    from codebud import profiles
+    from codebud.cli.display import _OUT_BOLD, _OUT_DIM, _OUT_RESET
+
+    current = profiles.active().name
+    for name in profiles.available():
+        try:
+            profile = profiles.get(name)
+        except profiles.ProfileError as exc:
+            print(f"  {name:<14} {_OUT_DIM}unusable: {exc}{_OUT_RESET}")
+            continue
+        mark = f"{_OUT_BOLD}*{_OUT_RESET}" if name == current else " "
+        print(f"{mark} {name:<14} {profile.summary():<28} {profile.description}")
+        print(f"  {'':<14} {_OUT_DIM}{profile.source}{_OUT_RESET}")
+    print(f"\nYour own profiles: {profiles.profile_dir()}/<name>.toml")
+
+
 def cmd_version(_args):
     import requests as _req
 

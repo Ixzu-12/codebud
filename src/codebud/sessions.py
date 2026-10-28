@@ -140,6 +140,7 @@ class Session:
         self.model: str = data.get("model", "")
         self.mode: str = data.get("mode", "")
         self.privacy: str = data.get("privacy", "")
+        self.profile: str = data.get("profile", "")
         self.history: list[dict[str, str]] = list(data.get("history", []))
         self._lock = lock
 
@@ -190,7 +191,12 @@ class Session:
     # ------------------------------------------------------------------
 
     def save(
-        self, history: list[dict[str, str]], model: str, mode: str = "", privacy: str = ""
+        self,
+        history: list[dict[str, str]],
+        model: str,
+        mode: str = "",
+        privacy: str = "",
+        profile: str = "",
     ) -> None:
         """Checkpoint ``history``, ``model`` and agent ``mode`` atomically.
 
@@ -201,8 +207,9 @@ class Session:
         self.model = model
         self.mode = mode
         # Recorded so a session can be reviewed; never restored on resume
-        # (a resumed chat must not silently become "trusted").
+        # (a resumed chat must not silently become "trusted"), like the profile.
         self.privacy = privacy
+        self.profile = profile
         self.updated = _now_iso()
         self._write()
 
@@ -237,6 +244,7 @@ class Session:
             "model": self.model,
             "mode": self.mode,
             "privacy": self.privacy,
+            "profile": self.profile,
             "history": self.history,
         }
         atomic_write_text(_path(self.id), json.dumps(data, indent=2) + "\n")

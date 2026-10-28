@@ -30,6 +30,7 @@ Subcommands
   skill           Show or install codebud's skill for other agents
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
+  profiles        List profiles (--profile NAME chooses one)
   version         Print version information
 
 Backwards compatibility: `codebud "some request"` (no subcommand) works
@@ -46,6 +47,7 @@ from codebud.cli.admin import (
     cmd_history,
     cmd_index,
     cmd_models,
+    cmd_profiles,
     cmd_sessions,
     cmd_skill,
     cmd_version,
@@ -53,6 +55,21 @@ from codebud.cli.admin import (
 from codebud.cli.chat import cmd_chat
 from codebud.cli.parser import KNOWN_SUBCOMMANDS, build_parser
 from codebud.cli.run import cmd_plan, cmd_run
+
+
+def _activate_profile(flag: str | None) -> bool:
+    """Activate the profile --profile, CODEBUD_PROFILE or config.toml names."""
+    from codebud import profiles, settings
+
+    name, source = settings.resolve()["CODEBUD_PROFILE"]
+    if flag:
+        name, source = flag, "--profile"
+    try:
+        profiles.activate(profiles.get(name), source)
+    except profiles.ProfileError as exc:
+        print(f"codebud: {exc}", file=sys.stderr)
+        return False
+    return True
 
 
 def main():
@@ -69,9 +86,12 @@ def main():
 
     parser = build_parser()
     args = parser.parse_args(argv)
+    if not _activate_profile(args.profile):
+        sys.exit(2)
     if args.privacy:
-        os.environ["CODEBUD_PRIVACY"] = args.privacy
+        settings.set_value("CODEBUD_PRIVACY", args.privacy, "--privacy")
     if args.subcommand in ("run", "plan", "chat"):
+        common.announce_profile()
         common.announce_privacy()
         common.announce_backend()
     if getattr(args, "no_rag", False):
@@ -99,6 +119,7 @@ def main():
         "skill": cmd_skill,
         "models": cmd_models,
         "config": cmd_config,
+        "profiles": cmd_profiles,
         "version": cmd_version,
     }
 

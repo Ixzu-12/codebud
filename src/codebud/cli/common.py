@@ -13,9 +13,12 @@ import sys
 
 
 def make_agent():
+    from codebud import profiles
     from codebud.core import AgentCore
 
-    return AgentCore()
+    agent = AgentCore()
+    agent.set_mode(profiles.active().mode)
+    return agent
 
 
 def no_progress(args) -> bool:
@@ -58,6 +61,26 @@ def apply_model_override(args) -> bool:
 
     os.environ["OLLAMA_MODEL"] = requested
     return True
+
+
+def announce_profile() -> None:
+    """Say on stderr which profile is active, when it is not the default."""
+    from codebud import profiles
+    from codebud.cli.display import print_status
+
+    profile = profiles.active()
+    if profile.name != profiles.DEFAULT:
+        print_status(f"Profile: {profile.name} ({profile.summary()})")
+
+
+def unattended(args) -> bool:
+    """Whether run / plan --execute should ask nothing: --yes, or a
+    full-auto profile (unless -i asks for every step)."""
+    from codebud import profiles
+
+    if getattr(args, "interactive", False):
+        return False
+    return args.yes or profiles.active().mode == "full-auto"
 
 
 def announce_privacy() -> None:

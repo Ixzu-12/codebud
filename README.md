@@ -132,6 +132,21 @@ num_ctx = 16384
 anything that sends data off the machine (the Ollama URL, OpenAI key, web
 search).
 
+### Profiles
+
+A profile sets the mode (how much codebud asks) and the privacy level (what
+it may reach) in one name. `default` asks before each step and isolates
+commands; `unattended` asks nothing, for CI and machines you trust (the
+allow-list still applies):
+
+```sh
+codebud --profile unattended run "fix the failing test"
+codebud profiles          # list built-in and your own
+```
+
+Your own go in `~/.config/codebud/profiles/<name>.toml` (`mode`, `privacy`,
+`policy`, `prompt`, `description`); `/profile <name>` switches in chat.
+
 ## Environment variables
 
 | Variable | Default | Purpose |
@@ -146,6 +161,7 @@ search).
 | `CODEBUD_ALLOW_REMOTE_HTTP` | `0` | `1` allows a remote `OLLAMA_BASE_URL` over plain http (else refused) |
 | `CODEBUD_SESSION_RETENTION_DAYS` | `0` | Delete sessions unused for N days when chat starts (0 = keep forever) |
 | `CODEBUD_PRIVACY` | `private` | `locked` keeps everything on this machine; `trusted` drops privacy prompts |
+| `CODEBUD_PROFILE` | `default` | Profile to start with (`codebud profiles` lists them) |
 | `CODEBUD_MASK_SECRETS` | `1` | Mask API keys, tokens, passwords as `[redacted]` in saved sessions/history |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |
