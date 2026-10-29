@@ -251,8 +251,11 @@ key itself.
 @end table
 
 @noindent
-The directory is 0700 and both files 0600.  @command{key init} refuses to
-replace an existing key, since data encrypted to it would become
+The directory is 0700 and both files 0600.  A new passphrase must be at
+least 12 characters: unlocking is deliberately slow (about a second per
+try), but a short passphrase still falls to someone patient who has a
+copy of @file{identity.age}; several unrelated words make a good one.
+@command{key init} refuses to replace an existing key, since data encrypted to it would become
 unreadable.  @command{key passwd} re-seals the same key with a new
 passphrase, so everything already encrypted stays readable.
 

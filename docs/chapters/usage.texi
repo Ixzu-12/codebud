@@ -952,8 +952,8 @@ Your own profiles: /home/you/.config/codebud/profiles/<name>.toml
 @table @command
 @item codebud key init
 Create the key in @file{~/.config/codebud/keys/}, sealed with a new
-passphrase typed twice (or taken from @env{CODEBUD_PASSPHRASE}).  Refuses
-if a key already exists.
+passphrase of at least 12 characters, typed twice (or taken from
+@env{CODEBUD_PASSPHRASE}).  Refuses if a key already exists.
 @item codebud key passwd
 Change the passphrase: asks for the current one, then the new one twice.
 The key, and so everything encrypted with it, stays the same.

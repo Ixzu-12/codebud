@@ -43,34 +43,28 @@ def _codebud(*argv):
 
 
 def test_init_asks_twice_and_creates_the_key(typed, capsys):
-    typed += ["s3cret", "s3cret"]
+    typed += ["correct horse battery", "correct horse battery"]
     assert _codebud("key", "init") == 0
     assert crypto.has_key()
     out = capsys.readouterr().out
     assert crypto.recipient() in out
     assert "cannot be recovered" in out
     crypto.lock()
-    crypto.unlock("s3cret")
+    crypto.unlock("correct horse battery")
 
 
 def test_init_refuses_mismatched_passphrases(typed, capsys):
-    typed += ["one", "two"]
+    typed += ["first long passphrase", "second long passphrase"]
     assert _codebud("key", "init") == 1
     assert not crypto.has_key()
     assert "do not match" in capsys.readouterr().err
 
 
-def test_init_refuses_an_empty_passphrase(typed, capsys):
-    typed += [""]
-    assert _codebud("key", "init") == 1
-    assert not crypto.has_key()
-
-
 def test_init_uses_the_environment_passphrase(monkeypatch, capsys):
-    monkeypatch.setenv("CODEBUD_PASSPHRASE", "unattended")
+    monkeypatch.setenv("CODEBUD_PASSPHRASE", "unattended run passphrase")
     assert _codebud("key", "init") == 0
     crypto.lock()
-    crypto.unlock("unattended")
+    crypto.unlock("unattended run passphrase")
 
 
 def test_init_refuses_to_replace_a_key(typed, capsys):
@@ -83,9 +77,9 @@ def test_passwd_changes_the_passphrase(typed, capsys):
     crypto.create_key("old")
     sealed = crypto.encrypt(b"data")
     crypto.lock()
-    typed += ["old", "new", "new"]
+    typed += ["old", "a new long passphrase", "a new long passphrase"]
     assert _codebud("key", "passwd") == 0
-    crypto.unlock("new")
+    crypto.unlock("a new long passphrase")
     assert crypto.decrypt(sealed) == b"data"
 
 
@@ -159,3 +153,28 @@ def test_doctor_reports_the_key():
     crypto.create_key("pw")
     passed, label, _ = doctor.check_encryption()
     assert passed is True and "encrypt = true" in label
+
+
+# --- passphrase strength (audit L5) -----------------------------------------
+
+
+@pytest.mark.parametrize("short", ["", "s3cret", "elevenchars"])
+def test_init_refuses_a_short_passphrase(typed, capsys, short):
+    typed += [short, short]
+    assert _codebud("key", "init") == 1
+    assert "at least 12 characters" in capsys.readouterr().err
+    assert not crypto.has_key()
+
+
+def test_init_refuses_a_short_environment_passphrase(monkeypatch, capsys):
+    monkeypatch.setenv("CODEBUD_PASSPHRASE", "short")
+    assert _codebud("key", "init") == 1
+    assert not crypto.has_key()
+
+
+def test_passwd_refuses_a_short_new_passphrase(typed, capsys):
+    crypto.create_key("old")
+    crypto.lock()
+    typed += ["old", "short"]
+    assert _codebud("key", "passwd") == 1
+    crypto.unlock("old")  # unchanged

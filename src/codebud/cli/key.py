@@ -22,15 +22,28 @@ def _fail(message: str) -> None:
     sys.exit(1)
 
 
+# The scrypt work factor makes each guess cost about a second, but a short
+# passphrase still falls to a patient attacker holding identity.age.
+MIN_PASSPHRASE = 12
+
+
+def _check_strength(passphrase: str) -> None:
+    if len(passphrase) < MIN_PASSPHRASE:
+        _fail(
+            f"the passphrase must be at least {MIN_PASSPHRASE} characters "
+            "(several unrelated words make a good one); nothing was changed"
+        )
+
+
 def _new_passphrase() -> str:
     """CODEBUD_PASSPHRASE when set, otherwise typed twice on the terminal."""
     from_env = crypto.passphrase_from_env()
     if from_env is not None:
         print(f"Using the passphrase in {crypto.PASSPHRASE_ENV}.")
+        _check_strength(from_env)
         return from_env
     first = crypto.ask_passphrase("New passphrase: ")
-    if not first:
-        _fail("the passphrase must not be empty")
+    _check_strength(first)
     if crypto.ask_passphrase("Repeat it: ") != first:
         _fail("the passphrases do not match; nothing was changed")
     return first
@@ -66,6 +79,7 @@ def _passwd() -> None:
     except crypto.CryptoError as exc:
         _fail(str(exc))
     first = crypto.ask_passphrase("New passphrase: ")
+    _check_strength(first)
     if crypto.ask_passphrase("Repeat it: ") != first:
         _fail("the passphrases do not match; nothing was changed")
     try:
