@@ -1,5 +1,9 @@
 # Codebud — Privacy-First, Local Coding Agent
 
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](COPYING)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Local / Ollama](https://img.shields.io/badge/backend-local%20Ollama-brightgreen.svg)](#quick-start)
+[![Codeberg](https://img.shields.io/badge/Codeberg-mirror-2185D0.svg)](https://codeberg.org/mkhellat/codebud)
 [![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/mkhellat/badge.svg)](https://hub.xerj.org/contributors/mkhellat)
 
 Codebud is a privacy-first, local coding agent that turns natural-language requests into
