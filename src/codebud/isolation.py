@@ -13,6 +13,8 @@ does), unprivileged:
   credentials, keyrings, .netrc and similar files, and codebud's own data,
   configuration (the encryption key) and runtime directory (decrypted index
   copies) -- wherever $XDG_* puts them;
+- the user's whole runtime directory (/run/user/<uid>: session D-Bus,
+  systemd, keyring, gpg and SSH agents) and the system bus (/run/dbus);
 - killed with codebud (--die-with-parent), in its own session.
 
 Without bwrap, `unshare --user --net` (util-linux) still cuts the network,
@@ -100,8 +102,29 @@ def codebud_dirs() -> list[Path]:
     return found
 
 
+def runtime_dirs() -> list[Path]:
+    """The user's runtime directory and the system bus, hidden whole.
+
+    /run/user/<uid> holds sockets a step could use to act outside the
+    sandbox: the session D-Bus (and through it systemd, which can start
+    programs outside it), the keyring, gpg-agent and the SSH agent;
+    /run/dbus the system bus (polkit lets local sessions do a lot). A
+    read-only bind does not help -- connecting to a socket is not a write
+    (security review C2, 2026-10-29).
+    """
+    found = []
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime:
+        found.append(Path(runtime))
+    found += [Path(f"/run/user/{os.getuid()}"), Path("/run/dbus")]
+    return found
+
+
 def hidden_dirs(home: Path) -> list[Path]:
-    return [*(home / name for name in HIDDEN_DIRS), *codebud_dirs()]
+    """Every directory a bwrap step gets an empty tmpfs over, outermost only."""
+    candidates = [*(home / name for name in HIDDEN_DIRS), *codebud_dirs(), *runtime_dirs()]
+    unique = list(dict.fromkeys(Path(os.path.realpath(p)) for p in candidates))
+    return [d for d in unique if not any(other != d and _contains(other, d) for other in unique)]
 
 
 def _contains(directory: Path, path: Path) -> bool:

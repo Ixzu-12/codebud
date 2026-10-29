@@ -466,6 +466,11 @@ fresh, private @file{/tmp};
 encryption key) and runtime directory (where a decrypted index copy
 lives), wherever @env{XDG_DATA_HOME}, @env{XDG_CONFIG_HOME} and
 @env{XDG_RUNTIME_DIR} put them;
+@item your whole runtime directory (@file{/run/user/@var{uid}}) and the
+system bus (@file{/run/dbus}): the sockets there --- the session D-Bus,
+and through it systemd, which can start programs outside the sandbox; the
+keyring; the gpg and SSH agents --- would let a step act outside it, and
+connecting to a socket is not a write a read-only file system stops;
 @item stopped together with Codebud.
 @end itemize
 

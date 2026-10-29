@@ -256,7 +256,8 @@ def test_wrap_hides_codebud_dirs_wherever_they_are(outside_tmp, project, home):
     hidden = {argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"}
     for path in outside_tmp.values():
         codebud_dir = next(p for p in path.parents if p.name == "codebud")
-        assert str(codebud_dir) in hidden
+        # hidden itself, or by a hidden parent (the whole runtime directory)
+        assert any(str(codebud_dir) == h or str(codebud_dir).startswith(h + "/") for h in hidden)
 
 
 def test_a_project_inside_a_codebud_dir_is_not_hidden(outside_tmp, home, monkeypatch):
@@ -275,3 +276,28 @@ def test_a_step_cannot_read_codebud_dirs(outside_tmp, project, home, what):
     result = Sandbox().run_command(f"cat {outside_tmp[what]}")
     assert "SECRET" not in result["stdout"]
     assert result["returncode"] != 0
+
+
+# --- the runtime directory and D-Bus (security review C2) -------------------
+
+
+def test_wrap_hides_the_whole_runtime_dir_and_the_system_bus(project, home, tmp_path, monkeypatch):
+    run = tmp_path / "run-user"
+    (run / "codebud").mkdir(parents=True)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(run))
+    argv = isolation.wrap(["true"], project, network=False, kind="bwrap")
+    hidden = [argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"]
+    assert str(run.resolve()) in hidden
+    assert str((run / "codebud").resolve()) not in hidden  # covered by its parent
+    if os.path.isdir("/run/dbus"):
+        assert "/run/dbus" in hidden
+
+
+@needs_bwrap
+@pytest.mark.skipif(
+    not os.path.exists(f"/run/user/{os.getuid()}/bus"), reason="no session D-Bus socket here"
+)
+def test_a_step_cannot_reach_the_session_bus(project, home):
+    bus = f"/run/user/{os.getuid()}/bus"
+    result = Sandbox().run_command(f"ls {bus}")
+    assert result["returncode"] != 0 and bus not in result["stdout"]

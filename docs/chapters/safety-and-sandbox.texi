@@ -254,6 +254,13 @@ breaks these rules is refused before it runs.  Within those limits they
 use your rights: a write inside the project is a real write.
 
 @item
+@strong{A network step shares more.}  A step that declares the network
+shares the host's network namespace, so besides the internet it can
+reach services listening on this machine (@code{localhost}) and
+abstract Unix sockets, such as an X11 display.  Steps that do not
+declare the network have neither.
+
+@item
 @strong{Network only where isolation works.}  With bubblewrap, command
 steps have no network unless they declare it; at privacy level
 @code{trusted}, or where isolation is unavailable at @code{private}, they
