@@ -1,10 +1,15 @@
 # Codebud — Privacy-First, Local Coding Agent
 
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/mkhellat/badge.svg)](https://hub.xerj.org/contributors/mkhellat)
+
 Codebud is a privacy-first, local coding agent that turns natural-language requests into
 executable plans using a locally-running LLM (Ollama + Qwen2.5-Coder).
 By default no data leaves your machine: no cloud model, no telemetry,
 isolated command steps and owner-only, secret-masked history (see the
 manual's Privacy chapter).
+
+Selected for the [XERJ Corpus Hub](https://hub.xerj.org/corpus/mkhellat--codebud)
+as reference memory for coding agents (approach-only under GPL-3.0).
 
 ## Quick start
 
