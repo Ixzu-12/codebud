@@ -10,8 +10,9 @@ does), unprivileged:
 - the file system read-only (--ro-bind / /), except the project
   directory, which stays writable, and a fresh /tmp;
 - the user's secrets hidden: ~/.ssh, ~/.gnupg, cloud and container
-  credentials, keyrings, .netrc and similar files, and codebud's own data
-  and configuration;
+  credentials, keyrings, .netrc and similar files, and codebud's own data,
+  configuration (the encryption key) and runtime directory (decrypted index
+  copies) -- wherever $XDG_* puts them;
 - killed with codebud (--die-with-parent), in its own session.
 
 Without bwrap, `unshare --user --net` (util-linux) still cuts the network,
@@ -21,6 +22,7 @@ once and runs them, "locked" refuses them. "trusted" never isolates.
 """
 
 import logging
+import os
 import shutil
 import subprocess
 from functools import lru_cache
@@ -41,8 +43,6 @@ HIDDEN_DIRS = (
     ".config/gcloud",
     ".config/gh",
     ".local/share/keyrings",
-    ".config/codebud",
-    ".local/share/codebud",
 )
 HIDDEN_FILES = (".netrc", ".pgpass", ".pypirc", ".npmrc", ".git-credentials")
 
@@ -87,6 +87,32 @@ def describe(kind: str | None) -> str:
     }[kind]
 
 
+def codebud_dirs() -> list[Path]:
+    """Where codebud keeps what steps must not read, wherever XDG puts it:
+    its data, its configuration (the encryption key), and the runtime
+    directory holding decrypted index copies."""
+    from codebud import paths
+
+    found = [paths.data_dir(), paths.config_dir()]
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime:
+        found.append(Path(runtime) / "codebud")
+    return found
+
+
+def hidden_dirs(home: Path) -> list[Path]:
+    return [*(home / name for name in HIDDEN_DIRS), *codebud_dirs()]
+
+
+def _contains(directory: Path, path: Path) -> bool:
+    """Whether ``path`` is ``directory`` or inside it (never hide the project)."""
+    try:
+        Path(path).resolve().relative_to(directory.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def wrap(argv: list[str], project: Path, network: bool, kind: str) -> list[str]:
     """``argv`` wrapped for ``kind`` of isolation."""
     if kind == "unshare":
@@ -101,9 +127,9 @@ def wrap(argv: list[str], project: Path, network: bool, kind: str) -> list[str]:
     wrapped += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
     # After the /tmp tmpfs, so a project under /tmp is still there.
     wrapped += ["--bind", str(project), str(project)]
-    for name in HIDDEN_DIRS:
-        if (home / name).is_dir():
-            wrapped += ["--tmpfs", str(home / name)]
+    for directory in hidden_dirs(home):
+        if directory.is_dir() and not _contains(directory, project):
+            wrapped += ["--tmpfs", str(directory)]
     for name in HIDDEN_FILES:
         if (home / name).is_file():
             wrapped += ["--ro-bind", "/dev/null", str(home / name)]

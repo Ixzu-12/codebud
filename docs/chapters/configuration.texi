@@ -462,7 +462,10 @@ fresh, private @file{/tmp};
 @item your secrets hidden: @file{~/.ssh}, @file{~/.gnupg}, @file{~/.aws},
 @file{~/.kube}, @file{~/.docker}, keyrings, @file{~/.password-store},
 @file{.netrc}, @file{.pgpass}, @file{.pypirc}, @file{.npmrc},
-@file{.git-credentials}, and Codebud's own data and configuration;
+@file{.git-credentials}, and Codebud's own data, configuration (with the
+encryption key) and runtime directory (where a decrypted index copy
+lives), wherever @env{XDG_DATA_HOME}, @env{XDG_CONFIG_HOME} and
+@env{XDG_RUNTIME_DIR} put them;
 @item stopped together with Codebud.
 @end itemize
 

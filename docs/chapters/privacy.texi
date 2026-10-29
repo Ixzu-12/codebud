@@ -450,10 +450,12 @@ key with it, and an index in use has its decrypted copy in
 @env{XDG_RUNTIME_DIR} --- memory, not disk, unless the system swaps it
 out: use encrypted swap (or none) if that matters to you.  Python cannot
 wipe the key from memory when it is done with it.  What your approved
-steps write into your project is not Codebud's to encrypt.  Command
-steps cannot read the key: isolation hides Codebud's configuration
-directory from them (@pxref{Isolated Steps}), and their environment
-never holds the passphrase.
+steps write into your project is not Codebud's to encrypt.  Isolated
+command steps cannot read the key or a decrypted index copy: isolation
+hides Codebud's configuration, data and runtime directories from them
+(@pxref{Isolated Steps}), and their environment never holds the
+passphrase.  Steps that are not isolated (privacy @code{trusted}, or no
+bubblewrap) run with your rights and could read whatever you can.
 
 @item
 @strong{Some facts about your data stay visible.}  File names, sizes and

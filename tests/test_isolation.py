@@ -217,3 +217,61 @@ def test_doctor_reports_isolation(monkeypatch):
 def test_home_is_resolved_at_call_time(project, home):
     assert str(home / ".ssh") in isolation.wrap(["ls"], project, network=False, kind="bwrap")
     assert os.environ["HOME"] == str(home)
+
+
+# --- codebud's own directories, wherever they are (follow-up to the audit) --
+
+
+@pytest.fixture
+def outside_tmp(monkeypatch):
+    """codebud's data, config and runtime dirs outside /tmp (bwrap replaces
+    /tmp, which would hide them even without the fix)."""
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    try:
+        base = Path(tempfile.mkdtemp(prefix="codebud-iso-", dir="/var/tmp"))
+    except OSError:
+        pytest.skip("no writable /var/tmp")
+    for sub in ("data", "config", "run"):
+        (base / sub).mkdir(mode=0o700)
+    monkeypatch.setenv("XDG_DATA_HOME", str(base / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(base / "config"))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(base / "run"))
+    secrets = {
+        "data": base / "data" / "codebud" / "sessions" / "s.json",
+        "key": base / "config" / "codebud" / "keys" / "identity.age",
+        "copy": base / "run" / "codebud" / "index-1-x" / "index.sqlite3",
+    }
+    for path in secrets.values():
+        path.parent.mkdir(parents=True)
+        path.write_text("SECRET")
+    yield secrets
+    shutil.rmtree(base)
+
+
+def test_wrap_hides_codebud_dirs_wherever_they_are(outside_tmp, project, home):
+    argv = isolation.wrap(["true"], project, network=False, kind="bwrap")
+    hidden = {argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"}
+    for path in outside_tmp.values():
+        codebud_dir = next(p for p in path.parents if p.name == "codebud")
+        assert str(codebud_dir) in hidden
+
+
+def test_a_project_inside_a_codebud_dir_is_not_hidden(outside_tmp, home, monkeypatch):
+    from pathlib import Path
+
+    project = Path(os.environ["XDG_DATA_HOME"]) / "codebud" / "proj"
+    project.mkdir()
+    argv = isolation.wrap(["true"], project, network=False, kind="bwrap")
+    hidden = {argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"}
+    assert str(Path(os.environ["XDG_DATA_HOME"]) / "codebud") not in hidden
+
+
+@needs_bwrap
+@pytest.mark.parametrize("what", ["data", "key", "copy"])
+def test_a_step_cannot_read_codebud_dirs(outside_tmp, project, home, what):
+    result = Sandbox().run_command(f"cat {outside_tmp[what]}")
+    assert "SECRET" not in result["stdout"]
+    assert result["returncode"] != 0
