@@ -74,13 +74,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install build tools, Texinfo and Python modules
+      - name: Install build tools and Texinfo
         run: |
-          dnf -y install \
-            autoconf automake texinfo make gcc \
-            python3 python3-pip \
-            python3-requests python3-prompt_toolkit python3-pytest \
-            python3-numpy python3-pyrage
+          dnf -y install autoconf automake texinfo make gcc python3 python3-pip
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install \
+            "requests>=2.28" "prompt_toolkit>=3.0" "pytest>=8.0" \
+            "numpy>=1.24" "pyrage>=1.2"
 
       - name: bootstrap, configure, make, make check
         run: |
@@ -104,12 +107,12 @@ jobs:
         with:
           usesh: true
           prepare: |
-            pkg install -y \
-              autoconf automake texinfo gmake \
-              python311 py311-pip \
-              py311-requests py311-prompt-toolkit py311-pytest py311-numpy
+            pkg install -y autoconf automake texinfo gmake python3 py3-pip
+            python3 -m pip install \
+              "requests>=2.28" "prompt_toolkit>=3.0" "pytest>=8.0" \
+              "numpy>=1.24" "pyrage>=1.2"
           run: |
             ./bootstrap
-            ./configure PYTHON="$(command -v python3.11)"
+            ./configure PYTHON="$(command -v python3)"
             gmake
             gmake check
