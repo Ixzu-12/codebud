@@ -252,10 +252,13 @@ def outside_tmp(monkeypatch):
 
 
 def test_wrap_hides_codebud_dirs_wherever_they_are(outside_tmp, project, home):
+    from pathlib import Path
+
     argv = isolation.wrap(["true"], project, network=False, kind="bwrap")
-    hidden = {argv[i + 1] for i, a in enumerate(argv) if a == "--tmpfs"}
+    # wrap() resolves paths (macOS: /var/tmp -> /private/var/tmp); compare resolved.
+    hidden = {str(Path(argv[i + 1]).resolve()) for i, a in enumerate(argv) if a == "--tmpfs"}
     for path in outside_tmp.values():
-        codebud_dir = next(p for p in path.parents if p.name == "codebud")
+        codebud_dir = next(p for p in path.parents if p.name == "codebud").resolve()
         # hidden itself, or by a hidden parent (the whole runtime directory)
         assert any(str(codebud_dir) == h or str(codebud_dir).startswith(h + "/") for h in hidden)
 
