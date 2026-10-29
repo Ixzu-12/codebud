@@ -196,7 +196,8 @@ class MemoryStore:
             self._quarantine_corrupt_file(legacy)
             return
 
-        lines = "".join(json.dumps(e) + "\n" for e in entries)
+        # Encrypted like any new line when encryption at rest is on.
+        lines = "".join(crypto.seal_line(json.dumps(e)) + "\n" for e in entries)
         atomic_write_text(_path(), lines)
         os.replace(legacy, f"{legacy}.migrated")
 

@@ -245,3 +245,14 @@ def test_a_profile_encrypt_must_be_a_boolean():
     (profiles.profile_dir() / "bad.toml").write_text('encrypt = "yes"\n')
     with pytest.raises(profiles.ProfileError, match="true or false"):
         profiles.get("bad")
+
+
+def test_legacy_history_is_migrated_encrypted(encrypted, no_prompt):
+    # Audit finding L4: the one-time entries.json migration wrote plaintext.
+    legacy = paths.data_dir() / "memory" / "entries.json"
+    legacy.parent.mkdir(parents=True, exist_ok=True)
+    legacy.write_text(json.dumps([{"timestamp": "t", "data": {"step": {"cmd": "old"}}}]))
+    memory.MemoryStore()
+    (line,) = _history_lines()
+    assert crypto.is_encrypted_line(line) and "old" not in line
+    assert (legacy.parent / "entries.json.migrated").exists()  # the original is kept
