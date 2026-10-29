@@ -188,9 +188,10 @@ This installs:
 (@code{prompt_toolkit} draws the chat command menu and status toolbar),
 and on Python 3.10 @code{tomli}, which reads the configuration file
 (@pxref{Configuration File}; later Pythons have it built in)
-@item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build} and
-@code{numpy} --- the @code{dev} dependency group (PEP 735), for working on
-Codebud itself (@code{numpy} so the project-search tests run)
+@item @code{pytest}, @code{pytest-cov}, @code{ruff}, @code{build},
+@code{numpy} and @code{pyrage} --- the @code{dev} dependency group (PEP
+735), for working on Codebud itself (@code{numpy} and @code{pyrage} so the
+project-search and encryption tests run)
 @item the @command{codebud} CLI entry point (maps to @code{codebud.cli.main:main}); @code{python -m codebud} works too
 @end itemize
 
@@ -214,6 +215,15 @@ pip install "codebud[rag]"        @r{# from a package index}
 @noindent
 Distribution packages work as well (@code{python3-numpy} on Debian and
 Fedora, @code{python-numpy} on Arch, @code{py311-numpy} on FreeBSD).
+
+Encryption at rest with age needs @code{pyrage}, also optional (the
+@command{age} command-line tool is not used: it reads passphrases only
+from a terminal):
+
+@example
+pip install -e ".[crypto]"        @r{# from a checkout}
+pip install "codebud[crypto]"     @r{# from a package index}
+@end example
 
 All dependencies are declared in @file{pyproject.toml}; there is no
 @file{requirements.txt}.
@@ -263,7 +273,8 @@ sudo make install            @r{# into /usr/local by default}
 and @code{prompt_toolkit} modules (and, on 3.10 only, @code{tomli}), and
 prints the package names for your system if they are missing.  It only warns if @command{ollama} is not
 found, since Ollama may run on another machine, if @code{numpy} is
-missing, since only project search needs it, and if @command{bwrap}
+missing, since only project search needs it, if @code{pyrage} is
+missing, since only encryption at rest needs it, and if @command{bwrap}
 (bubblewrap) is missing, since without it command steps are not isolated
 (@pxref{Isolated Steps}).  The summary at the end
 shows what was found:
@@ -275,6 +286,7 @@ shows what was found:
     package dir:     $@{PYTHON_PREFIX@}/lib/python3.14/site-packages
     tests (pytest):  yes
     project search:  yes (numpy)
+    encryption:      yes (pyrage)
     ollama:          /usr/bin/ollama
     isolation:       /usr/bin/bwrap
 @end example

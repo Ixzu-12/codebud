@@ -38,3 +38,12 @@ def test_interrupted_write_keeps_previous_contents(tmp_path, monkeypatch):
 
     assert path.read_text() == "old"
     assert os.listdir(tmp_path) == ["f.json"]
+
+
+def test_writes_bytes_privately(tmp_path):
+    path = tmp_path / "f.age"
+    path.write_bytes(b"old")
+    os.chmod(path, 0o644)
+    fsutil.atomic_write_bytes(path, b"\x00new")
+    assert path.read_bytes() == b"\x00new"
+    assert os.stat(path).st_mode & 0o777 == 0o600

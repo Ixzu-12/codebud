@@ -72,6 +72,16 @@ installed (apt install python3-numpy, dnf install python3-numpy,
 pacman -S python-numpy, pkg install py311-numpy, or pip install numpy)])
 ])
 
+# pyrage is optional: only encryption at rest (age) needs it.
+AC_MSG_CHECKING([whether $PYTHON has pyrage (for encryption at rest)])
+AS_IF(["$PYTHON" -c "import pyrage" >/dev/null 2>&1],
+  [codebud_have_pyrage=yes], [codebud_have_pyrage=no])
+AC_MSG_RESULT([$codebud_have_pyrage])
+AS_IF([test "x$codebud_have_pyrage" = xno], [
+  AC_MSG_WARN([pyrage not found; encryption at rest will be unavailable until
+it is installed (pip install pyrage)])
+])
+
 # pytest is only needed for `make check`.
 AC_MSG_CHECKING([whether $PYTHON has pytest])
 AS_IF(["$PYTHON" -c "import pytest" >/dev/null 2>&1],
@@ -104,6 +114,7 @@ AC_MSG_NOTICE([
     package dir:     $pythondir
     tests (pytest):  $codebud_have_pytest
     project search:  $codebud_have_numpy (numpy)
+    encryption:      $codebud_have_pyrage (pyrage)
     ollama:          ${OLLAMA:-not found}
     isolation:       ${BWRAP:-not found (steps not isolated)}
 ])

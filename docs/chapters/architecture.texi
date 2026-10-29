@@ -574,7 +574,8 @@ src/codebud/                   the package
 ├── sessions.py        chat session checkpoints
 ├── paths.py           data, config and policy file locations
 ├── settings.py        every setting: environment, config.toml, defaults
-├── fsutil.py          atomic_write_text(), private_dir(), create_private()
+├── fsutil.py          atomic_write_text/bytes(), private_dir(), create_private()
+├── crypto.py          age encryption at rest: passphrase-sealed key
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
 ├── skill.py           codebud skill show/install
 ├── data/policy/       default policy, shipped as package data

@@ -45,14 +45,24 @@ def atomic_write_text(path: str, text: str) -> None:
     it over ``path`` (os.replace is atomic on POSIX). If anything fails, the
     temporary file is removed and ``path`` keeps its previous contents.
     """
-    fd, tmp_path = tempfile.mkstemp(
+    _atomic_write(path, text, "w")
+
+
+def atomic_write_bytes(path, data: bytes) -> None:
+    """atomic_write_text() for bytes; the new file is 0600."""
+    _atomic_write(path, data, "wb")
+
+
+def _atomic_write(path, content, mode: str) -> None:
+    path = os.fspath(path)
+    fd, tmp_path = tempfile.mkstemp(  # mkstemp creates the file 0600
         dir=os.path.dirname(path) or ".",
         prefix=f".{os.path.basename(path)}-",
         suffix=".tmp",
     )
     try:
-        with os.fdopen(fd, "w") as f:
-            f.write(text)
+        with os.fdopen(fd, mode) as f:
+            f.write(content)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
