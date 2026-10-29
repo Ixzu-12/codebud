@@ -55,6 +55,7 @@ per run. Lose the passphrase and the data is gone — by design.
 codebud key init                                    # create the key (asks for a passphrase)
 echo 'encrypt = true' >> ~/.config/codebud/config.toml
 codebud doctor                                      # Encryption at rest: on
+codebud key encrypt-existing                        # encrypt older plaintext (backup kept for you)
 ```
 
 ## Project search

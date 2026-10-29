@@ -576,6 +576,7 @@ src/codebud/                   the package
 ├── settings.py        every setting: environment, config.toml, defaults
 ├── fsutil.py          atomic_write_text/bytes(), private_dir(), create_private()
 ├── crypto.py          age encryption at rest: passphrase-sealed key
+├── encrypt_existing.py  encrypt older plaintext; originals backed up
 ├── llm_stub.py        call_llm() (Ollama / OpenAI)
 ├── skill.py           codebud skill show/install
 ├── data/policy/       default policy, shipped as package data
@@ -602,7 +603,8 @@ src/codebud/                   the package
 │   ├── doctor.py          health checks
 │   ├── errors.py          error → fix lookup table
 │   ├── index_hints.py     RAG toolbar state, /index hints
-│   └── key.py             codebud key: init, passwd, status
+│   └── key.py             codebud key: init, passwd, status,
+│                          encrypt-existing
 ├── rag/                   project index and retrieval (codebud index)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)

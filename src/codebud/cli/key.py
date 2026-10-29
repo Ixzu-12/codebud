@@ -6,6 +6,9 @@ codebud key: the encryption key for data at rest (crypto.py).
   key init     create the key, sealed with a new passphrase
   key passwd   change the passphrase (the key, and so the data, stay)
   key status   whether encryption is available and the key exists
+  key encrypt-existing
+               encrypt sessions and history saved in plain text; the
+               plaintext is copied aside first, never deleted
 """
 
 import sys
@@ -90,7 +93,46 @@ def _status() -> None:
         print(f"  {_OUT_DIM}passphrase {_OUT_RESET} asked on the terminal when needed")
 
 
+def _encrypt_existing(yes: bool) -> None:
+    from codebud import encrypt_existing
+    from codebud.cli.common import plural
+
+    if not crypto.has_key():
+        _fail("no encryption key yet; create one with: codebud key init")
+    todo = encrypt_existing.plan()
+    for session_id in todo.in_use:
+        print(f"Skipping session {session_id}: it is open in a codebud chat.")
+    files = todo.files()
+    if not files:
+        print("Nothing to encrypt: no plaintext sessions or step history.")
+    else:
+        backup = encrypt_existing.backup_dir()
+        print(f"Plaintext to encrypt ({plural(len(files), 'file')}):")
+        for path in files:
+            print(f"  {path}")
+        print(f"Each is first copied, unchanged, to {backup}/")
+        print("and left there for you to delete; codebud never deletes it.")
+        if not yes:
+            if not sys.stdin.isatty():
+                _fail("not encrypting without confirmation; re-run with --yes")
+            if input("Encrypt them? [y/N] ").strip().lower() not in ("y", "yes"):
+                print("Nothing changed.")
+                sys.exit(1)
+        copies = encrypt_existing.apply(todo, backup)
+        print(f"Encrypted {plural(len(copies), 'file')}. The plaintext copies are in {backup}:")
+        for copy in copies:
+            print(f"  {copy}")
+        print(f"Delete them when you are satisfied:  rm -r {backup}")
+    for path in todo.other_plaintext:
+        print(f"Not converted (older plaintext; delete it yourself if unneeded): {path}")
+    if not crypto.enabled():
+        print("Note: encryption is off, so new data is still saved in plain text (encrypt = true).")
+
+
 def cmd_key(args):
     if args.key_action != "status" and not crypto.available():
         _fail("encryption needs the pyrage module: pip install 'codebud[crypto]'")
+    if args.key_action == "encrypt-existing":
+        _encrypt_existing(args.yes)
+        return
     {"init": _init, "passwd": _passwd, "status": _status}[args.key_action]()

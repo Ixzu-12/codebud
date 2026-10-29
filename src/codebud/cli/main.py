@@ -31,7 +31,8 @@ Subcommands
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   profiles        List profiles (--profile NAME chooses one)
-  key             Encryption key for data at rest: init, passwd, status
+  key             Encryption key for data at rest: init, passwd, status,
+                  encrypt-existing [--yes]
   version         Print version information
 
 Backwards compatibility: `codebud "some request"` (no subcommand) works

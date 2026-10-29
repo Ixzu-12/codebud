@@ -1,0 +1,119 @@
+"""
+codebud/encrypt_existing.py
+
+Encrypting data saved before encryption at rest was turned on
+(`codebud key encrypt-existing`; D14g: codebud never deletes the
+plaintext, the user does).
+
+For each plaintext session, and for the step history if it has plaintext
+lines, the original is first *copied* byte for byte into
+
+    $XDG_DATA_HOME/codebud/plaintext-backup-<UTC time>/
+
+and the copy checked; only then is the live file replaced, atomically,
+by its encrypted version. The backup is listed for the user to delete
+once they are satisfied. Encrypting needs only the public key, so no
+passphrase is asked for.
+
+Sessions open in a chat are skipped. Other plaintext codebud keeps -- an
+old entries.json.migrated, quarantined *.corrupt-* files -- is not
+converted, only reported.
+"""
+
+import os
+import shutil
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+from codebud import crypto, memory, paths, sessions
+from codebud.fsutil import atomic_write_bytes, private_dir
+
+
+@dataclass
+class Plan:
+    sessions: list[Path] = field(default_factory=list)  # plaintext, not open
+    history: Path | None = None  # has plaintext lines
+    in_use: list[str] = field(default_factory=list)  # session IDs skipped
+    other_plaintext: list[Path] = field(default_factory=list)  # reported only
+
+    def files(self) -> list[Path]:
+        return [*self.sessions, *([self.history] if self.history else [])]
+
+
+def plan() -> Plan:
+    """What encrypt-existing would convert, skip and leave."""
+    result = Plan()
+    session_dir = Path(sessions._dir())
+    if session_dir.is_dir():
+        for path in sorted(session_dir.glob("*.json")):
+            if path.name.startswith(".") or crypto.is_encrypted(path.read_bytes()):
+                continue
+            session_id = path.stem
+            if sessions._in_use(session_id):
+                result.in_use.append(session_id)
+            else:
+                result.sessions.append(path)
+    history = Path(memory._path())
+    if history.is_file() and any(
+        line.strip() and not crypto.is_encrypted_line(line)
+        for line in history.read_text().splitlines()
+    ):
+        result.history = history
+    memory_dir = history.parent
+    if memory_dir.is_dir():
+        result.other_plaintext = sorted(
+            p for p in memory_dir.iterdir() if p.name.endswith(".migrated") or ".corrupt-" in p.name
+        )
+    return result
+
+
+def backup_dir() -> Path:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return paths.data_dir() / f"plaintext-backup-{stamp}"
+
+
+def _back_up(path: Path, backup: Path) -> Path:
+    """Copy ``path`` into ``backup`` (same place under the data dir); check it."""
+    target = backup / path.relative_to(paths.data_dir())
+    private_dir(target.parent)
+    shutil.copy2(path, target)
+    os.chmod(target, 0o600)
+    if target.read_bytes() != path.read_bytes():
+        raise OSError(f"the backup copy {target} does not match {path}; nothing was replaced")
+    return target
+
+
+def apply(todo: Plan, backup: Path) -> list[Path]:
+    """Back up and encrypt everything in ``todo``; return the backup copies.
+
+    Each file is converted under the lock its writers use, so a chat or a
+    run cannot write it meanwhile. A session opened since plan() is skipped.
+    """
+    copies = []
+    for path in todo.sessions:
+        lock = sessions._try_lock(path.stem)
+        if lock is None:
+            todo.in_use.append(path.stem)
+            continue
+        try:
+            raw = path.read_bytes()
+            if crypto.is_encrypted(raw):
+                continue
+            copies.append(_back_up(path, backup))
+            atomic_write_bytes(path, crypto.encrypt(raw))
+        finally:
+            lock.close()
+    if todo.history is not None:
+        with memory.locked():
+            path = todo.history
+            lines = path.read_text().splitlines()
+            copies.append(_back_up(path, backup))
+            sealed = [
+                line
+                if not line.strip() or crypto.is_encrypted_line(line)
+                else crypto.encrypt_line(line)
+                for line in lines
+            ]
+            atomic_write_bytes(path, "".join(line + "\n" for line in sealed).encode())
+    return copies

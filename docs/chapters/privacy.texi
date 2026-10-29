@@ -152,6 +152,40 @@ is encrypted.  Turning encryption off again leaves encrypted files
 readable too (with the passphrase), and new data is then written in plain
 text.
 
+@subheading Encrypting what was saved before
+@cindex encrypt-existing
+
+@example
+codebud key encrypt-existing
+@end example
+
+@noindent
+lists the plaintext sessions and step history and asks first
+(@option{--yes} for scripts; without a terminal it does nothing unless
+given @option{--yes}).  For each file it then:
+
+@enumerate
+@item copies the original, unchanged, into
+@file{~/.local/share/codebud/plaintext-backup-@var{time}/} (same layout,
+0600) and checks the copy matches;
+@item only then replaces the live file with its encrypted version
+(atomically; history lines already encrypted are kept as they are).
+@end enumerate
+
+@noindent
+Codebud never deletes the backup: it prints where it is, and you remove
+it once you have checked that @command{codebud sessions} and
+@command{codebud history} read everything back (@command{rm -r} on the
+directory it names).  Until then your plaintext is still on disk.
+Sessions open in a chat are skipped --- run it again after closing them.
+Older plaintext Codebud kept aside (@file{entries.json.migrated},
+quarantined @file{*.corrupt-*} files) is listed but not converted.  No
+passphrase is needed: encrypting uses only the public key.
+
+Deleting a file does not always remove its contents from the disk
+(journaling and copy-on-write file systems, SSDs, backups and snapshots
+may keep copies); encryption protects what is written from then on.
+
 @subheading What needs the passphrase
 
 Saving never does: running steps, @command{plan --execute} and every chat

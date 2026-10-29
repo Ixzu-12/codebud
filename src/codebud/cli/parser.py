@@ -224,6 +224,12 @@ def build_parser() -> argparse.ArgumentParser:
     key_sub.add_parser("init", help="Create the key, sealed with a new passphrase.")
     key_sub.add_parser("passwd", help="Change the passphrase (the key and data stay).")
     key_sub.add_parser("status", help="Show whether encryption is available and the key exists.")
+    p_existing = key_sub.add_parser(
+        "encrypt-existing",
+        help="Encrypt sessions and history saved in plain text "
+        "(the plaintext is copied aside first, never deleted).",
+    )
+    p_existing.add_argument("--yes", "-y", action="store_true", help="Do not ask first.")
 
     # version
     sub.add_parser("version", help="Show version information.")

@@ -46,6 +46,19 @@ def _path() -> str:
     return MEMORY_PATH or str(paths.data_dir() / "memory" / "entries.jsonl")
 
 
+@contextmanager
+def locked():
+    """Hold an exclusive flock(2) on the memory lock file.
+
+    Everything that writes the history file takes it, so lines from two
+    codebud processes never interleave.
+    """
+    create_private(f"{_path()}.lock")
+    with open(f"{_path()}.lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
 class MemoryStore:
     """
     Timeline-based memory store.
@@ -120,13 +133,8 @@ class MemoryStore:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    @contextmanager
     def _locked(self):
-        """Hold an exclusive flock(2) on the memory lock file."""
-        create_private(f"{_path()}.lock")
-        with open(f"{_path()}.lock", "a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            yield
+        return locked()
 
     def _load(self):
         """Load memory snapshots from disk, skipping unreadable lines.
@@ -218,9 +226,7 @@ def purge() -> list[str]:
     """Delete the step history; return the paths removed."""
     if not os.path.isdir(os.path.dirname(_path())):
         return []
-    create_private(f"{_path()}.lock")
-    with open(f"{_path()}.lock", "a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with locked():
         removed = history_files()
         for path in removed:
             os.remove(path)
