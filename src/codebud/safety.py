@@ -25,6 +25,7 @@ It does NOT:
 
 import json
 import logging
+import re
 import shlex
 from typing import Any
 
@@ -67,6 +68,8 @@ _FIND_FORBIDDEN = {
 }
 _GIT_FORBIDDEN_PREFIXES = ("--output", "--ext-diff")
 _PYTHONS = {"python", "python3"}
+_AWKS = {"awk", "gawk", "mawk", "nawk"}
+_SEDS = {"sed", "gsed"}
 # Python options that take a separate value (the value must not be mistaken
 # for the script name when scanning for -c).
 _PYTHON_VALUE_OPTIONS = {"-W", "-X"}
@@ -110,6 +113,163 @@ def _forbidden_argument(words: list[str]) -> str | None:
         return "-c" if _python_runs_inline_code(args) else None
     if program == "git":
         return next((arg for arg in args if arg.startswith(_GIT_FORBIDDEN_PREFIXES)), None)
+    if program in _AWKS:
+        return _awk_forbidden(args)
+    if program in _SEDS:
+        return _sed_forbidden(args)
+    return None
+
+
+# awk runs programs via system()/print|cmd/cmd|getline, and reads its
+# program from a file with -f (so the refused source could hide there).
+_AWK_CODE = re.compile(r"\b(system|print|printf)\b.*\||\|\s*getline|\bsystem\s*\(")
+
+
+def _awk_forbidden(args: list[str]) -> str | None:
+    if any(a == "-f" or a == "--file" or a.startswith(("-f", "--file=")) for a in args):
+        return "-f (awk program read from a file)"
+    program = _first_non_option(args, value_opts={"-v"})
+    if program is not None and _AWK_CODE.search(program):
+        return "awk program that runs a command (system/getline/pipe)"
+    return None
+
+
+def _sed_forbidden(args: list[str]) -> str | None:
+    """A sed that runs a command (e) or writes a file (w, W, s///w), or None.
+
+    A loose regex would refuse ordinary scripts (the `w` in `s/widget/x/`,
+    an address like `/warn/`), so the script is parsed at the command
+    level: addresses, regexes and replacements are skipped, and only a
+    real command letter counts.
+    """
+    scripts = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in ("-e", "--expression"):
+            if i + 1 < len(args):
+                scripts.append(args[i + 1])
+            i += 2
+            continue
+        if arg in ("-f", "--file") or arg.startswith(("-f", "--file=")):
+            return "-f (sed script read from a file)"
+        if arg.startswith(("-e", "--expression=")):
+            scripts.append(arg.split("=", 1)[1] if "=" in arg else arg[2:])
+        elif not arg.startswith("-"):
+            scripts.append(arg)  # the first non-option is the script
+            break
+        i += 1
+    for script in scripts:
+        reason = _sed_script_forbidden(script)
+        if reason:
+            return reason
+    return None
+
+
+def _sed_script_forbidden(script: str) -> str | None:
+    i, n = 0, len(script)
+    while i < n:
+        c = script[i]
+        if c in " \t\n;":
+            i += 1
+            continue
+        if c == "#":  # comment to end of line
+            while i < n and script[i] != "\n":
+                i += 1
+            continue
+        i = _sed_skip_address(script, i)
+        if i >= n:
+            break
+        cmd = script[i]
+        if cmd == "e":
+            return "sed 'e' command (runs a shell command)"
+        if cmd in "wW":
+            return "sed 'w'/'W' command (writes to a file)"
+        if cmd in "sy":
+            end = _sed_skip_syntax(script, i)
+            if cmd == "s" and _sed_s_has_w(script, i, end):
+                return "sed s///w flag (writes to a file)"
+            i = end
+            continue
+        if cmd in "aic":  # text commands: rest is their argument
+            break
+        i += 1
+    return None
+
+
+def _sed_skip_address(script: str, i: int) -> int:
+    n = len(script)
+    while i < n and (script[i].isdigit() or script[i] in "$+~"):
+        i += 1
+    while i < n and script[i] in "/\\":
+        i = _sed_skip_regex(script, i)
+        if i < n and script[i] == ",":
+            i += 1
+            while i < n and (script[i].isdigit() or script[i] in "$+~"):
+                i += 1
+        break
+    while i < n and script[i] in " \t,!":
+        i += 1
+    return i
+
+
+def _sed_skip_regex(script: str, i: int) -> int:
+    delim = script[i]
+    if delim == "\\" and i + 1 < len(script):
+        delim = script[i + 1]
+        i += 1
+    i += 1
+    while i < len(script):
+        if script[i] == "\\":
+            i += 2
+            continue
+        if script[i] == delim:
+            return i + 1
+        i += 1
+    return i
+
+
+def _sed_skip_syntax(script: str, i: int) -> int:
+    """Skip a whole s/// or y/// command, returning the index after it."""
+    delim = script[i + 1]
+    j, seen = i + 2, 0
+    while j < len(script) and seen < 2:
+        if script[j] == "\\":
+            j += 2
+            continue
+        if script[j] == delim:
+            seen += 1
+        j += 1
+    while j < len(script) and script[j] not in ";\n":  # flags
+        j += 1
+    return j
+
+
+def _sed_s_has_w(script: str, i: int, end: int) -> bool:
+    """Whether the s/// command between its flags and ``end`` has the w flag."""
+    delim = script[i + 1]
+    j, seen = i + 2, 0
+    while j < end and seen < 2:
+        if script[j] == "\\":
+            j += 2
+            continue
+        if script[j] == delim:
+            seen += 1
+        j += 1
+    return "w" in script[j:end]
+
+
+def _first_non_option(args: list[str], value_opts: set[str]) -> str | None:
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in value_opts:
+            i += 2
+            continue
+        if arg.startswith("-") and arg != "-":
+            i += 1
+            continue
+        return arg
     return None
 
 

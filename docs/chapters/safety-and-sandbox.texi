@@ -91,6 +91,13 @@ including combined forms such as @option{-Ic}; only the interpreter's own
 options are checked, so @code{python3 script.py -c config.toml} is allowed
 @item @command{git} @tab @option{--output} (writes a file),
 @option{--ext-diff} (runs an external diff program)
+@item @command{awk} @tab @option{-f} (program from a file), and a program
+that runs a command: @code{system()}, a @code{getline} from a command, or
+a @code{print} piped to one
+@item @command{sed} @tab @option{-f} (script from a file), the @code{e}
+command (runs a shell command), and @code{w}, @code{W} or the @code{s///w}
+flag (write a file); the script is parsed so an ordinary @code{w} inside a
+substitution is not refused
 @end multitable
 
 When a step fails validation the entire plan is rejected and the agent
@@ -276,12 +283,15 @@ default policy, but if you add it, any @code{sudo} command the model
 proposes will run.
 
 @item
-@strong{Code runners can do anything.}  @code{python -c} is refused, but an
-entry of @code{"python"} still allows @code{python evil.py} --- and the
-model can write @file{evil.py} first with @code{file_write}.  This is why
-@code{python}, @code{python3}, @code{pytest} and @code{ruff} are powerful
-commands that need confirmation (except in @code{full-auto} mode or with
-@code{run --yes}).
+@strong{Code runners can do anything.}  The refused arguments above stop
+the obvious one-liners (@code{python -c}, @code{awk 'BEGIN@{system(...)@}'},
+@code{sed '1e ...'}), but an entry of @code{"python"} still allows
+@code{python evil.py} --- and the model can write @file{evil.py} first
+with @code{file_write} inside the project.  This is why @code{python},
+@code{python3}, @code{pytest}, @code{ruff}, @code{awk} and @code{sed} are
+powerful commands that need confirmation (except in @code{full-auto} mode
+or with @code{run --yes}).  The refused arguments reduce the unattended
+blast radius; they are not a sandbox.
 
 @item
 @strong{10-second timeout is short.}  Long operations (building a large
