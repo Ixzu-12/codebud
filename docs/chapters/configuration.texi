@@ -78,6 +78,11 @@ off (@pxref{Files and Directories}).
 project indexes with
 your age key (@pxref{Encryption at Rest}); create the key first with
 @command{codebud key init}.
+@item @env{CODEBUD_STEP_ENV}
+@tab (empty)
+@tab More environment variables for command steps, which otherwise get
+only an allow-list (@pxref{Isolated Steps}): names or @code{PREFIX_*}
+patterns, space or comma separated.
 @item @env{CODEBUD_PASSPHRASE}
 @tab (not set)
 @tab The passphrase of the encryption key, for unattended runs; otherwise
@@ -188,6 +193,7 @@ from, highest first:
 @item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
 @item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
 @item @code{encrypt} @tab @env{CODEBUD_ENCRYPT} @tab @code{true} / @code{false} (user file only)
+@item @code{step_env} @tab @env{CODEBUD_STEP_ENV} @tab names / @code{PREFIX_*}, space or comma separated (user file only)
 @item @code{session_retention_days} @tab @env{CODEBUD_SESSION_RETENTION_DAYS} @tab integer (user file only)
 @item @code{privacy} @tab @env{CODEBUD_PRIVACY} @tab @code{"locked"} / @code{"private"} / @code{"trusted"} (user file only)
 @item @code{profile} @tab @env{CODEBUD_PROFILE} @tab a profile name (user file only)
@@ -197,8 +203,9 @@ from, highest first:
 @strong{Settings that make data leave the machine} --- the backend, the
 Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
 accepted only from your own file or the environment, and so are
-@code{mask_secrets}, @code{encrypt}, @code{session_retention_days} and
-@code{privacy}, which protect your data.  In a project's file
+@code{mask_secrets}, @code{encrypt}, @code{step_env},
+@code{session_retention_days} and @code{privacy}, which protect your
+data.  In a project's file
 they are ignored with a warning: cloning a repository must never be able
 to send your prompts somewhere else or weaken your privacy.  The
 same goes for unknown keys, values of the wrong type and a file that is not
@@ -460,11 +467,41 @@ fresh, private @file{/tmp};
 @end itemize
 
 @cindex environment of command steps
-At every privacy level, @code{trusted} included, a step's environment
-leaves out the encryption passphrase (@env{CODEBUD_PASSPHRASE}) and
-Codebud's secret settings (@env{OPENAI_API_KEY}): hiding secret files is
-not enough if @command{printenv} can print them.  A project script that
-needs such a key must get it some other way than through Codebud.
+@cindex step_env
+Hiding secret files is not enough if @command{printenv} can print a token
+from the environment, so at every privacy level, @code{trusted} included,
+a step does not inherit Codebud's environment.  It gets an allow-list:
+
+@itemize
+@item what ordinary tools need: @env{PATH}, @env{HOME}, @env{USER},
+@env{LOGNAME}, @env{SHELL}, @env{LANG}, @env{LANGUAGE}, every
+@env{LC_*}, @env{TZ}, @env{TERM}, @env{COLORTERM}, @env{NO_COLOR},
+@env{FORCE_COLOR}, @env{EDITOR}, @env{VISUAL}, @env{PAGER},
+@env{VIRTUAL_ENV}, @env{CONDA_PREFIX}, @env{CONDA_DEFAULT_ENV},
+@env{PYTHONPATH}, @env{GOPATH}, @env{GOROOT}, @env{CARGO_HOME},
+@env{RUSTUP_HOME}, @env{JAVA_HOME};
+@item for a step that declared it needs the network, also the proxy
+settings (@env{HTTP_PROXY}, @env{HTTPS_PROXY}, @env{ALL_PROXY},
+@env{NO_PROXY}, in either case) and CA bundles (@env{SSL_CERT_FILE},
+@env{SSL_CERT_DIR}, @env{REQUESTS_CA_BUNDLE}, @env{CURL_CA_BUNDLE});
+@item what you add with @code{step_env}: names or @code{PREFIX_*}
+patterns, separated by spaces or commas.
+@end itemize
+
+@noindent
+Everything else is left out: @env{GITHUB_TOKEN}, @env{AWS_*}, the SSH
+agent (@env{SSH_AUTH_SOCK}), @env{TMPDIR} (a step has its own
+@file{/tmp}).  The encryption passphrase and Codebud's secret settings
+(@env{OPENAI_API_KEY}) are never passed, even if listed.  If a tool a
+step runs needs a variable, add it in your own @file{config.toml}:
+
+@example
+step_env = "MY_TOOL_HOME, JFROG_*"
+@end example
+
+@noindent
+A project's @file{.codebud/config.toml} cannot set @code{step_env}: a
+cloned repository must not be able to hand your tokens to its commands.
 
 A step that needs the internet --- @command{pip install},
 @command{git fetch} --- declares it (the planner is told how), and is then

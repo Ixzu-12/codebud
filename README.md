@@ -178,6 +178,7 @@ Your own go in `~/.config/codebud/profiles/<name>.toml` (`mode`, `privacy`,
 | `CODEBUD_PROFILE` | `default` | Profile to start with (`codebud profiles` lists them) |
 | `CODEBUD_MASK_SECRETS` | `1` | Mask API keys, tokens, passwords as `[redacted]` in saved sessions/history |
 | `CODEBUD_ENCRYPT` | `0` | `1` encrypts chat sessions, step history and new project indexes with your age key (`codebud key init`) |
+| `CODEBUD_STEP_ENV` | — | Extra environment variables for command steps (they get an allow-list, not your tokens) |
 | `CODEBUD_PASSPHRASE` | — | Passphrase of the encryption key, for unattended runs only (else asked; `doctor` warns) |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |

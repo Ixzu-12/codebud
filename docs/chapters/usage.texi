@@ -1252,6 +1252,10 @@ Default: @code{0}.  @code{1} encrypts chat sessions, the step history and
 new project indexes
 with your age key (@pxref{Encryption at Rest}).
 
+@item CODEBUD_STEP_ENV
+Empty by default.  More environment variables for command steps, which
+otherwise get only an allow-list (@pxref{Isolated Steps}).
+
 @item CODEBUD_PASSPHRASE
 Not set by default.  The passphrase of the encryption key, for unattended
 runs only; otherwise Codebud asks on the terminal.  @command{codebud

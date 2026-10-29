@@ -11,8 +11,8 @@ for executing shell commands. It ensures:
 
 Each command is isolated according to the privacy level (isolation.py):
 no network unless the step declared it, project-only writes, secrets
-hidden. At every privacy level, a step's environment leaves out the
-encryption passphrase and codebud's secret settings (step_environment()).
+hidden. At every privacy level, a step's environment is an allow-list
+(step_environment()): tokens in codebud's environment never reach it.
 
 The sandbox does NOT:
 - validate plans
@@ -27,18 +27,78 @@ from typing import Any
 
 from codebud import isolation
 
+# What every step gets: what ordinary tools need to run, nothing that grants
+# access to anything. LC_* stands for every locale variable.
+STEP_ENV_BASE = (
+    "PATH",
+    "HOME",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "LANG",
+    "LANGUAGE",
+    "LC_*",
+    "TZ",
+    "TERM",
+    "COLORTERM",
+    "NO_COLOR",
+    "FORCE_COLOR",
+    "EDITOR",
+    "VISUAL",
+    "PAGER",
+    "VIRTUAL_ENV",
+    "CONDA_PREFIX",
+    "CONDA_DEFAULT_ENV",
+    "PYTHONPATH",
+    "GOPATH",
+    "GOROOT",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "JAVA_HOME",
+)
 
-def step_environment() -> dict[str, str]:
-    """The environment a command step runs with: codebud's, minus its secrets.
+# Only for steps that declared they need the network.
+STEP_ENV_NETWORK = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+)
+
+
+def _matches(name: str, patterns) -> bool:
+    return any(name.startswith(p[:-1]) if p.endswith("*") else name == p for p in patterns)
+
+
+def extra_step_env() -> list[str]:
+    """Names (or PREFIX_* patterns) the user added with step_env / CODEBUD_STEP_ENV."""
+    raw = os.environ.get("CODEBUD_STEP_ENV", "")
+    return [n for n in raw.replace(",", " ").split() if n]
+
+
+def step_environment(network: bool = False) -> dict[str, str]:
+    """The environment a command step runs with: an allow-list, not codebud's.
 
     Isolation hides secret *files*, but a child process inherits the
-    environment; a step must never see the encryption passphrase or the
-    secret settings (an API key), whatever it runs (`printenv`, `env`).
+    environment, and tokens there (GITHUB_TOKEN, AWS_SECRET_ACCESS_KEY,
+    the encryption passphrase, ...) would be one `printenv` away. So a step
+    gets only STEP_ENV_BASE, STEP_ENV_NETWORK if it declared the network,
+    and what the user added with step_env. The encryption passphrase and
+    codebud's secret settings are never passed, even if listed.
     """
     from codebud import crypto, settings
 
-    hidden = {crypto.PASSPHRASE_ENV} | {s.env for s in settings.SETTINGS if s.secret}
-    return {k: v for k, v in os.environ.items() if k not in hidden}
+    never = {crypto.PASSPHRASE_ENV} | {s.env for s in settings.SETTINGS if s.secret}
+    allowed = [*STEP_ENV_BASE, *(STEP_ENV_NETWORK if network else ()), *extra_step_env()]
+    return {k: v for k, v in os.environ.items() if k not in never and _matches(k, allowed)}
 
 
 class Sandbox:
@@ -82,7 +142,11 @@ class Sandbox:
 
         try:
             process = subprocess.run(
-                argv, capture_output=True, text=True, timeout=self.timeout, env=step_environment()
+                argv,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=step_environment(network),
             )
 
             return {

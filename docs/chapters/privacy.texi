@@ -36,7 +36,8 @@ fallback when Ollama is down.
 @tab Off; when on, every query is shown and (outside @code{full-auto})
 confirmed.
 @item Command steps
-@tab Isolated: no network, project-only writes, your secrets hidden.
+@tab Isolated: no network, project-only writes, your secrets hidden ---
+files and environment variables alike.
 @item Stored data
 @tab Owner-only files (0700/0600); secrets masked as @samp{[redacted]};
 optionally encrypted with your passphrase (@pxref{Encryption at Rest}).

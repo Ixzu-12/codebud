@@ -69,6 +69,9 @@ SETTINGS = [
     Setting("mask_secrets", "CODEBUD_MASK_SECRETS", True, bool, protective=True),
     # Encryption at rest (crypto.py): sessions, step history, new indexes.
     Setting("encrypt", "CODEBUD_ENCRYPT", False, bool, protective=True),
+    # More environment variables for command steps (sandbox.py); a project
+    # file must not be able to hand them the user's tokens, hence protective.
+    Setting("step_env", "CODEBUD_STEP_ENV", "", str, protective=True),
     Setting("privacy", "CODEBUD_PRIVACY", "private", str, protective=True),
     # A profile can lower the privacy level, so a project may not choose one.
     Setting("profile", "CODEBUD_PROFILE", "default", str, protective=True),
