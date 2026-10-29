@@ -224,7 +224,7 @@ increased by editing @file{src/codebud/sandbox.py}.
 @cindex patch tool
 @cindex unified diff
 
-Applies a unified diff to an existing file.  Use this instead of
+Applies a unified diff to one file.  Use this instead of
 @code{file_write} when only a few lines need to change --- the diff is
 smaller than the full file, which saves tokens and is less likely to
 introduce accidental changes.
@@ -264,11 +264,29 @@ On failure:
 @}
 @end example
 
+@subsection How a patch is applied
+
+Strictly, so a patch either does what it shows or nothing:
+
+@itemize
+@item Each hunk is found by its context and removed lines: at the line
+its @samp{@@@@} header names if they match there, otherwise at the
+nearest place they do (a model's line numbers are often off).  Lines the
+diff does not mention are kept as they are.
+@item If a hunk's lines are found nowhere, or at two places equally near
+the stated line, the patch fails with a message and the file is left
+unchanged; add context lines to make it unambiguous.
+@item A hunk with no old lines inserts: @samp{-N,0} after line @var{N},
+@samp{-0,0} at the top of the file (as GNU @command{diff} writes it).
+@item @samp{--- /dev/null} creates a new file from added lines.
+@item A missing newline at the end of the file stays missing.
+@item One file per patch; a diff touching several files is refused.
+@end itemize
+
 @subsection Limitations
 
-The built-in patcher handles simple line-level changes.  For complex diffs
-(large hunks, binary files, renames), use a @code{command} step to invoke
-the system @command{patch} utility instead.
+Binary files and renames are not supported; use a @code{command} step
+with the system @command{patch} or @command{git apply} for those.
 
 
 @node web_search
