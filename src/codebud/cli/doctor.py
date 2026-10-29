@@ -195,11 +195,17 @@ def check_encryption() -> CheckResult:
             "Unset it unless this is an unattended run; codebud asks for the "
             "passphrase on the terminal otherwise.",
         )
+    if crypto.enabled():
+        try:
+            crypto.check_ready()
+        except crypto.CryptoError as exc:
+            return False, "Encryption at rest is on but cannot work", str(exc)
+        return True, f"Encryption at rest: on (sessions, step history; key {crypto.key_dir()})", ""
     if not crypto.available():
-        return True, "Encryption at rest: not available (pyrage not installed)", ""
+        return True, "Encryption at rest: off (pyrage not installed)", ""
     if not crypto.has_key():
-        return True, "Encryption at rest: no key (create one with: codebud key init)", ""
-    return True, f"Encryption key: {crypto.key_dir()}", ""
+        return True, "Encryption at rest: off (no key; create one with: codebud key init)", ""
+    return True, "Encryption at rest: off (turn it on with encrypt = true in config.toml)", ""
 
 
 def check_ollama_model_set() -> CheckResult:

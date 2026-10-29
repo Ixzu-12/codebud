@@ -38,7 +38,8 @@ confirmed.
 @item Command steps
 @tab Isolated: no network, project-only writes, your secrets hidden.
 @item Stored data
-@tab Owner-only files (0700/0600); secrets masked as @samp{[redacted]}.
+@tab Owner-only files (0700/0600); secrets masked as @samp{[redacted]};
+optionally encrypted with your passphrase (@pxref{Encryption at Rest}).
 @item Retention
 @tab Kept until you delete it; deletion lists what it removes and asks.
 @item A cloned repository
@@ -104,8 +105,62 @@ deletes old sessions automatically (@pxref{The sessions Subcommand}).
 @cindex key subcommand
 
 Codebud can encrypt the data it keeps with @uref{https://age-encryption.org,
-age}.  It needs the optional @code{pyrage} module (@pxref{Python
-Environment}); @command{codebud key status} says whether it is installed.
+age}, so that a copy of your disk, a backup or another program running as
+you cannot read your conversations and step history without your
+passphrase.  It is off by default.  It needs the optional @code{pyrage}
+module (@pxref{Python Environment}); @command{codebud key status} says
+whether it is installed.
+
+@subheading Turning it on
+
+@example
+codebud key init                                @r{# once: create the key}
+echo 'encrypt = true' >> ~/.config/codebud/config.toml
+codebud doctor                                  @r{# Encryption at rest: on}
+@end example
+
+@noindent
+@env{CODEBUD_ENCRYPT=1} does the same for one shell, and a profile with
+@code{encrypt = true} turns it on while it is active (@pxref{Profiles}).
+A profile can only turn encryption on, never off, and a project's
+@file{.codebud/config.toml} can do neither --- like the other settings
+that protect your data, @code{encrypt} is read only from your own file
+and the environment.
+
+If encryption is on but cannot work --- no key yet, or @code{pyrage}
+missing --- @command{run}, @command{plan}, @command{chat},
+@command{history}, @command{sessions} and @command{index} refuse to start
+and say how to fix it, rather than store anything unencrypted;
+@command{codebud doctor} fails with the same fix.
+
+@subheading What is encrypted
+
+@table @asis
+@item Chat sessions
+Each session file (@file{sessions/@var{id}.json}) is an age file under
+the same name.
+@item The step history
+Each entry of @file{memory/entries.jsonl} is encrypted on its own.
+@item Not yet
+Project indexes (@pxref{The index Subcommand}) are not encrypted yet.
+@end table
+
+@noindent
+Sessions and history saved before you turned encryption on stay as they
+were, in plain text, and remain readable; everything written afterwards
+is encrypted.  Turning encryption off again leaves encrypted files
+readable too (with the passphrase), and new data is then written in plain
+text.
+
+@subheading What needs the passphrase
+
+Saving never does: running steps, @command{plan --execute} and every chat
+turn write with the public key alone, so an unattended run can store
+encrypted data without knowing the passphrase.  Reading does, once per
+run: @command{codebud history}, @command{codebud sessions} (listing and
+deleting), @command{chat --resume}, naming a session with
+@command{/name}, and the automatic retention clean-up when
+@code{session_retention_days} is set.
 
 @subheading One key, sealed with your passphrase
 
@@ -154,6 +209,14 @@ The data encrypted to the key cannot be recovered --- not by you, not by
 Codebud.  There is no back door and no recovery key.  Keep the passphrase
 in a password manager; a copy of @file{identity.age} is only as safe as
 the passphrase that seals it.
+
+@subheading Without a terminal
+
+The passphrase is read from the terminal without echo.  Where there is no
+terminal (a script, a cron job, a pipe), Codebud does not fall back to
+reading standard input --- that would echo it --- but stops with a
+message; use @env{CODEBUD_PASSPHRASE} there, or keep such runs to
+commands that only write.
 
 @subheading How the files are encrypted
 
@@ -294,6 +357,15 @@ steps are not isolated (a warning at @code{private}, refused at
 @strong{Masking is pattern-based.}  It catches common token formats and
 secret-looking assignments, not every secret; the project index keeps
 your files' text as it is.
+
+@item
+@strong{Encryption at rest covers what Codebud stores, not what it is
+doing.}  While Codebud runs, your data is in its memory and the unlocked
+key with it; file names, sizes and times stay visible; project indexes
+are not encrypted yet; and what your approved steps write into your
+project is not Codebud's to encrypt.  Command steps cannot read the key:
+isolation hides Codebud's configuration directory from them
+(@pxref{Isolated Steps}).
 
 @item
 @strong{Your terminal and Ollama are your own.}  Scrollback, shell

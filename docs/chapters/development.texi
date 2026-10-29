@@ -55,6 +55,8 @@ tests/
 ├── test_crypto.py               age key: passphrase, lock/unlock, files
 │                                and lines (skips without pyrage)
 ├── test_embeddings.py           deterministic stub, no silent fallback
+├── test_encrypted_storage.py    encryption at rest: sessions and history,
+│                                no prompt to write, switch, profile
 ├── test_engagement.py           engagement file: parsing, CIDR/name
 │                                scope, time window (warn-only)
 ├── test_evidence.py             evidence log: hash chain, tamper

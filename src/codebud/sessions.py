@@ -17,6 +17,11 @@ Several codebud chats may run at the same time, so:
   open; opening a session that another chat has open is refused.
 - Every save is atomic (temp file + rename), so a crash never leaves a
   half-written session.
+
+With encryption at rest on (crypto.py), a session file is an age file
+under the same name. Saving needs only the public key; anything that
+reads sessions -- resuming, listing, naming, deleting by name or age --
+unlocks the key first. Plaintext sessions saved before stay readable.
 """
 
 import fcntl
@@ -28,8 +33,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from . import paths
-from .fsutil import atomic_write_text, create_private, private_dir
+from . import crypto, paths
+from .fsutil import atomic_write_bytes, create_private, private_dir
 from .redact import for_storage
 
 logger = logging.getLogger(__name__)
@@ -91,11 +96,24 @@ def _try_lock(session_id: str):
 
 
 def _read(session_id: str) -> dict[str, Any]:
+    """The session's contents; an encrypted one unlocks the key first.
+
+    A key that cannot be unlocked raises CryptoError (nothing can be read,
+    so no point going on); a file that cannot be decrypted is corrupt.
+    """
     try:
-        with open(_path(session_id)) as f:
-            data = json.load(f)
+        with open(_path(session_id), "rb") as f:
+            raw = f.read()
     except FileNotFoundError:
         raise SessionNotFoundError(f"No session '{session_id}'.") from None
+    if crypto.is_encrypted(raw):
+        crypto.ensure_unlocked()
+        try:
+            raw = crypto.decrypt(raw)
+        except crypto.CryptoError as exc:
+            raise SessionError(f"Session file {_path(session_id)}: {exc}") from None
+    try:
+        data = json.loads(raw)
     except ValueError:
         raise SessionError(f"Session file {_path(session_id)} is corrupt.") from None
     if not isinstance(data, dict):
@@ -247,7 +265,7 @@ class Session:
             "profile": self.profile,
             "history": self.history,
         }
-        atomic_write_text(_path(self.id), json.dumps(data, indent=2) + "\n")
+        atomic_write_bytes(_path(self.id), crypto.seal_text(json.dumps(data, indent=2) + "\n"))
 
 
 # ----------------------------------------------------------------------

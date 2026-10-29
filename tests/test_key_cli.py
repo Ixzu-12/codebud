@@ -15,25 +15,12 @@ from unittest.mock import patch
 
 import pytest
 
-pyrage = pytest.importorskip("pyrage")
+pytest.importorskip("pyrage")
 
 from codebud import crypto  # noqa: E402
 from codebud.cli import doctor  # noqa: E402
 
-
-@pytest.fixture(autouse=True)
-def fast_passphrase(monkeypatch):
-    def encrypt(data, passphrase):
-        return b"SEALED:" + passphrase.encode().hex().encode() + b":" + data
-
-    def decrypt(sealed, passphrase):
-        _, secret, data = sealed.split(b":", 2)
-        if secret != passphrase.encode().hex().encode():
-            raise pyrage.DecryptError("Decryption failed")
-        return data
-
-    monkeypatch.setattr(pyrage.passphrase, "encrypt", encrypt)
-    monkeypatch.setattr(pyrage.passphrase, "decrypt", decrypt)
+pytestmark = pytest.mark.usefixtures("fast_passphrase")  # see conftest.py
 
 
 @pytest.fixture
@@ -171,4 +158,4 @@ def test_doctor_reports_the_key():
     assert "codebud key init" in doctor.check_encryption()[1]
     crypto.create_key("pw")
     passed, label, _ = doctor.check_encryption()
-    assert passed is True and str(crypto.key_dir()) in label
+    assert passed is True and "encrypt = true" in label

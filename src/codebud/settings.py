@@ -67,6 +67,8 @@ SETTINGS = [
     Setting("openai_model", "OPENAI_MODEL", "gpt-3.5-turbo", str),
     Setting("web_search", "WEB_SEARCH_ENABLED", False, bool, egress=True),
     Setting("mask_secrets", "CODEBUD_MASK_SECRETS", True, bool, protective=True),
+    # Encryption at rest (crypto.py): sessions and step history.
+    Setting("encrypt", "CODEBUD_ENCRYPT", False, bool, protective=True),
     Setting("privacy", "CODEBUD_PRIVACY", "private", str, protective=True),
     # A profile can lower the privacy level, so a project may not choose one.
     Setting("profile", "CODEBUD_PROFILE", "default", str, protective=True),

@@ -131,7 +131,19 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    handler(args)
+    from codebud import crypto
+
+    try:
+        if args.subcommand in _STORES_DATA:
+            crypto.check_ready()  # encryption on but unusable: refuse, never store plaintext
+        handler(args)
+    except crypto.CryptoError as exc:
+        print(f"codebud: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
+# Subcommands that read or write sessions, history or indexes.
+_STORES_DATA = {"run", "plan", "chat", "history", "sessions", "index"}
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ named bundle of the two dials and what goes with them:
             that take precedence over the project's, the user's and the
             shipped ones
 - prompt    extra instructions for the planner
+- encrypt   true turns encryption at rest on (crypto.py); a profile can
+            only turn it on, never off
 
 Built in: "default" (ask, private) and "unattended" (full-auto, trusted).
 Your own live in $XDG_CONFIG_HOME/codebud/profiles/<name>.toml; a project
@@ -40,6 +42,7 @@ DEFAULT = "default"
 PROFILE_DIR = "profiles"
 _NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _KEYS = ("description", "mode", "privacy", "policy", "prompt")
+_BOOL_KEYS = ("encrypt",)
 
 
 class ProfileError(Exception):
@@ -55,9 +58,10 @@ class Profile:
     policy: Path | None = None  # directory of policy files
     prompt: str = ""
     source: str = "built in"  # or the profile file
+    encrypt: bool = False  # turn encryption at rest on
 
     def summary(self) -> str:
-        return f"{self.mode}, privacy {self.privacy}"
+        return f"{self.mode}, privacy {self.privacy}" + (", encrypted" if self.encrypt else "")
 
 
 BUILTIN = {
@@ -82,9 +86,14 @@ def _load_file(name: str, path: Path) -> Profile:
         data = tomllib.loads(path.read_text())
     except (OSError, ValueError) as exc:
         raise ProfileError(f"profile {name} ({path}): {exc}") from exc
-    problems = [f"unknown key '{k}'" for k in data if k not in _KEYS]
+    problems = [f"unknown key '{k}'" for k in data if k not in (*_KEYS, *_BOOL_KEYS)]
     problems += [
         f"'{k}' must be a string" for k in _KEYS if k in data and not isinstance(data[k], str)
+    ]
+    problems += [
+        f"'{k}' must be true or false"
+        for k in _BOOL_KEYS
+        if k in data and not isinstance(data[k], bool)
     ]
     if problems:
         raise ProfileError(f"profile {name} ({path}): {'; '.join(problems)}")
@@ -107,6 +116,7 @@ def _load_file(name: str, path: Path) -> Profile:
         policy,
         data.get("prompt", "").strip(),
         str(path),
+        data.get("encrypt", False),
     )
 
 
@@ -146,6 +156,10 @@ def activate(profile: Profile, source: str, explicit: bool = False) -> None:
 
     _active = profile
     paths.PROFILE_POLICY_DIR = profile.policy
+    if profile.encrypt:
+        # Only ever turns encryption on, so it may override everything --
+        # even for a default profile nobody chose (your own default.toml).
+        settings.set_value("CODEBUD_ENCRYPT", "1", f"profile {profile.name}")
     if source == "default" and not explicit:
         return
     settings.set_value("CODEBUD_PROFILE", profile.name, source)

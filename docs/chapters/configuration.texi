@@ -72,6 +72,11 @@ need nothing (@pxref{LLM Backend Variables}).
 @tab Mask secrets (API keys, tokens, private keys, passwords) as
 @samp{[redacted]} in saved sessions and step history.  @code{0} turns it
 off (@pxref{Files and Directories}).
+@item @env{CODEBUD_ENCRYPT}
+@tab @code{0}
+@tab Set to @code{1} to encrypt chat sessions and the step history with
+your age key (@pxref{Encryption at Rest}); create the key first with
+@command{codebud key init}.
 @item @env{CODEBUD_PASSPHRASE}
 @tab (not set)
 @tab The passphrase of the encryption key, for unattended runs; otherwise
@@ -181,6 +186,7 @@ from, highest first:
 @item @code{openai_model} @tab @env{OPENAI_MODEL} @tab string
 @item @code{web_search} @tab @env{WEB_SEARCH_ENABLED} @tab @code{true} / @code{false} (user file only)
 @item @code{mask_secrets} @tab @env{CODEBUD_MASK_SECRETS} @tab @code{true} / @code{false} (user file only)
+@item @code{encrypt} @tab @env{CODEBUD_ENCRYPT} @tab @code{true} / @code{false} (user file only)
 @item @code{session_retention_days} @tab @env{CODEBUD_SESSION_RETENTION_DAYS} @tab integer (user file only)
 @item @code{privacy} @tab @env{CODEBUD_PRIVACY} @tab @code{"locked"} / @code{"private"} / @code{"trusted"} (user file only)
 @item @code{profile} @tab @env{CODEBUD_PROFILE} @tab a profile name (user file only)
@@ -190,8 +196,8 @@ from, highest first:
 @strong{Settings that make data leave the machine} --- the backend, the
 Ollama URL, plain-http opt-in, the OpenAI key and web search --- are
 accepted only from your own file or the environment, and so are
-@code{mask_secrets}, @code{session_retention_days} and @code{privacy},
-which protect your data.  In a project's file
+@code{mask_secrets}, @code{encrypt}, @code{session_retention_days} and
+@code{privacy}, which protect your data.  In a project's file
 they are ignored with a warning: cloning a repository must never be able
 to send your prompts somewhere else or weaken your privacy.  The
 same goes for unknown keys, values of the wrong type and a file that is not
@@ -416,13 +422,16 @@ mode = "edit"                 # ask, auto, full-auto, plan, edit
 privacy = "locked"            # locked, private, trusted
 policy = "review-policy"      # directory, relative to this file
 prompt = "Never modify files under tests/."
+encrypt = true                # turn encryption at rest on
 @end example
 
 @noindent
 @code{policy} names a directory holding any of the policy files
 (@pxref{Policy JSON Files}); those it has are used first, before the
 project's, yours and the shipped ones.  @code{prompt} is added to every
-planner prompt.  A profile file with a mistake --- an unknown key, a mode
+planner prompt.  @code{encrypt = true} turns encryption at rest on while
+the profile is active, whatever the configuration says; a profile cannot
+turn it off (@pxref{Encryption at Rest}).  A profile file with a mistake --- an unknown key, a mode
 or level that does not exist, a missing policy directory --- is refused
 with a message rather than half applied.  A project cannot define or
 choose a profile, since a profile can lower the privacy level.

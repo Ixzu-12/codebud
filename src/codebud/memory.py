@@ -14,6 +14,12 @@ Memory is persisted as JSON Lines (one snapshot per line, append-only) to:
 A legacy entries.json (a single JSON array) next to it is migrated
 automatically on first load and kept as entries.json.migrated.
 
+With encryption at rest on (crypto.py), each line is stored encrypted on
+its own (age:<base64>). Appending needs only the public key, and the
+history is read only when asked for (`codebud history`), so running
+steps never asks for the passphrase. Plaintext lines written before stay
+readable.
+
 The MemoryStore exposes:
 - add_snapshot(step, result)
 - history (list of snapshots)
@@ -27,7 +33,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-from . import paths
+from . import crypto, paths
 from .fsutil import atomic_write_text, create_private, private_dir
 from .redact import for_storage
 
@@ -52,11 +58,22 @@ class MemoryStore:
     """
 
     def __init__(self):
-        self.history: list[dict[str, Any]] = []
+        self._history: list[dict[str, Any]] | None = None  # read on first use
         private_dir(os.path.dirname(_path()))
         with self._locked():
             self._migrate_legacy_file()
-            self._load()
+
+    @property
+    def history(self) -> list[dict[str, Any]]:
+        """Every snapshot, read from disk the first time it is asked for.
+
+        Reading is deferred so that running steps -- which only append --
+        never needs the encryption key's passphrase.
+        """
+        if self._history is None:
+            with self._locked():
+                self._load()
+        return self._history
 
     # ------------------------------------------------------------------
     # Public API
@@ -93,10 +110,11 @@ class MemoryStore:
                         # A previous write was cut off mid-line; end that
                         # line so it can't swallow this entry.
                         f.write(b"\n")
-                f.write(json.dumps(snapshot).encode() + b"\n")
+                f.write(crypto.seal_line(json.dumps(snapshot)).encode() + b"\n")
                 f.flush()
                 os.fsync(f.fileno())
-        self.history.append(snapshot)
+        if self._history is not None:
+            self._history.append(snapshot)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -114,22 +132,31 @@ class MemoryStore:
         """Load memory snapshots from disk, skipping unreadable lines.
 
         Bad lines are left in the file untouched (nothing is ever
-        rewritten), so they stay recoverable by hand.
+        rewritten), so they stay recoverable by hand. An encrypted line
+        unlocks the key first; a key that cannot be unlocked raises
+        CryptoError, while a line that cannot be decrypted is skipped.
         """
-        self.history = []
+        self._history = []
         skipped = 0
         try:
             with open(_path()) as f:
                 for line in f:
                     if not line.strip():
                         continue
+                    if crypto.is_encrypted_line(line):
+                        crypto.ensure_unlocked()
+                        try:
+                            line = crypto.decrypt_line(line)
+                        except crypto.CryptoError:
+                            skipped += 1
+                            continue
                     try:
                         entry = json.loads(line)
                     except ValueError:
                         skipped += 1
                         continue
                     if isinstance(entry, dict):
-                        self.history.append(entry)
+                        self._history.append(entry)
                     else:
                         skipped += 1
         except FileNotFoundError:

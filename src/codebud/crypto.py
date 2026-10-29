@@ -41,6 +41,7 @@ IDENTITY_FILE = "identity.age"
 RECIPIENT_FILE = "recipient.txt"
 LINE_PREFIX = "age:"
 PASSPHRASE_ENV = "CODEBUD_PASSPHRASE"
+ENCRYPT_ENV = "CODEBUD_ENCRYPT"
 _MAGIC = b"age-encryption.org/v1\n"
 
 _identity = None  # the unlocked secret key, for this process only
@@ -133,6 +134,30 @@ def passphrase_from_env() -> str | None:
     return os.environ.get(PASSPHRASE_ENV) or None
 
 
+def _terminal_available() -> bool:
+    """Whether a passphrase can be typed without echo (a controlling terminal)."""
+    try:
+        fd = os.open("/dev/tty", os.O_RDWR | os.O_NOCTTY)
+    except OSError:
+        return False
+    os.close(fd)
+    return True
+
+
+def ask_passphrase(prompt: str) -> str:
+    """Read a passphrase from the terminal without echo.
+
+    Without a terminal, getpass would fall back to reading stdin *with*
+    echo; refuse instead.
+    """
+    if not _terminal_available():
+        raise CryptoError(
+            f"the passphrase is needed and there is no terminal to ask on; "
+            f"set {PASSPHRASE_ENV} for unattended runs"
+        )
+    return getpass.getpass(prompt)
+
+
 def ensure_unlocked(ask=None, tries: int = 3) -> None:
     """Unlock the key unless it already is.
 
@@ -150,10 +175,17 @@ def ensure_unlocked(ask=None, tries: int = 3) -> None:
         except CryptoError as exc:
             raise CryptoError(f"{PASSPHRASE_ENV}: {exc}") from exc
         return
-    ask = ask or getpass.getpass
+    ask = ask or ask_passphrase
     for attempt in range(1, tries + 1):
         try:
-            unlock(ask("Passphrase for codebud's encryption key: "))
+            typed = ask("Passphrase for codebud's encryption key: ")
+        except (EOFError, OSError) as exc:  # no terminal to ask on
+            raise CryptoError(
+                f"the encrypted data needs the passphrase, and there is no terminal to "
+                f"ask on; set {PASSPHRASE_ENV} for unattended runs"
+            ) from exc
+        try:
+            unlock(typed)
             return
         except CryptoError:
             if attempt == tries:
@@ -218,6 +250,36 @@ def decrypt_line(line: str) -> str:
     except binascii.Error as exc:
         raise CryptoError(f"damaged encrypted line: {exc}") from exc
     return decrypt(sealed).decode()
+
+
+def enabled() -> bool:
+    """Whether codebud encrypts what it stores (CODEBUD_ENCRYPT / encrypt = true)."""
+    return os.environ.get(ENCRYPT_ENV) == "1"
+
+
+def check_ready() -> None:
+    """Raise CryptoError, with the fix, if encryption is on but cannot work."""
+    if not enabled():
+        return
+    if not available():
+        raise CryptoError(
+            "encryption at rest is on, but pyrage is not installed: "
+            "pip install 'codebud[crypto]' (or turn it off: encrypt = false)"
+        )
+    if not has_key():
+        raise CryptoError(
+            "encryption at rest is on, but there is no key yet: create one with: codebud key init"
+        )
+
+
+def seal_text(text: str) -> bytes:
+    """``text`` as it is stored: encrypted when encryption is on."""
+    return encrypt(text.encode()) if enabled() else text.encode()
+
+
+def seal_line(text: str) -> str:
+    """One line of an append-only file as it is stored."""
+    return encrypt_line(text) if enabled() else text
 
 
 def write_file(path, data: bytes) -> None:

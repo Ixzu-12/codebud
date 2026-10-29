@@ -13,6 +13,26 @@ test depends on what the machine is running at the time.
 import pytest
 
 
+@pytest.fixture
+def fast_passphrase(monkeypatch):
+    """Replace age's scrypt passphrase sealing (~1 s per call) with a fast
+    stand-in with the same contract: a wrong passphrase raises DecryptError.
+    tests/test_crypto.py keeps the real one."""
+    pyrage = pytest.importorskip("pyrage")
+
+    def encrypt(data, passphrase):
+        return b"SEALED:" + passphrase.encode().hex().encode() + b":" + data
+
+    def decrypt(sealed, passphrase):
+        _, secret, data = sealed.split(b":", 2)
+        if secret != passphrase.encode().hex().encode():
+            raise pyrage.DecryptError("Decryption failed")
+        return data
+
+    monkeypatch.setattr(pyrage.passphrase, "encrypt", encrypt)
+    monkeypatch.setattr(pyrage.passphrase, "decrypt", decrypt)
+
+
 @pytest.fixture(autouse=True)
 def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     from codebud import paths
@@ -40,7 +60,11 @@ def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     from codebud import crypto
 
     monkeypatch.delenv("CODEBUD_PASSPHRASE", raising=False)
+    monkeypatch.delenv("CODEBUD_ENCRYPT", raising=False)
     monkeypatch.setattr(crypto, "_identity", None)
+    # Tests type passphrases through a patched getpass; pretend there is a
+    # terminal (tests of the no-terminal case set this back to False).
+    monkeypatch.setattr(crypto, "_terminal_available", lambda: True)
 
     # doctor's RAM check reads /proc/meminfo; with a model loaded the real
     # machine can be "low on RAM" and break unrelated doctor tests. Tests

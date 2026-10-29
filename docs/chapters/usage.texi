@@ -582,9 +582,9 @@ host, DuckDuckGo for web search --- or @samp{Outbound: none}
       it is needed just for project search
 @item The data and configuration directories are private (owner only) ---
       a warning with the @command{chmod} that fixes it otherwise
-@item The encryption key for data at rest, if there is one --- and a
-      warning while @env{CODEBUD_PASSPHRASE} is set
-      (@pxref{Encryption at Rest})
+@item Encryption at rest: whether it is on, and the key --- a failure
+      when it is on without a key or without @code{pyrage}, and a warning
+      while @env{CODEBUD_PASSPHRASE} is set (@pxref{Encryption at Rest})
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
       from the project's @file{.codebud/}, @file{~/.config/codebud/} or
@@ -1232,6 +1232,10 @@ Default: @code{0} (keep sessions forever).  A positive number makes each
 Default: @code{1}: API keys, tokens, private keys and passwords are saved
 as @samp{[redacted]} in sessions and step history.  Set to @code{0} to
 store them verbatim (@pxref{Files and Directories}).
+
+@item CODEBUD_ENCRYPT
+Default: @code{0}.  @code{1} encrypts chat sessions and the step history
+with your age key (@pxref{Encryption at Rest}).
 
 @item CODEBUD_PASSPHRASE
 Not set by default.  The passphrase of the encryption key, for unattended

@@ -44,6 +44,19 @@ Alternatively, install it with pip like any Python package:
 `pip install .` (add `"[rag]"` for project search, `"[openai]"` for the
 optional OpenAI backend).
 
+## Encryption at rest
+
+Sessions and step history can be encrypted with [age](https://age-encryption.org)
+(needs `pip install ".[crypto]"`). Saving never asks for the passphrase;
+reading (`codebud history`, `codebud sessions`, `chat --resume`) asks once
+per run. Lose the passphrase and the data is gone — by design.
+
+```bash
+codebud key init                                    # create the key (asks for a passphrase)
+echo 'encrypt = true' >> ~/.config/codebud/config.toml
+codebud doctor                                      # Encryption at rest: on
+```
+
 ## Project search
 
 Index a project once and every request gets its most relevant code as
@@ -163,6 +176,7 @@ Your own go in `~/.config/codebud/profiles/<name>.toml` (`mode`, `privacy`,
 | `CODEBUD_PRIVACY` | `private` | `locked` keeps everything on this machine; `trusted` drops privacy prompts |
 | `CODEBUD_PROFILE` | `default` | Profile to start with (`codebud profiles` lists them) |
 | `CODEBUD_MASK_SECRETS` | `1` | Mask API keys, tokens, passwords as `[redacted]` in saved sessions/history |
+| `CODEBUD_ENCRYPT` | `0` | `1` encrypts chat sessions and step history with your age key (`codebud key init`) |
 | `CODEBUD_PASSPHRASE` | — | Passphrase of the encryption key, for unattended runs only (else asked; `doctor` warns) |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |

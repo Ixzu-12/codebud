@@ -8,7 +8,6 @@ codebud key: the encryption key for data at rest (crypto.py).
   key status   whether encryption is available and the key exists
 """
 
-import getpass
 import sys
 
 from codebud import crypto
@@ -26,10 +25,10 @@ def _new_passphrase() -> str:
     if from_env is not None:
         print(f"Using the passphrase in {crypto.PASSPHRASE_ENV}.")
         return from_env
-    first = getpass.getpass("New passphrase: ")
+    first = crypto.ask_passphrase("New passphrase: ")
     if not first:
         _fail("the passphrase must not be empty")
-    if getpass.getpass("Repeat it: ") != first:
+    if crypto.ask_passphrase("Repeat it: ") != first:
         _fail("the passphrases do not match; nothing was changed")
     return first
 
@@ -48,18 +47,23 @@ def _init() -> None:
         "Keep the passphrase safe: without it, data encrypted to this key "
         "cannot be recovered by anyone, codebud included."
     )
+    if not crypto.enabled():
+        print(
+            "To encrypt sessions and step history, add  encrypt = true  to "
+            "~/.config/codebud/config.toml (or set CODEBUD_ENCRYPT=1)."
+        )
 
 
 def _passwd() -> None:
     if not crypto.has_key():
         _fail("no encryption key yet; create one with: codebud key init")
-    old = getpass.getpass("Current passphrase: ")
+    old = crypto.ask_passphrase("Current passphrase: ")
     try:
         crypto.unlock(old)  # check it before asking for the new one
     except crypto.CryptoError as exc:
         _fail(str(exc))
-    first = getpass.getpass("New passphrase: ")
-    if getpass.getpass("Repeat it: ") != first:
+    first = crypto.ask_passphrase("New passphrase: ")
+    if crypto.ask_passphrase("Repeat it: ") != first:
         _fail("the passphrases do not match; nothing was changed")
     try:
         crypto.change_passphrase(old, first)
@@ -76,6 +80,8 @@ def _status() -> None:
     if not crypto.has_key():
         print(f"  no key yet ({crypto.key_dir()}); create one with: codebud key init")
         return
+    state = "on" if crypto.enabled() else "off (turn it on with encrypt = true)"
+    print(f"  {_OUT_DIM}encryption {_OUT_RESET} {state}")
     print(f"  {_OUT_DIM}key        {_OUT_RESET} {crypto.key_dir()}")
     print(f"  {_OUT_DIM}public key {_OUT_RESET} {crypto.recipient()}")
     if crypto.passphrase_from_env() is not None:
