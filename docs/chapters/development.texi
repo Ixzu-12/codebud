@@ -92,6 +92,8 @@ tests/
 │                                --profile / CODEBUD_PROFILE
 ├── test_private_files.py        data dirs 0700 / files 0600 whatever the
 │                                umask; doctor warning
+├── test_process_hardening.py   no core dumps / not dumpable once a
+│                                secret is held (checked in a subprocess)
 ├── test_purge.py                sessions --delete/--purge, history
 │                                --purge, confirmation, retention limit
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo

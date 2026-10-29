@@ -264,6 +264,15 @@ started Codebud with it, and anything that can read that environment,
 can unlock your data, so @command{codebud doctor} warns while it is set;
 prefer the prompt.
 
+@subheading While the key is unlocked
+
+From the moment Codebud holds the passphrase or the unlocked key until it
+exits, it does not write core dumps (a crash would otherwise leave the key
+and your decrypted data in one, for example under
+@file{/var/lib/systemd/coredump}), and on GNU/Linux it marks itself
+non-dumpable, which also stops other programs running as you from
+attaching to it or reading its memory.
+
 @subheading If you lose the passphrase
 
 The data encrypted to the key cannot be recovered --- not by you, not by

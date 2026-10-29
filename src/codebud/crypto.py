@@ -32,6 +32,7 @@ import base64
 import binascii
 import getpass
 import os
+import sys
 from pathlib import Path
 
 from codebud import paths
@@ -96,6 +97,7 @@ def create_key(passphrase: str) -> str:
         raise CryptoError("the passphrase must not be empty")
     if (key_dir() / IDENTITY_FILE).exists() or (key_dir() / RECIPIENT_FILE).exists():
         raise CryptoError(f"an encryption key already exists in {key_dir()}")
+    _harden_process()
     identity = pyrage.x25519.Identity.generate()
     recipient = str(identity.to_public())
     private_dir(key_dir())
@@ -116,6 +118,7 @@ def recipient() -> str:
 def _open_identity(passphrase: str):
     pyrage = _pyrage()
     _require_key()
+    _harden_process()  # the passphrase and the secret key are about to be in memory
     sealed = (key_dir() / IDENTITY_FILE).read_bytes()
     try:
         secret = pyrage.passphrase.decrypt(sealed, passphrase)
@@ -130,6 +133,32 @@ def unlock(passphrase: str) -> None:
     _identity = _open_identity(passphrase)
 
 
+def _harden_process() -> None:
+    """Keep secrets in this process's memory from reaching the disk or others.
+
+    Called before the secret key or a passphrase is held in memory: no core
+    dump (systemd-coredump would otherwise store one, key and decrypted
+    data included, if codebud crashed), and on Linux the process is made
+    non-dumpable, which also stops other processes of the same user from
+    attaching to it or reading /proc/<pid>/mem. Both last until codebud
+    exits; best effort where the platform lacks them.
+    """
+    try:
+        import resource
+
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ImportError, ValueError, OSError):
+        pass
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+
+            pr_set_dumpable = 4
+            ctypes.CDLL(None, use_errno=True).prctl(pr_set_dumpable, 0, 0, 0, 0)
+        except (OSError, AttributeError):
+            pass
+
+
 def take_env_passphrase() -> None:
     """Move CODEBUD_PASSPHRASE out of the environment into this process.
 
@@ -139,6 +168,7 @@ def take_env_passphrase() -> None:
     global _env_passphrase
     value = os.environ.pop(PASSPHRASE_ENV, None)
     if value:
+        _harden_process()
         _env_passphrase = value
 
 

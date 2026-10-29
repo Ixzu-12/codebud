@@ -63,6 +63,9 @@ def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     monkeypatch.delenv("CODEBUD_ENCRYPT", raising=False)
     monkeypatch.setattr(crypto, "_identity", None)
     monkeypatch.setattr(crypto, "_env_passphrase", None)
+    # Unlocking hardens the process for good (no core dumps, not dumpable);
+    # keep pytest itself as it was -- tests of it run in a subprocess.
+    monkeypatch.setattr(crypto, "_harden_process", lambda: None)
     # Tests type passphrases through a patched getpass; pretend there is a
     # terminal (tests of the no-terminal case set this back to False).
     monkeypatch.setattr(crypto, "_terminal_available", lambda: True)
