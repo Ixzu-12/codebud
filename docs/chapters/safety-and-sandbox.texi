@@ -195,8 +195,10 @@ in effect.
 @subsection Recommended configuration for Python development
 
 The defaults already cover a Python workflow: read-only tools and
-@code{git log}/@code{status}/@code{diff}/@code{show} are harmless, and the
-code runners (@code{python}, @code{python3}, @code{pytest}, @code{ruff}) are
+@code{git log}/@code{status}/@code{diff}/@code{show} are harmless (and run
+with the repository's own hooks, filters and diff/textconv drivers
+disabled, so opening a repository someone else prepared cannot run their
+programs), and the code runners (@code{python}, @code{python3}, @code{pytest}, @code{ruff}) are
 powerful, so @code{auto} mode confirms them.  Typical additions:
 
 @example

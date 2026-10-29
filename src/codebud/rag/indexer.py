@@ -24,6 +24,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from codebud import gitsafe
 from codebud.rag.chunker import Chunk, chunk_file
 from codebud.rag.files import candidate_files, select_files
 from codebud.rag.store import IndexStore, index_dir
@@ -47,7 +48,9 @@ def project_root(start: Path | str | None = None) -> Path:
     start = Path(start or ".").resolve()
     try:
         out = subprocess.run(
-            ["git", "-C", str(start), "rev-parse", "--show-toplevel"],
+            gitsafe.git_argv(["rev-parse", "--show-toplevel"], cwd=start),
+            cwd=start,
+            env=gitsafe.git_environment(),  # the repository runs nothing (gitsafe.py)
             capture_output=True,
             text=True,
             check=False,

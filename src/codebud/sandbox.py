@@ -25,7 +25,7 @@ import shlex
 import subprocess
 from typing import Any
 
-from codebud import isolation
+from codebud import gitsafe, isolation
 
 # What every step gets: what ordinary tools need to run, nothing that grants
 # access to anything. LC_* stands for every locale variable.
@@ -136,7 +136,11 @@ class Sandbox:
         if self._is_dangerous(cmd):
             return {"stdout": "", "stderr": f"Blocked dangerous command: {cmd}", "returncode": 1}
 
-        argv, refusal = isolation.prepare(shlex.split(cmd), network=network)
+        words = shlex.split(cmd)
+        if words and words[0] == "git":
+            # The repository's config must not run programs (gitsafe.py).
+            words = gitsafe.git_argv(words[1:], cwd=os.getcwd())
+        argv, refusal = isolation.prepare(words, network=network)
         if refusal:
             return {"stdout": "", "stderr": refusal, "returncode": 1}
 

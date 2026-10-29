@@ -69,6 +69,8 @@ tests/
 │                                detection, artefact hashes, encrypted
 │                                entries (append while locked)
 ├── test_fsutil.py               atomic_write_text() / _bytes()
+├── test_gitsafe.py              git runs none of the repository's configured
+│                                programs (fsmonitor, filters, textconv)
 ├── test_isolation.py            bubblewrap isolation (live where available),
 │                                network steps, no-isolation fallbacks
 ├── test_key_cli.py             codebud key init/passwd/status, passphrase

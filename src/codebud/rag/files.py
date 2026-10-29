@@ -26,6 +26,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from codebud import gitsafe
+
 MAX_FILE_BYTES = 256 * 1024
 IGNORE_FILE = ".codebudignore"
 
@@ -87,18 +89,13 @@ def _git_files(root: Path) -> list[str] | None:
     """Files git considers part of the project, or None outside a work tree."""
     try:
         result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(root),
-                "ls-files",
-                "-z",
-                "--cached",
-                "--others",
-                "--exclude-standard",
-            ],
+            gitsafe.git_argv(
+                ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root
+            ),
+            cwd=root,
             capture_output=True,
             check=False,
+            env=gitsafe.git_environment(),  # the repository runs nothing (gitsafe.py)
         )
     except OSError:  # git not installed
         return None
