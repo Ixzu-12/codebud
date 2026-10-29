@@ -16,6 +16,10 @@ manual's Privacy chapter).
 Selected for the [XERJ Corpus Hub](https://hub.xerj.org/corpus/mkhellat--codebud)
 as reference memory for coding agents (approach-only under GPL-3.0).
 
+**For coding agents:** read [`llms.txt`](llms.txt) (install, privacy dial, modes,
+when data can leave the machine). Hand them:
+`Install codebud (docs: https://raw.githubusercontent.com/mkhellat/codebud/main/llms.txt), run doctor, index this project if useful, then run the user's task locally.`
+
 ## Quick start
 
 ```bash
