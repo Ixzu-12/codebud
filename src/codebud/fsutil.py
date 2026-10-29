@@ -41,8 +41,9 @@ def create_private(path) -> None:
 def atomic_write_text(path: str, text: str) -> None:
     """Replace the contents of ``path`` with ``text``, all or nothing.
 
-    Writes to a temporary file in the same directory, fsyncs it and renames
-    it over ``path`` (os.replace is atomic on POSIX). If anything fails, the
+    Writes to a temporary file in the same directory, fsyncs it, renames
+    it over ``path`` (os.replace is atomic on POSIX) and fsyncs the
+    directory so the rename survives a power cut. If anything fails, the
     temporary file is removed and ``path`` keeps its previous contents.
     """
     _atomic_write(path, text, "w")
@@ -69,3 +70,23 @@ def _atomic_write(path, content, mode: str) -> None:
     except BaseException:
         os.unlink(tmp_path)
         raise
+    _fsync_dir(os.path.dirname(path) or ".")
+
+
+def _fsync_dir(directory: str) -> None:
+    """Make a rename in ``directory`` durable (it lives in the directory).
+
+    Without this a power cut right after, say, creating the encryption key
+    could lose the new file while data was already encrypted to it. Best
+    effort: some platforms cannot open or fsync a directory.
+    """
+    try:
+        fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)

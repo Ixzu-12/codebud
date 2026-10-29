@@ -6,6 +6,7 @@ interrupted write leaves the previous contents and no stray temp files.
 """
 
 import os
+import stat
 
 import pytest
 
@@ -47,3 +48,16 @@ def test_writes_bytes_privately(tmp_path):
     fsutil.atomic_write_bytes(path, b"\x00new")
     assert path.read_bytes() == b"\x00new"
     assert os.stat(path).st_mode & 0o777 == 0o600
+
+
+def test_the_directory_is_synced_after_the_rename(tmp_path, monkeypatch):
+    synced = []  # for each fsync: was it a directory?
+    real_fsync = os.fsync
+
+    def spy(fd):
+        synced.append(stat.S_ISDIR(os.fstat(fd).st_mode))
+        return real_fsync(fd)
+
+    monkeypatch.setattr(fsutil.os, "fsync", spy)
+    fsutil.atomic_write_bytes(tmp_path / "key", b"x")
+    assert synced == [False, True]  # the file, then its directory
