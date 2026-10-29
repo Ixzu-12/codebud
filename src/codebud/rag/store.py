@@ -103,6 +103,10 @@ class IndexStore:
         self._db = sqlite3.connect(db_path)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA busy_timeout=5000")
+        if sealed is not None:
+            # SQLite's temporary files (large sorts, merges) go to /var/tmp
+            # before /tmp, usually on disk: keep a decrypted index's in memory.
+            self._db.execute("PRAGMA temp_store=MEMORY")
         self._create_schema()
 
     # --- opening ------------------------------------------------------------
@@ -163,17 +167,31 @@ class IndexStore:
 
         The decrypted copy is removed either way.
         """
-        self._db.close()  # the last connection checkpoints the WAL into the file
+        if self.sealed is not None and self._lock is not None:
+            # Fold the write-ahead log into the file explicitly: the file
+            # alone is what gets encrypted back.
+            busy = self._db.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]
+            if busy:
+                self._db.close()
+                self._discard_copy()
+                raise sqlite3.OperationalError(
+                    "could not checkpoint the decrypted index; the encrypted one is unchanged"
+                )
+        self._db.close()
         if self.sealed is None:
             return
         try:
             if self._lock is not None:
                 crypto.write_file(self.sealed, self.db_path.read_bytes())
         finally:
-            shutil.rmtree(self.db_path.parent, ignore_errors=True)
-            if self._lock is not None:
-                self._lock.close()
-                self._lock = None
+            self._discard_copy()
+
+    def _discard_copy(self) -> None:
+        """Remove the decrypted copy and release the writer's lock."""
+        shutil.rmtree(self.db_path.parent, ignore_errors=True)
+        if self._lock is not None:
+            self._lock.close()
+            self._lock = None
 
     def __enter__(self) -> "IndexStore":
         return self

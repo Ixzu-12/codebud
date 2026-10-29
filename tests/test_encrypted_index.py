@@ -198,3 +198,33 @@ def test_toolbar_shows_a_locked_index(encrypted, project):
     assert rag_indicator(Agent(), project) == "RAG locked"
     crypto.unlock(PASSPHRASE)
     assert rag_indicator(Agent(), project) == "RAG"
+
+
+# --- the decrypted copy (audit M2, L2) --------------------------------------
+
+
+def test_a_decrypted_copy_keeps_sqlite_temp_files_in_memory(encrypted, project):
+    indexer.index_project(project)
+    crypto.unlock(PASSPHRASE)
+    with IndexStore.open(project) as store:
+        assert store._db.execute("PRAGMA temp_store").fetchone()[0] == 2  # MEMORY
+
+
+def test_a_plaintext_index_keeps_the_default_temp_store(project, runtime):
+    indexer.index_project(project)
+    with IndexStore.open(project) as store:
+        assert store._db.execute("PRAGMA temp_store").fetchone()[0] == 0
+
+
+def test_the_encrypted_file_alone_holds_every_write(encrypted, project, tmp_path):
+    import sqlite3
+
+    indexer.index_project(project)
+    crypto.unlock(PASSPHRASE)
+    plain = tmp_path / "check.sqlite3"
+    plain.write_bytes(crypto.decrypt((index_dir(project) / SEALED_NAME).read_bytes()))
+    con = sqlite3.connect(plain)  # no -wal file beside it
+    try:
+        assert con.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 2
+    finally:
+        con.close()

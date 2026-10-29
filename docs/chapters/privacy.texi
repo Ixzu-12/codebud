@@ -147,7 +147,9 @@ Subcommand}).  SQLite cannot work on an encrypted file, so while an index
 is in use it is decrypted into a private directory under
 @env{XDG_RUNTIME_DIR} (@file{/run/user/@var{uid}}: in memory, 0700,
 emptied when you log out) and that copy is removed when Codebud is done
-with it; @command{codebud index} encrypts the updated index back.
+with it --- SQLite is told to keep its temporary files for that copy in
+memory too, since it would otherwise put them in @file{/var/tmp}, usually
+on disk; @command{codebud index} encrypts the updated index back.
 Without @env{XDG_RUNTIME_DIR} (it is set by systemd and most desktop
 sessions on GNU/Linux, usually not on macOS or the BSDs) an encrypted
 index is not used at all rather than decrypted to disk: project search is
