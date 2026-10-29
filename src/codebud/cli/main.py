@@ -82,9 +82,12 @@ def main():
     if argv and argv[0] not in KNOWN_SUBCOMMANDS and not argv[0].startswith("-"):
         argv = ["run"] + argv
 
-    # Values from config.toml become environment defaults; set variables win.
-    from codebud import settings
+    # The passphrase must not stay where child processes inherit it.
+    from codebud import crypto, settings
 
+    crypto.take_env_passphrase()
+
+    # Values from config.toml become environment defaults; set variables win.
     settings.apply()
 
     parser = build_parser()
@@ -131,8 +134,6 @@ def main():
     if handler is None:
         parser.print_help()
         sys.exit(0)
-
-    from codebud import crypto
 
     try:
         if args.subcommand in _STORES_DATA:

@@ -45,6 +45,7 @@ ENCRYPT_ENV = "CODEBUD_ENCRYPT"
 _MAGIC = b"age-encryption.org/v1\n"
 
 _identity = None  # the unlocked secret key, for this process only
+_env_passphrase: str | None = None  # CODEBUD_PASSPHRASE, taken out of the environment
 
 
 class CryptoError(Exception):
@@ -129,9 +130,21 @@ def unlock(passphrase: str) -> None:
     _identity = _open_identity(passphrase)
 
 
+def take_env_passphrase() -> None:
+    """Move CODEBUD_PASSPHRASE out of the environment into this process.
+
+    The CLI calls this first thing, so nothing codebud starts -- command
+    steps, git, editors -- can inherit the passphrase.
+    """
+    global _env_passphrase
+    value = os.environ.pop(PASSPHRASE_ENV, None)
+    if value:
+        _env_passphrase = value
+
+
 def passphrase_from_env() -> str | None:
-    """CODEBUD_PASSPHRASE, for unattended runs; None when it is not set."""
-    return os.environ.get(PASSPHRASE_ENV) or None
+    """CODEBUD_PASSPHRASE, for unattended runs; None when it was not given."""
+    return _env_passphrase or os.environ.get(PASSPHRASE_ENV) or None
 
 
 def _terminal_available() -> bool:

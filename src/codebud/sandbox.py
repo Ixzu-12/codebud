@@ -11,7 +11,8 @@ for executing shell commands. It ensures:
 
 Each command is isolated according to the privacy level (isolation.py):
 no network unless the step declared it, project-only writes, secrets
-hidden.
+hidden. At every privacy level, a step's environment leaves out the
+encryption passphrase and codebud's secret settings (step_environment()).
 
 The sandbox does NOT:
 - validate plans
@@ -19,11 +20,25 @@ The sandbox does NOT:
 - interact with the LLM
 """
 
+import os
 import shlex
 import subprocess
 from typing import Any
 
 from codebud import isolation
+
+
+def step_environment() -> dict[str, str]:
+    """The environment a command step runs with: codebud's, minus its secrets.
+
+    Isolation hides secret *files*, but a child process inherits the
+    environment; a step must never see the encryption passphrase or the
+    secret settings (an API key), whatever it runs (`printenv`, `env`).
+    """
+    from codebud import crypto, settings
+
+    hidden = {crypto.PASSPHRASE_ENV} | {s.env for s in settings.SETTINGS if s.secret}
+    return {k: v for k, v in os.environ.items() if k not in hidden}
 
 
 class Sandbox:
@@ -66,7 +81,9 @@ class Sandbox:
             return {"stdout": "", "stderr": refusal, "returncode": 1}
 
         try:
-            process = subprocess.run(argv, capture_output=True, text=True, timeout=self.timeout)
+            process = subprocess.run(
+                argv, capture_output=True, text=True, timeout=self.timeout, env=step_environment()
+            )
 
             return {
                 "stdout": process.stdout,

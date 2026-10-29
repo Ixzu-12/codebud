@@ -459,6 +459,13 @@ fresh, private @file{/tmp};
 @item stopped together with Codebud.
 @end itemize
 
+@cindex environment of command steps
+At every privacy level, @code{trusted} included, a step's environment
+leaves out the encryption passphrase (@env{CODEBUD_PASSPHRASE}) and
+Codebud's secret settings (@env{OPENAI_API_KEY}): hiding secret files is
+not enough if @command{printenv} can print them.  A project script that
+needs such a key must get it some other way than through Codebud.
+
 A step that needs the internet --- @command{pip install},
 @command{git fetch} --- declares it (the planner is told how), and is then
 shown and confirmed like a web search: in @code{ask} and @code{auto} mode

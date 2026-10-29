@@ -256,9 +256,13 @@ the key from the passphrase with scrypt, deliberately slowly, to make
 guessing expensive.
 
 For unattended runs, the passphrase may come from @env{CODEBUD_PASSPHRASE}
-instead (one try, since nobody is there to retype it).  Anything that can
-read Codebud's environment can then unlock your data, so
-@command{codebud doctor} warns while it is set; prefer the prompt.
+instead (one try, since nobody is there to retype it).  Codebud takes it
+out of its environment as soon as it starts and keeps it only in memory,
+so the commands it runs never inherit it --- a step running
+@command{printenv} or @command{env} cannot see it.  Still, whatever
+started Codebud with it, and anything that can read that environment,
+can unlock your data, so @command{codebud doctor} warns while it is set;
+prefer the prompt.
 
 @subheading If you lose the passphrase
 
