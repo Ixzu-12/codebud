@@ -242,7 +242,12 @@ data directory it protects:
 The secret key, itself encrypted with your passphrase.  It is never
 written to disk in the clear.
 @item recipient.txt
-The public key (@samp{age1@dots{}}).
+The public key (@samp{age1@dots{}}).  While the key is locked, Codebud
+encrypts to it; every unlock checks that it still belongs to your key and
+stops with a clear message if it does not (someone replacing it would
+otherwise have new data encrypted to their key instead of yours).  While
+the key is unlocked, Codebud encrypts to the public key derived from the
+key itself.
 @end table
 
 @noindent

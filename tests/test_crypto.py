@@ -137,3 +137,27 @@ def test_file_round_trip_is_private(unlocked, tmp_path):
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
     assert crypto.is_encrypted(path.read_bytes())
     assert crypto.read_file(path) == b'{"turns": []}'
+
+
+# --- the public key file (audit M4) -----------------------------------------
+
+
+def test_unlock_refuses_a_replaced_public_key(monkeypatch):
+    from pyrage import x25519
+
+    crypto.create_key("pw")
+    crypto.lock()
+    stranger = str(x25519.Identity.generate().to_public())
+    (crypto.key_dir() / crypto.RECIPIENT_FILE).write_text(stranger + "\n")
+    with pytest.raises(crypto.CryptoError, match="does not belong to your key"):
+        crypto.unlock("pw")
+    assert not crypto.is_unlocked()
+
+
+def test_while_unlocked_writes_use_the_key_not_the_file(unlocked):
+    from pyrage import x25519
+
+    stranger = x25519.Identity.generate()
+    (crypto.key_dir() / crypto.RECIPIENT_FILE).write_text(str(stranger.to_public()) + "\n")
+    sealed = crypto.encrypt(b"mine")
+    assert crypto.decrypt(sealed) == b"mine"  # encrypted to my key, not the stranger's

@@ -110,7 +110,13 @@ def create_key(passphrase: str) -> str:
 
 
 def recipient() -> str:
-    """The public key data is encrypted to."""
+    """The public key data is encrypted to.
+
+    While the key is unlocked it is derived from the secret key itself;
+    otherwise it is read from recipient.txt, which unlock() checks.
+    """
+    if _identity is not None:
+        return str(_identity.to_public())
     _require_key()
     return (key_dir() / RECIPIENT_FILE).read_text().strip()
 
@@ -128,9 +134,29 @@ def _open_identity(passphrase: str):
 
 
 def unlock(passphrase: str) -> None:
-    """Unlock the secret key for this process."""
+    """Unlock the secret key for this process.
+
+    Also checks that recipient.txt -- the public key that writes use while
+    the key is locked -- belongs to this key. If someone replaced it, data
+    saved since then went to their key, not yours: that is refused loudly.
+    """
     global _identity
-    _identity = _open_identity(passphrase)
+    identity = _open_identity(passphrase)
+    _check_recipient(identity)
+    _identity = identity
+
+
+def _check_recipient(identity) -> None:
+    expected = str(identity.to_public())
+    stored = (key_dir() / RECIPIENT_FILE).read_text().strip()
+    if stored != expected:
+        raise CryptoError(
+            f"{key_dir() / RECIPIENT_FILE} does not belong to your key: it holds "
+            f"{stored[:16]}..., your key's public key is {expected}. Data saved "
+            "while it was wrong was encrypted to that other key, which you may not "
+            "be able to read. Find out how it changed, then put your public key "
+            "back in that file."
+        )
 
 
 def _harden_process() -> None:
@@ -250,6 +276,7 @@ def change_passphrase(old: str, new: str) -> None:
     if not new:
         raise CryptoError("the passphrase must not be empty")
     identity = _open_identity(old)
+    _check_recipient(identity)
     sealed = _pyrage().passphrase.encrypt(str(identity).encode(), new)
     atomic_write_bytes(key_dir() / IDENTITY_FILE, sealed)
 
