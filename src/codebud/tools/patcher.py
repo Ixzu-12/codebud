@@ -19,8 +19,20 @@ The tool:
 This is a simplified patcher suitable for coding agents.
 """
 
-import os
 from typing import Any
+
+from codebud import confine
+
+
+def patch_target(patch_text: str) -> str | None:
+    """The file a unified diff patches (its +++ line, a/ or b/ stripped)."""
+    target = None
+    for line in patch_text.split("\n"):
+        if line.startswith("+++ "):
+            target = line[4:].strip()
+    if not target:
+        return None
+    return target[2:] if target.startswith(("a/", "b/")) else target
 
 
 class PatchTool:
@@ -66,29 +78,16 @@ class PatchTool:
 
         lines = patch_text.split("\n")
 
-        # Extract target file from --- a/file and +++ b/file
-        new_file = None
-
-        for line in lines:
-            if line.startswith("--- "):
-                pass  # source path — unused; target path comes from +++ line
-            elif line.startswith("+++ "):
-                new_file = line[4:].strip()
-
-        if not new_file:
+        name = patch_target(patch_text)
+        if not name:
             raise ValueError("Could not determine target file from patch")
+        target_path = confine.check_write(name)  # inside the project only
 
-        # Normalize path (strip a/ or b/)
-        if new_file.startswith("a/") or new_file.startswith("b/"):
-            target_path = new_file[2:]
-        else:
-            target_path = new_file
-
-        if not os.path.exists(target_path):
-            raise FileNotFoundError(f"Target file not found: {target_path}")
+        if not target_path.exists():
+            raise FileNotFoundError(f"Target file not found: {name}")
 
         # Load original file
-        with open(target_path) as f:
+        with confine.open_for_read(target_path) as f:
             original_lines = f.readlines()
 
         patched_lines = []
@@ -117,7 +116,7 @@ class PatchTool:
                 continue
 
         # Write patched file
-        with open(target_path, "w") as f:
+        with confine.open_for_write(target_path) as f:
             f.writelines(patched_lines)
 
         return f"Patch applied to {target_path}"

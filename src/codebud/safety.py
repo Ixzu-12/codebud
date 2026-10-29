@@ -117,6 +117,27 @@ def _forbidden_argument(words: list[str]) -> str | None:
     return None
 
 
+def _file_refusal(tool: str, args: dict[str, Any]) -> str | None:
+    """Why a file tool step may not touch its path (confine.py), or None."""
+    from codebud import confine
+    from codebud.tools.patcher import patch_target
+
+    if tool == "patch":
+        path = patch_target(args.get("patch") or "")
+    else:
+        path = args.get("path")
+    if not isinstance(path, str) or not path:
+        return None  # a missing argument is the tool registry's to report
+    try:
+        if tool == "file_read":
+            confine.check_read(path)
+        else:
+            confine.check_write(path)
+    except confine.ConfinementError as exc:
+        return str(exc)
+    return None
+
+
 POWERFUL_REASON = "Powerful command (runs code or changes files)."
 
 
@@ -180,6 +201,8 @@ class SafetyEngine:
                 return "steps that need the network are not allowed at privacy level locked"
         if tool == "command":
             return self._command_refusal(step.get("args", {}).get("cmd", ""))
+        if tool in ("file_read", "file_write", "patch"):
+            return _file_refusal(tool, step.get("args", {}))
         return None
 
     def is_powerful(self, step: dict[str, Any]) -> bool:

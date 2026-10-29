@@ -428,9 +428,11 @@ the OpenAI backend, your requests, conversation and retrieved project
 context go there; their privacy is that server's.
 
 @item
-@strong{File tools are not isolated.}  @code{file_read},
+@strong{File tools are confined, not sandboxed.}  @code{file_read},
 @code{file_write} and @code{patch} run inside Codebud, with your rights;
-only command steps are sandboxed (@pxref{What Is Not Protected}).
+they may write only inside the project (not its @file{.git/} or
+@file{.codebud/}) and never read your secret files or Codebud's own
+(@pxref{What Is Not Protected}).
 
 @item
 @strong{Isolation needs bubblewrap and user namespaces.}  On macOS, the

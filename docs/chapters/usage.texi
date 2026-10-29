@@ -1061,12 +1061,22 @@ Example:
 @example
 Plan (3 steps)
   [1] file_read          read README.md
+       /home/you/proj/README.md
   [2] command            run pytest -q
+       pytest -q
   [3] file_write         write test-summary.md
+       /home/you/proj/test-summary.md (812 bytes)
 @end example
 
-Each line shows the step number, the tool that will be used, and a
-human-readable description.  The tool names correspond to the built-in
+Each step shows its number, the tool and the model's description of it,
+and under that what it really acts on, taken from its arguments: the
+resolved file path (with @samp{->} when a symlink leads elsewhere), the
+command line (@samp{[network]} when it asked for the network), the
+search query.  Read that second line: the description is only the
+model's account of the step, and text in your project can try to make
+it misleading.  When a @code{patch} step runs, its whole diff is shown
+first.  Control characters in anything shown are printed as escapes
+(@samp{\x1b}), never obeyed.  The tool names correspond to the built-in
 tools described in @ref{Tools Reference}.
 
 If the model cannot produce a valid plan, Codebud answers with a plain

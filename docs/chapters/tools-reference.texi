@@ -45,7 +45,10 @@ are created automatically with @code{os.makedirs(exist_ok=True)}.
 @item path
 @emph{Required.}  Path to the file to write (relative to the working
 directory or absolute).  Missing parent directories are created; a bare
-file name such as @file{hello.py} writes to the working directory.
+file name such as @file{hello.py} writes to the working directory.  The
+path, symlinks resolved, must be inside the project and not in its
+@file{.git/} or @file{.codebud/}; anything else is refused before the
+step runs (@pxref{What Is Not Protected}).
 
 @item content
 The complete text to write (an empty file if omitted).  The file is written in one
@@ -56,7 +59,7 @@ shot; any existing content is replaced entirely.
 
 On success:
 @example
-@{ "stdout": "Wrote N bytes to path", "stderr": "", "returncode": 0 @}
+@{ "stdout": "Wrote N bytes to /resolved/path", "stderr": "", "returncode": 0 @}
 @end example
 
 On failure:
@@ -98,7 +101,9 @@ Reads the content of a named file and returns it in @code{stdout}.
 @table @code
 @item path
 @emph{Required.}  Path to an existing file.  Must be a file, not a
-directory.
+directory.  It may be outside the project, but never one of your secret
+files (@file{~/.ssh}, @file{~/.gnupg}, @file{.netrc}, @dots{}) or
+Codebud's own data, configuration and keys, symlinks resolved first.
 @end table
 
 @subsection Returns
@@ -230,7 +235,8 @@ introduce accidental changes.
 @item patch
 @emph{Required.}  A unified diff string as produced by @command{diff -u}
 or @command{git diff}.  Must include @samp{---} and @samp{+++} header
-lines that identify the target file.
+lines that identify the target file, which must be inside the project
+and not in its @file{.git/} or @file{.codebud/}, like @code{file_write}.
 @end table
 
 @subsection Returns

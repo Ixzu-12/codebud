@@ -6,6 +6,7 @@ step results. All output goes to stderr for progress lines so that stdout
 can carry clean JSON when piped. Plain-text fallback when not a TTY.
 """
 
+import os
 import shutil
 import sys
 import threading
@@ -81,29 +82,74 @@ def print_assistant_reply(reply: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _visible(text: str, *, one_line: bool = True) -> str:
+    """``text`` with control characters shown, not obeyed (a model-written
+    description or path must not be able to move the cursor or rewrite
+    what the user is approving)."""
+    keep = "\t" if one_line else "\t\n"
+    return "".join(ch if ch.isprintable() or ch in keep else repr(ch)[1:-1] for ch in str(text))
+
+
+def step_target(step: dict[str, Any]) -> str:
+    """What a step really acts on, from its arguments -- never from the
+    model's description: the resolved path of a file tool, a patch's target
+    file, a command line, a search query."""
+    from codebud.tools.patcher import patch_target
+
+    args = step.get("args") or {}
+    tool = step.get("tool")
+    if tool in ("file_write", "file_read", "patch"):
+        path = args.get("path", "") if tool != "patch" else patch_target(args.get("patch") or "")
+        if not path:
+            return "(no file given)"
+        real = os.path.realpath(os.path.expanduser(path))
+        shown = real if real == os.path.abspath(path) else f"{path} -> {real}"
+        if tool == "file_write":
+            shown += f" ({len(args.get('content', '') or '')} bytes)"
+        return _visible(shown)
+    if tool == "command":
+        cmd = _visible(args.get("cmd", ""))
+        return cmd + ("  [network]" if args.get("network") else "")
+    if tool == "web_search":
+        return _visible(f'query: "{args.get("query", "")}"')
+    return ""
+
+
 def print_plan(plan: dict[str, Any], *, verbose: bool = False) -> None:
-    """Print a human-readable summary of a plan dict."""
+    """Print a human-readable summary of a plan dict.
+
+    Each step shows what it acts on (step_target()) as well as the model's
+    description, which is only the model's account of it.
+    """
     steps: list[dict] = plan.get("plan", [])
     n = len(steps)
     _err(f"\n{_BOLD}Plan ({n} step{'s' if n != 1 else ''}){_RESET}")
     for i, step in enumerate(steps, 1):
         tool = step.get("tool", "?")
-        desc = step.get("description", "")
+        desc = _visible(step.get("description", ""))
         _err(f"  {_CYAN}[{i}]{_RESET} {_BOLD}{tool:<18}{_RESET} {desc}")
+        target = step_target(step)
+        if target:
+            _err(f"       {target}")
         if verbose:
             args = step.get("args", {})
             for k, v in args.items():
-                _err(f"       {_DIM}{k}: {v}{_RESET}")
+                _err(f"       {_DIM}{k}: {_visible(v, one_line=False)}{_RESET}")
     _err()
 
 
 def print_step_header(index: int, step: dict[str, Any]) -> None:
+    """The step about to run: what it acts on (always, even in full-auto)
+    and, for a patch, the whole diff."""
     tool = step.get("tool", "?")
-    desc = step.get("description", "")
+    desc = _visible(step.get("description", ""))
     _err(f"{_BOLD}Step {index} — {tool}:{_RESET} {desc}")
-    if tool == "web_search":
-        # Data leaving the machine is always shown, even in full-auto.
-        _err(f'  query: "{step.get("args", {}).get("query", "")}"')
+    target = step_target(step)
+    if target:
+        _err(f"  {target}")
+    if tool == "patch":
+        for line in _visible(step.get("args", {}).get("patch", ""), one_line=False).splitlines():
+            _err(f"  {_DIM}|{_RESET} {line}")
 
 
 _PREVIEW_LINES = 15

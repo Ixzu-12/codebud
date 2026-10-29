@@ -51,6 +51,8 @@ tests/
 ├── test_chat_input.py           / menu, toolbar, Shift-Tab (prompt_toolkit)
 ├── test_cli.py                  subcommands, doctor, display, chat REPL,
 │                                history, sessions, modes, run --yes
+├── test_confine.py              file tools: project-only writes, no .git/
+│                                .codebud/, no secret reads, symlinks, display
 ├── test_core.py                 AgentCore: models, /compact, context usage
 ├── test_crypto.py               age key: passphrase, lock/unlock, files
 │                                and lines (skips without pyrage)

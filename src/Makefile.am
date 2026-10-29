@@ -20,6 +20,7 @@ nobase_python_PYTHON = \
 	codebud/cli/parser.py \
 	codebud/cli/run.py \
 	codebud/cli/steps.py \
+	codebud/confine.py \
 	codebud/core.py \
 	codebud/crypto.py \
 	codebud/encrypt_existing.py \

@@ -240,11 +240,18 @@ aware of the following limitations:
 
 @itemize
 @item
-@strong{File tools are not isolated.}  Isolation applies to
+@strong{File tools are confined, not isolated.}  Isolation applies to
 @code{command} steps, which run as separate processes.
 @code{file_read}, @code{file_write} and @code{patch} run inside Codebud
-itself, so a @code{file_write} step can write to any path your user can
-write; the planner is told to keep changes inside the project.
+itself, so their paths are checked instead (symlinks resolved first):
+@code{file_write} and @code{patch} may only write inside the project, and
+never into its @file{.git/} (hooks and config run programs) or
+@file{.codebud/} (the project's command policy); @code{file_read} may
+read outside the project, as @command{cat} may, but never the secret
+files isolation hides (@file{~/.ssh}, @file{~/.gnupg}, @file{.netrc},
+@dots{}) or Codebud's own data, configuration and keys.  A step that
+breaks these rules is refused before it runs.  Within those limits they
+use your rights: a write inside the project is a real write.
 
 @item
 @strong{Network only where isolation works.}  With bubblewrap, command

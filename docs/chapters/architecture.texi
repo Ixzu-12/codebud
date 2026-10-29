@@ -566,6 +566,7 @@ src/codebud/                   the package
 ├── privacy.py         privacy level: locked / private / trusted
 ├── profiles.py        named profiles: mode + privacy (+ policy, prompt)
 ├── isolation.py       bubblewrap / unshare wrapping for command steps
+├── confine.py         where file tools may read and write
 ├── redact.py          mask secrets before sessions/history are saved
 ├── safety.py          SafetyEngine (policy validation)
 ├── modes.py           agent modes (ask, auto, full-auto, plan, edit)
