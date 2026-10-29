@@ -62,3 +62,54 @@ jobs:
           ./configure PYTHON="$(command -v python)"
           make
           make check
+
+  # Fedora/RHEL family: a container on the Ubuntu runner. Distro packages
+  # are used so nothing is compiled (pyrage ships as python3-pyrage).
+  fedora:
+    name: make check (fedora)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: fedora:latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools, Texinfo and Python modules
+        run: |
+          dnf -y install \
+            autoconf automake texinfo make gcc \
+            python3 python3-pip \
+            python3-requests python3-prompt_toolkit python3-pytest \
+            python3-numpy python3-pyrage
+
+      - name: bootstrap, configure, make, make check
+        run: |
+          ./bootstrap
+          ./configure PYTHON="$(command -v python3)"
+          make
+          make check
+
+  # FreeBSD: no native runner, so a VM action. pkg provides everything;
+  # the suite runs under PYTHONPATH as the README documents.
+  freebsd:
+    name: make check (freebsd)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and test in a FreeBSD VM
+        uses: vmactions/freebsd-vm@v1.2.0
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y \
+              autoconf automake texinfo gmake \
+              python311 py311-pip \
+              py311-requests py311-prompt-toolkit py311-pytest py311-numpy
+          run: |
+            ./bootstrap
+            ./configure PYTHON="$(command -v python3.11)"
+            gmake
+            gmake check
