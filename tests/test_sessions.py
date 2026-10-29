@@ -200,3 +200,52 @@ def test_session_held_by_another_process_is_refused(sessions_dir):
         holder.stdin.close()  # holder exits, releasing its lock
         holder.wait(timeout=10)
     sessions.Session.open(s.id).close()
+
+
+# --- session IDs are validated at the path boundary (security review H4) ----
+
+
+def test_valid_id_shape():
+    assert sessions.valid_id("20261025-093012-7f3a")
+    for bad in ("../../x", "20261025-093012-7f3a/../y", "x", "", "20261025-093012-ZZZZ"):
+        assert not sessions.valid_id(bad)
+
+
+def test_a_forged_id_cannot_delete_outside_the_sessions_dir(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setattr(sessions, "SESSIONS_DIR", str(tmp_path / "sessions"))
+    (tmp_path / "sessions").mkdir()
+    victim = tmp_path / "victim.json"
+    victim.write_text("KEEP")
+    forged = tmp_path / "sessions" / "20000101-000000-aaaa.json"
+    forged.write_text(json.dumps({"id": "../../victim", "updated": "2000-01-01T00:00:00+00:00"}))
+
+    candidates, _ = sessions.deletion_candidates(30)
+    assert candidates == []  # the forged session is skipped, not listed
+    assert victim.exists()
+
+
+def test_an_id_mismatch_is_skipped(tmp_path, monkeypatch, caplog):
+    import json
+
+    monkeypatch.setattr(sessions, "SESSIONS_DIR", str(tmp_path / "sessions"))
+    (tmp_path / "sessions").mkdir()
+    path = tmp_path / "sessions" / "20261025-093012-7f3a.json"
+    path.write_text(json.dumps({"id": "20990101-000000-ffff", "history": []}))
+    assert sessions.list_sessions() == []
+    assert "does not match its file name" in caplog.text
+
+
+def test_path_helpers_refuse_a_bad_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(sessions, "SESSIONS_DIR", str(tmp_path))
+    with pytest.raises(sessions.SessionError, match="Invalid session ID"):
+        sessions._path("../escape")
+    with pytest.raises(sessions.SessionError, match="Invalid session ID"):
+        sessions.delete(["../../victim"])
+
+
+def test_resolve_rejects_a_traversal_ref(tmp_path, monkeypatch):
+    monkeypatch.setattr(sessions, "SESSIONS_DIR", str(tmp_path))
+    with pytest.raises(sessions.SessionNotFoundError):
+        sessions.resolve("../../etc/passwd")

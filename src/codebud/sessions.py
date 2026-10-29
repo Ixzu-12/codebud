@@ -44,6 +44,16 @@ SESSIONS_DIR: str | None = None
 FORMAT_VERSION = 1
 
 _NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+# A session ID is the only thing turned into a file path, so its shape is
+# fixed: <UTC timestamp>-<random hex> (20261025-093012-7f3a). A value read
+# from a file or the command line that is not this is refused, so it can
+# never contain "/" or ".." and reach outside the sessions directory
+# (security review H4, 2026-10-29).
+_ID_RE = re.compile(r"\d{8}-\d{6}-[0-9a-f]{4}\Z")
+
+
+def valid_id(session_id: str) -> bool:
+    return isinstance(session_id, str) and bool(_ID_RE.match(session_id))
 
 
 class SessionError(Exception):
@@ -75,12 +85,18 @@ def _dir() -> str:
     return SESSIONS_DIR or str(paths.data_dir() / "sessions")
 
 
+def _require_id(session_id: str) -> str:
+    if not valid_id(session_id):
+        raise SessionError(f"Invalid session ID {session_id!r}.")
+    return session_id
+
+
 def _path(session_id: str) -> str:
-    return os.path.join(_dir(), f"{session_id}.json")
+    return os.path.join(_dir(), f"{_require_id(session_id)}.json")
 
 
 def _lock_path(session_id: str) -> str:
-    return os.path.join(_dir(), f"{session_id}.lock")
+    return os.path.join(_dir(), f"{_require_id(session_id)}.lock")
 
 
 def _try_lock(session_id: str):
@@ -134,10 +150,20 @@ def _all_session_data() -> list[dict[str, Any]]:
     for entry in sorted(os.listdir(_dir())):
         if not entry.endswith(".json") or entry.startswith("."):
             continue
+        stem = entry[: -len(".json")]
+        if not valid_id(stem):
+            continue  # not a session file codebud wrote
         try:
-            found.append(_read(entry[: -len(".json")]))
+            data = _read(stem)
         except SessionError as exc:
             logger.warning("Skipping session: %s", exc)
+            continue
+        if data.get("id") != stem:
+            # The ID inside the file must match its name, so a forged id
+            # (e.g. "../../x") can never be used as a path later.
+            logger.warning("Skipping session %s: its stored id does not match its file name", stem)
+            continue
+        found.append(data)
     return found
 
 
@@ -305,7 +331,7 @@ def list_sessions() -> list[dict[str, Any]]:
 
 def resolve(ref: str) -> str:
     """The ID of the session whose ID or name is ``ref``."""
-    if os.path.exists(_path(ref)):
+    if valid_id(ref) and os.path.exists(_path(ref)):
         return ref
     matches = [d["id"] for d in _all_session_data() if d.get("name") == ref]
     if not matches:
