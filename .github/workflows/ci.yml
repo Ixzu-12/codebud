@@ -76,7 +76,7 @@ jobs:
 
       - name: Install build tools and Texinfo
         run: |
-          dnf -y install autoconf automake texinfo make gcc python3 python3-pip
+          dnf -y install autoconf automake texinfo make gcc git python3 python3-pip
 
       - name: Install Python dependencies
         run: |

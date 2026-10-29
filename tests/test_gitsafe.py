@@ -11,6 +11,7 @@ the marker is never created.
 """
 
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -18,10 +19,7 @@ import pytest
 from codebud import gitsafe
 from codebud.sandbox import Sandbox
 
-pytestmark = pytest.mark.skipif(
-    subprocess.run(["git", "--version"], capture_output=True).returncode != 0,
-    reason="git not installed",
-)
+pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
 
 
 def _git(repo, *args):
