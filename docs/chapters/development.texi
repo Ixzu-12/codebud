@@ -53,6 +53,10 @@ tests/
 │                                history, sessions, modes, run --yes
 ├── test_core.py                 AgentCore: models, /compact, context usage
 ├── test_embeddings.py           deterministic stub, no silent fallback
+├── test_engagement.py           engagement file: parsing, CIDR/name
+│                                scope, time window (warn-only)
+├── test_evidence.py             evidence log: hash chain, tamper
+│                                detection, artefact hashes
 ├── test_fsutil.py               atomic_write_text()
 ├── test_isolation.py            bubblewrap isolation (live where available),
 │                                network steps, no-isolation fallbacks
@@ -71,6 +75,8 @@ tests/
 ├── test_planner.py              prompt content, retry, context budget
 ├── test_privacy.py              privacy dial: locked/private/trusted,
 │                                trust never lifts safety
+├── test_profiles.py             built-in and user profiles, precedence,
+│                                --profile / CODEBUD_PROFILE
 ├── test_private_files.py        data dirs 0700 / files 0600 whatever the
 │                                umask; doctor warning
 ├── test_purge.py                sessions --delete/--purge, history
