@@ -1,5 +1,6 @@
 # Codebud — Privacy-First, Local Coding Agent
 
+[![CI](https://github.com/mkhellat/codebud/actions/workflows/ci.yml/badge.svg)](https://github.com/mkhellat/codebud/actions/workflows/ci.yml)
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](COPYING)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Local / Ollama](https://img.shields.io/badge/backend-local%20Ollama-brightgreen.svg)](#quick-start)

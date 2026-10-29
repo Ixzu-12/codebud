@@ -1,0 +1,64 @@
+# Run the Autotools path: bootstrap → configure → make → make check.
+# Live Ollama tests already skip when no server is present.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: make check (${{ matrix.os }}, Py ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.14"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Autotools and Texinfo (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake texinfo
+
+      - name: Install Autotools and Texinfo (macOS)
+        if: runner.os == 'macOS'
+        run: brew install autoconf automake texinfo
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies for configure and make check
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "requests>=2.28" \
+            "prompt_toolkit>=3.0" \
+            "pytest>=8.0" \
+            "numpy>=1.24" \
+            "pyrage>=1.2"
+          # tomllib is stdlib from 3.11; 3.10 needs tomli for config.toml.
+          if [ "${{ matrix.python-version }}" = "3.10" ]; then
+            python -m pip install "tomli>=1.1"
+          fi
+
+      - name: bootstrap, configure, make, make check
+        run: |
+          ./bootstrap
+          ./configure PYTHON="$(command -v python)"
+          make
+          make check
