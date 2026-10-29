@@ -213,3 +213,105 @@ def test_verify_checks_artefacts_on_request(log, tmp_path):
         f"{changed.resolve()}: changed since it was logged",
         f"{gone.resolve()}: missing",
     ]
+
+
+# --- encrypted at rest (D14b) ----------------------------------------------
+
+
+@pytest.fixture
+def sealed_log(tmp_path, monkeypatch, fast_passphrase):
+    """An encrypted log; the key is locked again afterwards."""
+    pytest.importorskip("pyrage")
+    from codebud import crypto
+
+    crypto.create_key("pw")
+    crypto.lock()
+    monkeypatch.setattr("getpass.getpass", lambda _p="": pytest.fail("asked for the passphrase"))
+    return EvidenceLog.create(tmp_path / "sealed.log", header="Acme PT-42", encrypt=True)
+
+
+def test_encrypted_log_writes_without_the_passphrase(sealed_log):
+    sealed_log.append("step", {"command": "journalctl -u sshd"})
+    for line in _lines(sealed_log.path):
+        record = json.loads(line)
+        assert set(record) == {"seq", "kind", "prev", "hash", "sealed"}
+        assert record["sealed"].startswith("age:")
+    assert "journalctl" not in sealed_log.path.read_text()
+    assert "Acme" not in sealed_log.path.read_text()
+
+
+def test_encrypted_log_reopens_and_appends_while_locked(sealed_log):
+    sealed_log.append("step", {"command": "id"})
+    again = EvidenceLog.open(sealed_log.path)  # readable fields only
+    assert again.encrypted
+    assert again.append("note", {"text": "more"})["seq"] == 2
+
+
+def test_verify_an_encrypted_log_needs_the_key(sealed_log):
+    from codebud import crypto
+    from codebud_sec.evidence import entries
+
+    sealed_log.append("step", {"command": "id"})
+    with pytest.raises(EvidenceError, match="unlock"):
+        verify(sealed_log.path)
+    crypto.unlock("pw")
+    result = verify(sealed_log.path)
+    assert result.ok and result.encrypted and result.entries == 2
+    assert [e["kind"] for e in entries(sealed_log.path)] == ["open", "step"]
+    assert entries(sealed_log.path)[0]["data"]["header"] == "Acme PT-42"
+
+
+def test_encrypted_log_detects_a_swapped_body(sealed_log):
+    from codebud import crypto
+
+    sealed_log.append("step", {"command": "id"})
+    sealed_log.append("step", {"command": "uname -a"})
+    lines = _lines(sealed_log.path)
+    one, two = json.loads(lines[1]), json.loads(lines[2])
+    one["sealed"], two["sealed"] = two["sealed"], one["sealed"]
+    _rewrite(sealed_log.path, [lines[0], json.dumps(one), json.dumps(two)])
+    crypto.unlock("pw")
+    result = verify(sealed_log.path)
+    assert not result.ok
+    assert "line 2" in result.error and "do not match" in result.error
+
+
+def test_encrypted_log_detects_a_removed_entry_while_locked(sealed_log):
+    sealed_log.append("step", {"command": "id"})
+    sealed_log.append("step", {"command": "uname -a"})
+    lines = _lines(sealed_log.path)
+    del lines[1]
+    _rewrite(sealed_log.path, lines)
+    with pytest.raises(EvidenceError, match="line 2"):
+        EvidenceLog.open(sealed_log.path)
+
+
+def test_a_plain_entry_in_an_encrypted_log_is_refused(sealed_log, tmp_path):
+    plain = EvidenceLog.create(tmp_path / "plain.log", encrypt=False)
+    entry = plain.append("note", {"text": "x"})
+    with open(sealed_log.path, "a") as f:
+        f.write(json.dumps(entry) + "\n")
+    with pytest.raises(EvidenceError, match="mixes"):
+        EvidenceLog.open(sealed_log.path)
+
+
+def test_encrypting_needs_a_key(tmp_path, fast_passphrase):
+    pytest.importorskip("pyrage")
+    with pytest.raises(EvidenceError, match="no encryption key"):
+        EvidenceLog.create(tmp_path / "x.log", encrypt=True)
+    assert not (tmp_path / "x.log").exists()
+
+
+def test_follows_the_encryption_setting(tmp_path, monkeypatch, fast_passphrase):
+    pytest.importorskip("pyrage")
+    from codebud import crypto
+
+    crypto.create_key("pw")
+    monkeypatch.setenv("CODEBUD_ENCRYPT", "1")
+    assert EvidenceLog.create(tmp_path / "auto.log").encrypted
+
+
+def test_every_entry_has_a_random_nonce(log):
+    a = log.append("note", {"text": "same"})
+    b = log.append("note", {"text": "same"})
+    assert len(a["nonce"]) == 32 and a["nonce"] != b["nonce"]

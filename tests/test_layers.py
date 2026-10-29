@@ -15,6 +15,7 @@ SRC = Path(__file__).resolve().parent.parent / "src"
 
 # The core modules codebud_sec may import.
 CORE_API = {
+    "codebud.crypto",  # encryption at rest: the evidence log (D14b)
     "codebud.fsutil",
 }
 
@@ -28,7 +29,11 @@ def _imports(package: str) -> dict[str, set[str]]:
             if isinstance(node, ast.Import):
                 modules.update(alias.name for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                modules.add(node.module)
+                if node.module in ("codebud", "codebud_sec"):
+                    # `from codebud import crypto` imports the module codebud.crypto
+                    modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+                else:
+                    modules.add(node.module)
         found[str(path.relative_to(SRC))] = modules
     return found
 

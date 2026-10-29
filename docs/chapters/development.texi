@@ -64,7 +64,8 @@ tests/
 ├── test_engagement.py           engagement file: parsing, CIDR/name
 │                                scope, time window (warn-only)
 ├── test_evidence.py             evidence log: hash chain, tamper
-│                                detection, artefact hashes
+│                                detection, artefact hashes, encrypted
+│                                entries (append while locked)
 ├── test_fsutil.py               atomic_write_text() / _bytes()
 ├── test_isolation.py            bubblewrap isolation (live where available),
 │                                network steps, no-isolation fallbacks

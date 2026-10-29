@@ -626,7 +626,8 @@ src/codebud/                   the package
 
 src/codebud_sec/               the security layer (authorized security work)
 ├── engagement.py      engagement file: authorized scope
-└── evidence.py        hash-chained, append-only evidence log
+└── evidence.py        hash-chained, append-only evidence log,
+                       encrypted at rest (appends need no passphrase)
 
 ~/.local/share/codebud/       runtime data ($XDG_DATA_HOME/codebud)
 ├── memory/entries.jsonl       execution timeline (auto-created)
@@ -641,6 +642,7 @@ src/codebud_sec/               the security layer (authorized security work)
 @cindex security layer
 @file{codebud_sec} is a separate layer over the core: the core never
 imports it, and it imports only the core modules listed in
-@file{tests/test_layers.py}, which enforces both rules.  General privacy
+@file{tests/test_layers.py} (today @file{fsutil} and @file{crypto}),
+which enforces both rules.  General privacy
 features that the security profiles switch on stay in the core, where
 every user can have them.
