@@ -137,6 +137,8 @@ def main():
     try:
         if args.subcommand in _STORES_DATA:
             crypto.check_ready()  # encryption on but unusable: refuse, never store plaintext
+        if args.subcommand in ("run", "plan", "chat"):
+            common.unlock_project_index()
         handler(args)
     except crypto.CryptoError as exc:
         print(f"codebud: {exc}", file=sys.stderr)

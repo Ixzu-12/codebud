@@ -121,6 +121,11 @@ def cmd_index(args):
     from codebud.tools.embeddings import EmbeddingUnavailable
 
     root = indexer.project_root(args.path)
+    from codebud import crypto
+    from codebud.rag.store import is_sealed
+
+    if is_sealed(root) and not (args.drop or args.rebuild):
+        crypto.ensure_unlocked()  # reading or refreshing decrypts the index
 
     if args.status:
         status = indexer.index_status(root)
@@ -137,6 +142,8 @@ def cmd_index(args):
         print(f"  {_OUT_DIM}keyword search{_OUT_RESET} {keyword}")
         print(f"  {_OUT_DIM}updated       {_OUT_RESET} {status['updated']}")
         print(f"  {_OUT_DIM}file          {_OUT_RESET} {status['path']}")
+        encrypted = "yes (age)" if status["encrypted"] else "no"
+        print(f"  {_OUT_DIM}encrypted     {_OUT_RESET} {encrypted}")
         changes = (status["changed"], status["new"], status["deleted"])
         if any(changes):
             print(

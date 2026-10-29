@@ -74,7 +74,8 @@ need nothing (@pxref{LLM Backend Variables}).
 off (@pxref{Files and Directories}).
 @item @env{CODEBUD_ENCRYPT}
 @tab @code{0}
-@tab Set to @code{1} to encrypt chat sessions and the step history with
+@tab Set to @code{1} to encrypt chat sessions, the step history and new
+project indexes with
 your age key (@pxref{Encryption at Rest}); create the key first with
 @command{codebud key init}.
 @item @env{CODEBUD_PASSPHRASE}

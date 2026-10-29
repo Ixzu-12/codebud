@@ -11,7 +11,8 @@ CPU); instead the chat says when /index would help:
 - after a plan's steps changed files (once, until the next /index).
 
 The bottom toolbar shows the same state: "RAG", "RAG stale", "RAG off",
-or nothing when the project has no index. The checks only look at file
+"RAG locked" (an encrypted index whose key is not unlocked), or nothing
+when the project has no index. The checks only look at file
 names and times (indexer.quick_status), so they are cheap.
 
 CODEBUD_RAG_HINTS=0 turns the hints off; they are also quiet while
@@ -21,7 +22,17 @@ project context is off (/rag off, --no-rag, CODEBUD_RAG=0).
 import os
 from pathlib import Path
 
+from codebud import crypto
 from codebud.rag import indexer
+from codebud.rag.store import is_sealed
+
+
+def _quick_status(root: Path) -> dict | None:
+    """indexer.quick_status(), or None while an encrypted index is locked."""
+    try:
+        return indexer.quick_status(root)
+    except crypto.CryptoError:
+        return None
 
 
 def _counts(status: dict) -> str:
@@ -30,7 +41,10 @@ def _counts(status: dict) -> str:
 
 def rag_indicator(agent, root: Path) -> str:
     """Toolbar text for the project index state ("" without an index)."""
-    status = indexer.quick_status(root)
+    try:
+        status = indexer.quick_status(root)
+    except crypto.CryptoError:
+        return "RAG locked"
     if status is None:
         return ""
     if not agent.get_rag():
@@ -51,8 +65,10 @@ class IndexHints:
         """A hint for the start of a chat, or None."""
         if not self._active():
             return None
-        status = indexer.quick_status(self.root)
+        status = _quick_status(self.root)
         if status is None:
+            if is_sealed(self.root):
+                return None  # an encrypted index, locked: nothing to suggest
             if not (self.root / ".git").exists():
                 return None  # not obviously a project (e.g. the home directory)
             return (
@@ -70,7 +86,7 @@ class IndexHints:
         """A hint after steps changed files: once until refreshed()."""
         if not self._active() or self._changes_hinted:
             return None
-        if indexer.quick_status(self.root) is None:
+        if _quick_status(self.root) is None:
             return None
         self._changes_hinted = True
         return "Files changed: /index refreshes the project index."

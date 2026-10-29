@@ -67,7 +67,7 @@ def searched(monkeypatch, tmp_path):
         calls.append(query)
         return [_hit()]
 
-    monkeypatch.setattr(context, "_has_index", lambda root: True)
+    monkeypatch.setattr(context, "has_index", lambda root: True)
     monkeypatch.setattr(context, "search", fake_search)
     return calls
 
@@ -99,7 +99,7 @@ def test_retrieve_without_an_index_does_not_search(monkeypatch, tmp_path):
 
 
 def test_retrieve_swallows_search_errors(monkeypatch):
-    monkeypatch.setattr(context, "_has_index", lambda root: True)
+    monkeypatch.setattr(context, "has_index", lambda root: True)
 
     def broken(*_a, **_k):
         raise SearchUnavailable("no numpy")

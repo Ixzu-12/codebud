@@ -7,7 +7,7 @@ codebud key: the encryption key for data at rest (crypto.py).
   key passwd   change the passphrase (the key, and so the data, stay)
   key status   whether encryption is available and the key exists
   key encrypt-existing
-               encrypt sessions and history saved in plain text; the
+               encrypt sessions, history and indexes saved in plain text; the
                plaintext is copied aside first, never deleted
 """
 
@@ -52,7 +52,7 @@ def _init() -> None:
     )
     if not crypto.enabled():
         print(
-            "To encrypt sessions and step history, add  encrypt = true  to "
+            "To encrypt sessions, step history and indexes, add  encrypt = true  to "
             "~/.config/codebud/config.toml (or set CODEBUD_ENCRYPT=1)."
         )
 
@@ -104,7 +104,7 @@ def _encrypt_existing(yes: bool) -> None:
         print(f"Skipping session {session_id}: it is open in a codebud chat.")
     files = todo.files()
     if not files:
-        print("Nothing to encrypt: no plaintext sessions or step history.")
+        print("Nothing to encrypt: no plaintext sessions, step history or indexes.")
     else:
         backup = encrypt_existing.backup_dir()
         print(f"Plaintext to encrypt ({plural(len(files), 'file')}):")

@@ -122,6 +122,30 @@ def announce_backend() -> None:
         print_warning(f"LLM backend: {backend_description()}: prompts are sent to {host}.")
 
 
+def unlock_project_index() -> None:
+    """Before planning: unlock the key if this project's index is encrypted.
+
+    Retrieval never asks for the passphrase (it runs under the progress
+    display), so run, plan and chat ask here, once, before anything else.
+    If the key cannot be unlocked, project context is turned off for this
+    run, with a notice, instead of failing.
+    """
+    from codebud import crypto
+    from codebud.cli.display import print_warning
+    from codebud.rag import context, indexer
+    from codebud.rag.store import is_sealed
+
+    if not context.enabled() or crypto.is_unlocked():
+        return
+    if not is_sealed(indexer.project_root()):
+        return
+    try:
+        crypto.ensure_unlocked()
+    except crypto.CryptoError as exc:
+        print_warning(f"Project context off: the project index is encrypted ({exc}).")
+        os.environ["CODEBUD_RAG"] = "0"
+
+
 def confirm_deletion(paths: list[str], question: str, yes: bool) -> bool:
     """List what would be deleted and ask; --yes skips the question.
 

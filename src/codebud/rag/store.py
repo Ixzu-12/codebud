@@ -22,25 +22,36 @@ Tables:
 An index belongs to one embedding model (A3): vectors from different
 models are not comparable, so a different model or dimension is refused
 until the index is rebuilt.
+
+With encryption at rest on (crypto.py; D14g), a new index is stored as
+index.sqlite3.age. SQLite cannot work on an encrypted file, so the index
+is decrypted into a private directory under $XDG_RUNTIME_DIR (RAM-backed,
+cleared at logout), used there and removed on close; `codebud index`
+encrypts it back. A plaintext index from before stays as it is.
 """
 
+import fcntl
 import hashlib
 import math
 import os
 import re
+import shutil
 import sqlite3
+import tempfile
 import time
 from array import array
 from collections.abc import Iterator, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-from codebud import paths
-from codebud.fsutil import private_dir
+from codebud import crypto, paths
+from codebud.fsutil import create_private, private_dir
 from codebud.rag.chunker import Chunk
 
 SCHEMA_VERSION = "1"
 DB_NAME = "index.sqlite3"
+SEALED_NAME = DB_NAME + ".age"  # the index encrypted at rest
+LOCK_NAME = ".lock"
 
 
 class ModelMismatch(RuntimeError):
@@ -58,10 +69,37 @@ def _private_dir(path: Path) -> None:
     os.chmod(path, 0o700)
 
 
+def has_index(root: Path | str) -> bool:
+    """Whether ``root`` has an index, plain or encrypted."""
+    directory = index_dir(Path(root).resolve())
+    return (directory / DB_NAME).exists() or (directory / SEALED_NAME).exists()
+
+
+def is_sealed(root: Path | str) -> bool:
+    """Whether ``root``'s index is encrypted at rest."""
+    return (index_dir(Path(root).resolve()) / SEALED_NAME).exists()
+
+
+def _runtime_dir() -> Path:
+    """A new private directory in RAM for a decrypted index (D14g)."""
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if not base or not os.path.isdir(base):
+        raise crypto.CryptoError(
+            "an encrypted project index is used from a RAM-backed directory, "
+            "$XDG_RUNTIME_DIR, which is not set here; without it the index would "
+            "be decrypted to disk, so project search is unavailable"
+        )
+    parent = Path(base) / "codebud"
+    private_dir(parent)
+    return Path(tempfile.mkdtemp(prefix="index-", dir=parent))  # mkdtemp: 0700
+
+
 class IndexStore:
-    def __init__(self, root: Path, db_path: Path):
+    def __init__(self, root: Path, db_path: Path, sealed: Path | None = None, lock=None):
         self.root = root
         self.db_path = db_path
+        self.sealed = sealed  # the encrypted file at rest, if encrypted
+        self._lock = lock  # held while an encrypted index is open for writing
         self._db = sqlite3.connect(db_path)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA busy_timeout=5000")
@@ -71,10 +109,20 @@ class IndexStore:
 
     @classmethod
     def open(cls, root: Path | str, create: bool = False) -> "IndexStore | None":
-        """Open the index of ``root``; None if it has none and not ``create``."""
+        """Open the index of ``root``; None if it has none and not ``create``.
+
+        An encrypted index (index.sqlite3.age) is decrypted into a private
+        directory under $XDG_RUNTIME_DIR and used there; ``create`` opens it
+        for writing, and close() encrypts it back. A new index is created
+        encrypted when encryption at rest is on. Decrypting needs the key
+        unlocked already: opening never asks for the passphrase.
+        """
         root = Path(root).resolve()
         directory = index_dir(root)
         db_path = directory / DB_NAME
+        sealed = directory / SEALED_NAME
+        if sealed.exists() or (create and not db_path.exists() and crypto.enabled()):
+            return cls._open_sealed(root, sealed, writable=create)
         if not db_path.exists():
             if not create:
                 return None
@@ -84,8 +132,48 @@ class IndexStore:
             os.close(os.open(db_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
         return cls(root, db_path)
 
+    @classmethod
+    def _open_sealed(cls, root: Path, sealed: Path, writable: bool) -> "IndexStore":
+        lock = None
+        if writable:
+            # One writer at a time: each encrypts its whole copy back on close.
+            _private_dir(sealed.parent.parent)
+            _private_dir(sealed.parent)
+            create_private(sealed.parent / LOCK_NAME)
+            lock = open(sealed.parent / LOCK_NAME, "a")
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        work = None
+        try:
+            work = _runtime_dir()
+            plain = work / DB_NAME
+            data = crypto.decrypt(sealed.read_bytes()) if sealed.exists() else b""
+            fd = os.open(plain, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            return cls(root, plain, sealed=sealed, lock=lock)
+        except BaseException:
+            if work is not None:
+                shutil.rmtree(work, ignore_errors=True)
+            if lock is not None:
+                lock.close()
+            raise
+
     def close(self) -> None:
-        self._db.close()
+        """Close; an encrypted index opened for writing is encrypted back first.
+
+        The decrypted copy is removed either way.
+        """
+        self._db.close()  # the last connection checkpoints the WAL into the file
+        if self.sealed is None:
+            return
+        try:
+            if self._lock is not None:
+                crypto.write_file(self.sealed, self.db_path.read_bytes())
+        finally:
+            shutil.rmtree(self.db_path.parent, ignore_errors=True)
+            if self._lock is not None:
+                self._lock.close()
+                self._lock = None
 
     def __enter__(self) -> "IndexStore":
         return self
@@ -301,7 +389,8 @@ class IndexStore:
             "chunks": count("SELECT COUNT(*) FROM chunks").fetchone()[0],
             "keyword_search": self.has_fts,
             "updated": self._meta("updated"),
-            "path": str(self.db_path),
+            "path": str(self.sealed or self.db_path),
+            "encrypted": self.sealed is not None,
         }
 
 

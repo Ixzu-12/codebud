@@ -59,6 +59,8 @@ tests/
 │                                place, open sessions skipped, asks
 ├── test_encrypted_storage.py    encryption at rest: sessions and history,
 │                                no prompt to write, switch, profile
+├── test_encrypted_index.py      encrypted project index: built without a
+│                                passphrase, RAM copy removed, startup unlock
 ├── test_engagement.py           engagement file: parsing, CIDR/name
 │                                scope, time window (warn-only)
 ├── test_evidence.py             evidence log: hash chain, tamper

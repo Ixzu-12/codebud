@@ -200,7 +200,11 @@ def check_encryption() -> CheckResult:
             crypto.check_ready()
         except crypto.CryptoError as exc:
             return False, "Encryption at rest is on but cannot work", str(exc)
-        return True, f"Encryption at rest: on (sessions, step history; key {crypto.key_dir()})", ""
+        return (
+            True,
+            f"Encryption at rest: on (sessions, step history, indexes; key {crypto.key_dir()})",
+            "",
+        )
     if not crypto.available():
         return True, "Encryption at rest: off (pyrage not installed)", ""
     if not crypto.has_key():

@@ -6,7 +6,9 @@ Project context for the planner prompt (phase 9, D1).
 retrieve() searches the project index for the user's request and returns
 the best chunks. It never fails: without an index, without numpy, with
 CODEBUD_RAG=0, or on any search error it returns nothing and planning
-goes on as before.
+goes on as before. An encrypted index whose key is locked counts as such
+an error: retrieval never asks for the passphrase (the CLI unlocks once,
+at startup).
 
 format_context() renders the chunks as a prompt block within a token
 budget. The block says it is data, not instructions: a file can contain
@@ -16,13 +18,12 @@ material only (the SafetyEngine still checks every step regardless).
 
 import logging
 import os
-from pathlib import Path
 
 from codebud.llm_stub import num_ctx
 from codebud.planner import CONTEXT_SHARE, estimate_tokens
 from codebud.rag.indexer import project_root
 from codebud.rag.search import Hit, search
-from codebud.rag.store import DB_NAME, index_dir
+from codebud.rag.store import has_index
 
 logger = logging.getLogger(__name__)
 
@@ -42,16 +43,12 @@ def enabled() -> bool:
     return os.environ.get("CODEBUD_RAG", "1") != "0"
 
 
-def _has_index(root: Path) -> bool:
-    return (index_dir(root) / DB_NAME).exists()
-
-
 def retrieve(message: str, history: list[dict[str, str]] | None = None) -> list[Hit]:
     """Chunks of the current project relevant to ``message`` ([] if none)."""
     if not enabled() or not message.strip():
         return []
     root = project_root()
-    if not _has_index(root):
+    if not has_index(root):
         return []
     query = message
     if len(message.split()) <= FOLLOW_UP_WORDS:

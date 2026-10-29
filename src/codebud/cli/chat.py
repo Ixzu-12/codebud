@@ -12,6 +12,7 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
+from codebud import crypto
 from codebud.cli import chat_input, common
 from codebud.cli.admin import apply_retention, cmd_index
 from codebud.cli.display import (
@@ -298,7 +299,11 @@ def _slash_rag(state: ChatState, rest: str) -> None:
         agent.set_rag(words[0].lower() == "on")
     print_status(f"Project context: {'on' if agent.get_rag() else 'off'}")
     root = indexer.project_root()
-    status = indexer.index_status(root)
+    try:
+        status = indexer.index_status(root)
+    except crypto.CryptoError as exc:
+        print_status(f"Index: encrypted, not readable now ({exc})\n")
+        return
     if status is None:
         print_status(f"No index for {root}; build one with /index.\n")
         return
@@ -336,6 +341,8 @@ def _slash_index(state: ChatState, rest: str) -> None:
             cmd_index(index_args)
         except SystemExit:
             pass  # cmd_index already printed the error; the chat goes on
+        except crypto.CryptoError as exc:
+            print(f"codebud: {exc}", file=sys.stderr)
     print(file=sys.stderr)
     state.hints.refreshed()
 

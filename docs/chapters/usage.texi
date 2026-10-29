@@ -804,6 +804,7 @@ Index of /home/you/src/codebud
   keyword search yes
   updated        2026-10-27T15:04:11+00:00
   file           /home/you/.local/share/codebud/index/3f2a9c0d1e7b5a64/index.sqlite3
+  encrypted      no
   since then     2 changed, 1 new, 0 deleted -- refresh with: codebud index
 @end example
 
@@ -819,6 +820,12 @@ One SQLite database per project, under
 the project's path.  The index holds copies of your files' text, so the
 directory is readable only by you (mode 0700, database 0600).  It never
 leaves your machine; the embeddings are computed by your local Ollama.
+
+With encryption at rest on, a new index is stored encrypted as
+@file{index.sqlite3.age} and used from a copy in memory under
+@env{XDG_RUNTIME_DIR}; refreshing it or showing @option{--status} asks
+for the passphrase once, building a new one or @option{--rebuild} does
+not (@pxref{Encryption at Rest}).
 
 
 @node The skill Subcommand
@@ -954,7 +961,8 @@ The key, and so everything encrypted with it, stays the same.
 Whether encryption is on and available, where the key is, its public
 half, and where the passphrase will come from.
 @item codebud key encrypt-existing [--yes]
-Encrypt sessions and step history saved in plain text before encryption
+Encrypt sessions, step history and project indexes saved in plain text
+before encryption
 was turned on.  Each original is first copied, unchanged, into a
 @file{plaintext-backup-@var{time}/} directory that Codebud lists and
 never deletes; then the live file is replaced by its encrypted version.
@@ -1240,7 +1248,8 @@ as @samp{[redacted]} in sessions and step history.  Set to @code{0} to
 store them verbatim (@pxref{Files and Directories}).
 
 @item CODEBUD_ENCRYPT
-Default: @code{0}.  @code{1} encrypts chat sessions and the step history
+Default: @code{0}.  @code{1} encrypts chat sessions, the step history and
+new project indexes
 with your age key (@pxref{Encryption at Rest}).
 
 @item CODEBUD_PASSPHRASE

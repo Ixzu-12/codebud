@@ -141,8 +141,19 @@ Each session file (@file{sessions/@var{id}.json}) is an age file under
 the same name.
 @item The step history
 Each entry of @file{memory/entries.jsonl} is encrypted on its own.
-@item Not yet
-Project indexes (@pxref{The index Subcommand}) are not encrypted yet.
+@item Project indexes
+A new index is stored as @file{index.sqlite3.age} (@pxref{The index
+Subcommand}).  SQLite cannot work on an encrypted file, so while an index
+is in use it is decrypted into a private directory under
+@env{XDG_RUNTIME_DIR} (@file{/run/user/@var{uid}}: in memory, 0700,
+emptied when you log out) and that copy is removed when Codebud is done
+with it; @command{codebud index} encrypts the updated index back.
+Without @env{XDG_RUNTIME_DIR} (it is set by systemd and most desktop
+sessions on GNU/Linux, usually not on macOS or the BSDs) an encrypted
+index is not used at all rather than decrypted to disk: project search is
+then unavailable, with a message saying why.  An index built before
+encryption was on stays a plain @file{index.sqlite3} until
+@command{key encrypt-existing} converts it.
 @end table
 
 @noindent
@@ -160,7 +171,8 @@ codebud key encrypt-existing
 @end example
 
 @noindent
-lists the plaintext sessions and step history and asks first
+lists the plaintext sessions, step history and project indexes and asks
+first
 (@option{--yes} for scripts; without a terminal it does nothing unless
 given @option{--yes}).  For each file it then:
 
@@ -194,7 +206,18 @@ encrypted data without knowing the passphrase.  Reading does, once per
 run: @command{codebud history}, @command{codebud sessions} (listing and
 deleting), @command{chat --resume}, naming a session with
 @command{/name}, and the automatic retention clean-up when
-@code{session_retention_days} is set.
+@code{session_retention_days} is set.  Building a @emph{new} index needs
+no passphrase either; refreshing or reading an existing encrypted one
+does.
+
+Project context is the one read that happens during planning.  Codebud
+never asks for the passphrase in the middle of a plan: when the project
+has an encrypted index, @command{run}, @command{plan} and @command{chat}
+ask once at startup, before anything else.  If the key cannot be unlocked
+there (a wrong passphrase three times, or no terminal and no
+@env{CODEBUD_PASSPHRASE}), they carry on without project context and say
+so; the chat toolbar shows @samp{RAG locked}.  @option{--no-rag} skips
+the question.
 
 @subheading One key, sealed with your passphrase
 
@@ -395,8 +418,10 @@ your files' text as it is.
 @item
 @strong{Encryption at rest covers what Codebud stores, not what it is
 doing.}  While Codebud runs, your data is in its memory and the unlocked
-key with it; file names, sizes and times stay visible; project indexes
-are not encrypted yet; and what your approved steps write into your
+key with it, and an index in use has its decrypted copy in
+@env{XDG_RUNTIME_DIR} (memory, not disk --- unless the system swaps it
+out); file names, sizes and times stay visible; and what your approved
+steps write into your
 project is not Codebud's to encrypt.  Command steps cannot read the key:
 isolation hides Codebud's configuration directory from them
 (@pxref{Isolated Steps}).
