@@ -72,6 +72,12 @@ need nothing (@pxref{LLM Backend Variables}).
 @tab Mask secrets (API keys, tokens, private keys, passwords) as
 @samp{[redacted]} in saved sessions and step history.  @code{0} turns it
 off (@pxref{Files and Directories}).
+@item @env{CODEBUD_PASSPHRASE}
+@tab (not set)
+@tab The passphrase of the encryption key, for unattended runs; otherwise
+it is asked on the terminal.  Environment only, never @file{config.toml};
+@command{codebud doctor} warns while it is set (@pxref{Encryption at
+Rest}).
 @item @env{CODEBUD_PRIVACY}
 @tab @code{private}
 @tab What Codebud may reach: @code{locked}, @code{private} or
@@ -718,7 +724,9 @@ Codebud's locations do not depend on the directory it is started from.
 @file{sessions/} (chat sessions), @file{index/} (project indexes,
 @pxref{The index Subcommand}).
 @item @file{$XDG_CONFIG_HOME/codebud/} (default @file{~/.config/codebud/})
-@tab Your policy files, overriding the shipped defaults.
+@tab Your @file{config.toml}, policy files (overriding the shipped
+defaults), @file{profiles/}, and @file{keys/}: the encryption key, sealed
+with your passphrase (@pxref{Encryption at Rest}).
 @item @file{.codebud/} in a project
 @tab Policy files for that project, overriding both
 (@pxref{Policy JSON Files}).

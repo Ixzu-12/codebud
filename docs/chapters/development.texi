@@ -62,6 +62,8 @@ tests/
 ├── test_fsutil.py               atomic_write_text() / _bytes()
 ├── test_isolation.py            bubblewrap isolation (live where available),
 │                                network steps, no-isolation fallbacks
+├── test_key_cli.py             codebud key init/passwd/status, passphrase
+│                                prompt and CODEBUD_PASSPHRASE, doctor
 ├── test_layers.py               codebud_sec: the core never imports it;
 │                                it uses only the listed core API
 ├── test_llm_stub.py            Ollama/OpenAI paths, warmup, summaries

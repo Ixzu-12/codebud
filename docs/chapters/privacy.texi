@@ -11,6 +11,7 @@ covers and what it does not.
 @menu
 * Privacy at a Glance::          The defaults in one table.
 * What Codebud Stores::          Files on disk, who can read them, masking.
+* Encryption at Rest::           An age key sealed with your passphrase.
 * Where Data Can Go::            Every outbound connection and its switch.
 * Choosing How Private::         Privacy levels, isolation, unattended work.
 * Checking Privacy::             doctor, config and the local-only test.
@@ -93,6 +94,74 @@ codebud index --drop                        @r{# a project index}
 Each lists the files it removes and asks first (@option{--yes} for
 scripts).  @code{session_retention_days} in your @file{config.toml}
 deletes old sessions automatically (@pxref{The sessions Subcommand}).
+
+
+@node Encryption at Rest
+@section Encryption at Rest
+@cindex encryption at rest
+@cindex age encryption
+@cindex passphrase
+@cindex key subcommand
+
+Codebud can encrypt the data it keeps with @uref{https://age-encryption.org,
+age}.  It needs the optional @code{pyrage} module (@pxref{Python
+Environment}); @command{codebud key status} says whether it is installed.
+
+@subheading One key, sealed with your passphrase
+
+@example
+codebud key init        @r{# create the key; asks for a passphrase twice}
+codebud key status      @r{# where the key is, and its public half}
+codebud key passwd      @r{# change the passphrase}
+@end example
+
+@command{key init} creates one age key pair in
+@file{~/.config/codebud/keys/} (@env{XDG_CONFIG_HOME}) --- never in the
+data directory it protects:
+
+@table @file
+@item identity.age
+The secret key, itself encrypted with your passphrase.  It is never
+written to disk in the clear.
+@item recipient.txt
+The public key (@samp{age1@dots{}}).
+@end table
+
+@noindent
+The directory is 0700 and both files 0600.  @command{key init} refuses to
+replace an existing key, since data encrypted to it would become
+unreadable.  @command{key passwd} re-seals the same key with a new
+passphrase, so everything already encrypted stays readable.
+
+@subheading When the passphrase is needed
+
+Writing encrypted data needs only the public key: Codebud never asks for
+the passphrase to save something.  Reading needs the secret key, so the
+first read in a run asks for the passphrase on the terminal (three tries)
+and keeps the unlocked key in memory until Codebud exits --- one prompt
+per run, not one per file.  Unlocking takes about a second: age derives
+the key from the passphrase with scrypt, deliberately slowly, to make
+guessing expensive.
+
+For unattended runs, the passphrase may come from @env{CODEBUD_PASSPHRASE}
+instead (one try, since nobody is there to retype it).  Anything that can
+read Codebud's environment can then unlock your data, so
+@command{codebud doctor} warns while it is set; prefer the prompt.
+
+@subheading If you lose the passphrase
+
+The data encrypted to the key cannot be recovered --- not by you, not by
+Codebud.  There is no back door and no recovery key.  Keep the passphrase
+in a password manager; a copy of @file{identity.age} is only as safe as
+the passphrase that seals it.
+
+@subheading How the files are encrypted
+
+Whole files are ordinary age files and can be decrypted with the
+@command{age} tool and the unsealed key.  Files that are only ever
+appended to cannot be appended to as one age file, so each line is
+encrypted on its own and stored as @samp{age:} followed by the age file
+in base64 --- still one line per entry.
 
 
 @node Where Data Can Go

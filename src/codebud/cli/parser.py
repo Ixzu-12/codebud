@@ -20,6 +20,7 @@ KNOWN_SUBCOMMANDS = {
     "models",
     "config",
     "profiles",
+    "key",
     "version",
 }
 
@@ -216,6 +217,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     # profiles
     sub.add_parser("profiles", help="List the profiles (built in and your own).")
+
+    # key
+    p_key = sub.add_parser("key", help="Manage the encryption key for data at rest.")
+    key_sub = p_key.add_subparsers(dest="key_action", required=True)
+    key_sub.add_parser("init", help="Create the key, sealed with a new passphrase.")
+    key_sub.add_parser("passwd", help="Change the passphrase (the key and data stay).")
+    key_sub.add_parser("status", help="Show whether encryption is available and the key exists.")
 
     # version
     sub.add_parser("version", help="Show version information.")

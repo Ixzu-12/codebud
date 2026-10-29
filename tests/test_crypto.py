@@ -35,11 +35,6 @@ def unlocked(monkeypatch):
     return identity
 
 
-@pytest.fixture(autouse=True)
-def _locked_by_default(monkeypatch):
-    monkeypatch.setattr(crypto, "_identity", None)
-
-
 # --- the key and its passphrase ---------------------------------------------
 
 

@@ -12,7 +12,9 @@ A passphrase protects one age X25519 key, kept in the config directory
 Writing needs only the public key, so codebud can save data without
 asking for the passphrase; reading needs the key unlocked, which costs
 one passphrase (scrypt, about a second) per run rather than one per file.
-The unlocked key lives only in this process's memory.
+The unlocked key lives only in this process's memory. The passphrase is
+asked for on the terminal; for unattended runs it may come from
+CODEBUD_PASSPHRASE instead (`codebud doctor` warns while it is set).
 
 Whole files (a session) are ordinary age files. Append-only files (the
 execution history, the evidence log) cannot be appended to as one age
@@ -28,6 +30,7 @@ terminal.
 
 import base64
 import binascii
+import getpass
 import os
 from pathlib import Path
 
@@ -37,6 +40,7 @@ from codebud.fsutil import atomic_write_bytes, private_dir
 IDENTITY_FILE = "identity.age"
 RECIPIENT_FILE = "recipient.txt"
 LINE_PREFIX = "age:"
+PASSPHRASE_ENV = "CODEBUD_PASSPHRASE"
 _MAGIC = b"age-encryption.org/v1\n"
 
 _identity = None  # the unlocked secret key, for this process only
@@ -122,6 +126,38 @@ def unlock(passphrase: str) -> None:
     """Unlock the secret key for this process."""
     global _identity
     _identity = _open_identity(passphrase)
+
+
+def passphrase_from_env() -> str | None:
+    """CODEBUD_PASSPHRASE, for unattended runs; None when it is not set."""
+    return os.environ.get(PASSPHRASE_ENV) or None
+
+
+def ensure_unlocked(ask=None, tries: int = 3) -> None:
+    """Unlock the key unless it already is.
+
+    The passphrase comes from CODEBUD_PASSPHRASE when it is set (one try:
+    nobody is there to retype it), otherwise ``ask`` prompts on the
+    terminal, up to ``tries`` times.
+    """
+    if _identity is not None:
+        return
+    _require_key()
+    from_env = passphrase_from_env()
+    if from_env is not None:
+        try:
+            unlock(from_env)
+        except CryptoError as exc:
+            raise CryptoError(f"{PASSPHRASE_ENV}: {exc}") from exc
+        return
+    ask = ask or getpass.getpass
+    for attempt in range(1, tries + 1):
+        try:
+            unlock(ask("Passphrase for codebud's encryption key: "))
+            return
+        except CryptoError:
+            if attempt == tries:
+                raise
 
 
 def lock() -> None:

@@ -31,6 +31,7 @@ Subcommands
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   profiles        List profiles (--profile NAME chooses one)
+  key             Encryption key for data at rest: init, passwd, status
   version         Print version information
 
 Backwards compatibility: `codebud "some request"` (no subcommand) works
@@ -53,6 +54,7 @@ from codebud.cli.admin import (
     cmd_version,
 )
 from codebud.cli.chat import cmd_chat
+from codebud.cli.key import cmd_key
 from codebud.cli.parser import KNOWN_SUBCOMMANDS, build_parser
 from codebud.cli.run import cmd_plan, cmd_run
 
@@ -120,6 +122,7 @@ def main():
         "models": cmd_models,
         "config": cmd_config,
         "profiles": cmd_profiles,
+        "key": cmd_key,
         "version": cmd_version,
     }
 

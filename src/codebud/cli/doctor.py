@@ -183,6 +183,25 @@ def check_private_data() -> CheckResult:
     )
 
 
+def check_encryption() -> CheckResult:
+    """The encryption key for data at rest, and a passphrase in the environment."""
+    from codebud import crypto
+
+    if crypto.passphrase_from_env() is not None:
+        return (
+            None,
+            f"{crypto.PASSPHRASE_ENV} is set: whatever can read this environment "
+            "can unlock your encrypted data",
+            "Unset it unless this is an unattended run; codebud asks for the "
+            "passphrase on the terminal otherwise.",
+        )
+    if not crypto.available():
+        return True, "Encryption at rest: not available (pyrage not installed)", ""
+    if not crypto.has_key():
+        return True, "Encryption at rest: no key (create one with: codebud key init)", ""
+    return True, f"Encryption key: {crypto.key_dir()}", ""
+
+
 def check_ollama_model_set() -> CheckResult:
     model = os.environ.get("OLLAMA_MODEL", "")
     if model:
@@ -331,6 +350,7 @@ _CHECKS: list[Callable[[], CheckResult]] = [
     check_embed_model_pulled,
     check_config_files,
     check_private_data,
+    check_encryption,
     check_disk_space,
     check_ram,
 ]

@@ -21,6 +21,7 @@ output, and how to get help when something goes wrong.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
 * The profiles Subcommand::     List the profiles.
+* The key Subcommand::          The encryption key for data at rest.
 * The version Subcommand::      Show version information.
 * Progress Output::             Understanding the spinner and token counter.
 * Reading a Plan::              What the plan display means.
@@ -126,6 +127,8 @@ Codebud organises its functionality into subcommands:
 @item @command{skill} @tab Show or install Codebud's skill for other agents
 @item @command{models} @tab List downloaded Ollama models
 @item @command{config} @tab Show resolved configuration
+@item @command{profiles} @tab List the profiles
+@item @command{key} @tab Create or manage the encryption key for data at rest
 @item @command{version} @tab Show version information
 @end multitable
 
@@ -579,6 +582,9 @@ host, DuckDuckGo for web search --- or @samp{Outbound: none}
       it is needed just for project search
 @item The data and configuration directories are private (owner only) ---
       a warning with the @command{chmod} that fixes it otherwise
+@item The encryption key for data at rest, if there is one --- and a
+      warning while @env{CODEBUD_PASSPHRASE} is set
+      (@pxref{Encryption at Rest})
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
       from the project's @file{.codebud/}, @file{~/.config/codebud/} or
@@ -929,6 +935,36 @@ Your own profiles: /home/you/.config/codebud/profiles/<name>.toml
 @end example
 
 
+@node The key Subcommand
+@section The @command{key} Subcommand
+@cindex key subcommand
+
+@command{key} manages the age key that encrypts data at rest
+(@pxref{Encryption at Rest}).  It needs the optional @code{pyrage} module.
+
+@table @command
+@item codebud key init
+Create the key in @file{~/.config/codebud/keys/}, sealed with a new
+passphrase typed twice (or taken from @env{CODEBUD_PASSPHRASE}).  Refuses
+if a key already exists.
+@item codebud key passwd
+Change the passphrase: asks for the current one, then the new one twice.
+The key, and so everything encrypted with it, stays the same.
+@item codebud key status
+Whether encryption is available, where the key is, its public half, and
+where the passphrase will come from.
+@end table
+
+@example
+$ codebud key init
+New passphrase:
+Repeat it:
+Created the encryption key in /home/you/.config/codebud/keys
+  public key age1@dots{}
+Keep the passphrase safe: without it, data encrypted to this key cannot be recovered by anyone, codebud included.
+@end example
+
+
 @node The version Subcommand
 @section The @command{version} Subcommand
 @cindex version subcommand
@@ -1196,6 +1232,12 @@ Default: @code{0} (keep sessions forever).  A positive number makes each
 Default: @code{1}: API keys, tokens, private keys and passwords are saved
 as @samp{[redacted]} in sessions and step history.  Set to @code{0} to
 store them verbatim (@pxref{Files and Directories}).
+
+@item CODEBUD_PASSPHRASE
+Not set by default.  The passphrase of the encryption key, for unattended
+runs only; otherwise Codebud asks on the terminal.  @command{codebud
+doctor} warns while it is set (@pxref{Encryption at Rest}).  It is never
+read from @file{config.toml}.
 
 @item CODEBUD_NUM_CTX
 The context window, in tokens, requested from Ollama on every call.

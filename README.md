@@ -163,6 +163,7 @@ Your own go in `~/.config/codebud/profiles/<name>.toml` (`mode`, `privacy`,
 | `CODEBUD_PRIVACY` | `private` | `locked` keeps everything on this machine; `trusted` drops privacy prompts |
 | `CODEBUD_PROFILE` | `default` | Profile to start with (`codebud profiles` lists them) |
 | `CODEBUD_MASK_SECRETS` | `1` | Mask API keys, tokens, passwords as `[redacted]` in saved sessions/history |
+| `CODEBUD_PASSPHRASE` | — | Passphrase of the encryption key, for unattended runs only (else asked; `doctor` warns) |
 | `CODEBUD_BACKEND` | `ollama` | `openai` sends prompts to OpenAI instead; never a fallback |
 | `OPENAI_API_KEY` | — | Key for the `openai` backend (needs `pip install "codebud[openai]"`) |
 | `OPENAI_MODEL` | `gpt-3.5-turbo` | Model for the `openai` backend |

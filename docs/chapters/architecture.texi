@@ -596,12 +596,13 @@ src/codebud/                   the package
 │   │                      (approval policies ask / auto / full-auto)
 │   ├── chat.py            codebud chat: REPL, slash commands, sessions
 │   ├── admin.py           doctor, sessions, index, skill, history,
-│   │                      models, config, version
+│   │                      models, config, profiles, version
 │   ├── chat_input.py      chat input line: / menu, toolbar, Shift-Tab
 │   ├── display.py         ProgressIndicator, plan printer, step printer
 │   ├── doctor.py          health checks
 │   ├── errors.py          error → fix lookup table
-│   └── index_hints.py     RAG toolbar state, /index hints
+│   ├── index_hints.py     RAG toolbar state, /index hints
+│   └── key.py             codebud key: init, passwd, status
 ├── rag/                   project index and retrieval (codebud index)
 │   ├── chunker.py         split files into chunks (Python by ast,
 │   │                      Texinfo by node, Markdown by heading)

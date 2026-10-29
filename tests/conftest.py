@@ -36,6 +36,11 @@ def _isolated_codebud_dirs(tmp_path, tmp_path_factory, monkeypatch):
     monkeypatch.setattr(profiles, "_active", profiles.BUILTIN[profiles.DEFAULT])
     monkeypatch.setattr(paths, "PROFILE_POLICY_DIR", None)
     monkeypatch.setattr(settings, "_applied", {})
+    # Nor their passphrase; and no test starts with a key unlocked by another.
+    from codebud import crypto
+
+    monkeypatch.delenv("CODEBUD_PASSPHRASE", raising=False)
+    monkeypatch.setattr(crypto, "_identity", None)
 
     # doctor's RAM check reads /proc/meminfo; with a model loaded the real
     # machine can be "low on RAM" and break unrelated doctor tests. Tests
