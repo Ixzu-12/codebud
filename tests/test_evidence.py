@@ -13,8 +13,8 @@ import stat
 
 import pytest
 
-from codebud.engagement import load as load_engagement
-from codebud.evidence import GENESIS, EvidenceError, EvidenceLog, verify
+from codebud_sec.engagement import load as load_engagement
+from codebud_sec.evidence import GENESIS, EvidenceError, EvidenceLog, verify
 
 
 def _lines(path):
@@ -146,7 +146,7 @@ def test_verify_detects_an_edited_entry(log):
 
 def test_verify_detects_a_rehashed_edit(log):
     # Editing an entry and recomputing its own hash still breaks the next link.
-    from codebud.evidence import entry_hash
+    from codebud_sec.evidence import entry_hash
 
     log.append("step", {"command": "id"})
     log.append("step", {"command": "uname -a"})

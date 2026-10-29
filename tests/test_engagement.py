@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from codebud.engagement import EngagementError, Target, load
+from codebud_sec.engagement import EngagementError, Target, load
 
 
 def _write(tmp_path, text):

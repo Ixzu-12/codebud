@@ -60,7 +60,9 @@ tests/
 ├── test_fsutil.py               atomic_write_text()
 ├── test_isolation.py            bubblewrap isolation (live where available),
 │                                network steps, no-isolation fallbacks
-├── test_llm_stub.py             Ollama/OpenAI paths, warmup, summaries
+├── test_layers.py               codebud_sec: the core never imports it;
+│                                it uses only the listed core API
+├── test_llm_stub.py            Ollama/OpenAI paths, warmup, summaries
 ├── test_local_only.py           the default flow (plan, run, index,
 │                                search) connects only to this machine
 ├── test_memory.py               MemoryStore JSON Lines, crash safety,

@@ -97,4 +97,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["codebud"]
+known-first-party = ["codebud", "codebud_sec"]

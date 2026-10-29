@@ -25,7 +25,8 @@ def test_every_python_module_is_installed():
     package = ROOT / "src"
     on_disk = {
         str(p.relative_to(package))
-        for p in (package / "codebud").rglob("*.py")
+        for name in ("codebud", "codebud_sec")
+        for p in (package / name).rglob("*.py")
         if "__pycache__" not in p.parts
     }
     assert _am_list(package / "Makefile.am", "nobase_python_PYTHON") == on_disk

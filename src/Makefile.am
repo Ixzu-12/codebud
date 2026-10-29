@@ -20,8 +20,6 @@ nobase_python_PYTHON = \
 	codebud/cli/run.py \
 	codebud/cli/steps.py \
 	codebud/core.py \
-	codebud/engagement.py \
-	codebud/evidence.py \
 	codebud/executor.py \
 	codebud/fsutil.py \
 	codebud/isolation.py \
@@ -51,7 +49,10 @@ nobase_python_PYTHON = \
 	codebud/tools/file_io.py \
 	codebud/tools/patcher.py \
 	codebud/tools/tool_registry.py \
-	codebud/tools/web_search.py
+	codebud/tools/web_search.py \
+	codebud_sec/__init__.py \
+	codebud_sec/engagement.py \
+	codebud_sec/evidence.py
 
 nobase_dist_python_DATA = \
 	codebud/data/policy/harmless_commands.json \

@@ -1,5 +1,5 @@
 """
-codebud/engagement.py
+codebud_sec/engagement.py
 
 The engagement file (phase 10; D14d settled 2026-10-28). A security
 engagement is authorized, scoped work: incident response on hosts the
