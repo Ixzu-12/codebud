@@ -150,9 +150,13 @@ emptied when you log out) and that copy is removed when Codebud is done
 with it --- SQLite is told to keep its temporary files for that copy in
 memory too, since it would otherwise put them in @file{/var/tmp}, usually
 on disk; @command{codebud index} encrypts the updated index back.
-Without @env{XDG_RUNTIME_DIR} (it is set by systemd and most desktop
-sessions on GNU/Linux, usually not on macOS or the BSDs) an encrypted
-index is not used at all rather than decrypted to disk: project search is
+Codebud checks the directory first: it must be yours and mode 0700, and
+on GNU/Linux really in memory (a @code{tmpfs} or @code{ramfs} file system,
+read from @file{/proc/self/mountinfo}).  A copy left behind by a Codebud
+that crashed or was killed is removed the next time an index is opened.
+Without a suitable @env{XDG_RUNTIME_DIR} (it is set by systemd and most
+desktop sessions on GNU/Linux, usually not on macOS or the BSDs) an
+encrypted index is not used at all rather than decrypted to disk: project search is
 then unavailable, with a message saying why.  An index built before
 encryption was on stays a plain @file{index.sqlite3} until
 @command{key encrypt-existing} converts it.

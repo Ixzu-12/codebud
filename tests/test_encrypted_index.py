@@ -11,6 +11,7 @@ it never asks. A plaintext index from before stays as it is until
 
 import os
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +20,7 @@ pytest.importorskip("pyrage")
 
 from codebud import crypto, paths  # noqa: E402
 from codebud.cli import common  # noqa: E402
-from codebud.rag import context, indexer  # noqa: E402
+from codebud.rag import context, indexer, store  # noqa: E402
 from codebud.rag.store import DB_NAME, SEALED_NAME, IndexStore, index_dir  # noqa: E402
 
 pytestmark = pytest.mark.usefixtures("fast_passphrase")  # see conftest.py
@@ -32,6 +33,8 @@ def runtime(tmp_path, monkeypatch):
     directory = tmp_path / "run-user"
     directory.mkdir(mode=0o700)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(directory))
+    # tmp_path is not tmpfs everywhere (CI); the RAM check has its own tests.
+    monkeypatch.setattr(store, "filesystem_type", lambda path, mountinfo=None: "tmpfs")
     return directory
 
 
@@ -228,3 +231,49 @@ def test_the_encrypted_file_alone_holds_every_write(encrypted, project, tmp_path
         assert con.execute("SELECT COUNT(*) FROM files").fetchone()[0] == 2
     finally:
         con.close()
+
+
+# --- the runtime directory (audit M3, L1) -----------------------------------
+
+MOUNTINFO = """\
+22 1 254:1 / / rw,relatime shared:1 - xfs /dev/mapper/root rw
+31 22 0:27 / /run/user/1000 rw,nosuid,nodev shared:9 - tmpfs tmpfs rw,mode=700
+40 22 0:30 / /mnt/my\\040disk rw - ext4 /dev/sdb1 rw
+"""
+
+
+def test_filesystem_type_picks_the_innermost_mount():
+    assert store.filesystem_type(Path("/run/user/1000/codebud"), MOUNTINFO) == "tmpfs"
+    assert store.filesystem_type(Path("/run/user/10000"), MOUNTINFO) == "xfs"
+    assert store.filesystem_type(Path("/mnt/my disk/x"), MOUNTINFO) == "ext4"
+
+
+def test_a_runtime_dir_on_disk_is_refused(encrypted, project, monkeypatch):
+    monkeypatch.setattr(store, "filesystem_type", lambda path, mountinfo=None: "xfs")
+    monkeypatch.setattr(store.sys, "platform", "linux")
+    with pytest.raises(crypto.CryptoError, match="not in memory"):
+        indexer.index_project(project)
+    assert not (index_dir(project) / SEALED_NAME).exists()
+
+
+def test_a_runtime_dir_others_can_read_is_refused(encrypted, project, runtime):
+    runtime.chmod(0o755)
+    with pytest.raises(crypto.CryptoError, match="only you"):
+        indexer.index_project(project)
+
+
+def test_copies_left_by_dead_processes_are_removed(encrypted, project, runtime):
+    import subprocess
+
+    dead = subprocess.Popen(["true"])
+    dead.wait()  # its pid is free now
+    parent = runtime / "codebud"
+    parent.mkdir(mode=0o700)
+    stale = parent / f"index-{dead.pid}-abc"
+    alive = parent / f"index-{os.getppid()}-def"
+    for directory in (stale, alive):
+        directory.mkdir()
+        (directory / DB_NAME).write_bytes(b"plaintext")
+    indexer.index_project(project)
+    assert not stale.exists()
+    assert alive.exists()

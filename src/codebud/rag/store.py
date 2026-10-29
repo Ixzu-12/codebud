@@ -37,6 +37,7 @@ import os
 import re
 import shutil
 import sqlite3
+import sys
 import tempfile
 import time
 from array import array
@@ -80,6 +81,72 @@ def is_sealed(root: Path | str) -> bool:
     return (index_dir(Path(root).resolve()) / SEALED_NAME).exists()
 
 
+RAM_FILESYSTEMS = ("tmpfs", "ramfs")
+
+
+def filesystem_type(path: Path, mountinfo: str | None = None) -> str | None:
+    """The type of the file system holding ``path`` on Linux, or None.
+
+    Read from /proc/self/mountinfo (``mountinfo`` for tests): the mount
+    with the longest mount point that contains ``path``.
+    """
+    if mountinfo is None:
+        try:
+            mountinfo = Path("/proc/self/mountinfo").read_text()
+        except OSError:
+            return None
+    target = os.path.realpath(path)
+    best, kind = "", None
+    for line in mountinfo.splitlines():
+        left, sep, right = line.partition(" - ")
+        fields = left.split()
+        if not sep or len(fields) < 5 or not right.split():
+            continue
+        mount = fields[4].replace("\\040", " ")  # mountinfo escapes spaces
+        inside = target == mount or target.startswith(mount.rstrip("/") + "/")
+        if inside and len(mount) >= len(best):
+            best, kind = mount, right.split()[0]
+    return kind
+
+
+def _check_runtime_base(base: Path) -> None:
+    """Refuse a runtime directory that is not private, or not in RAM (Linux)."""
+    info = base.stat()
+    if info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise crypto.CryptoError(
+            f"$XDG_RUNTIME_DIR ({base}) is not a directory only you can use "
+            "(owned by you, mode 0700); the encrypted index is not decrypted there"
+        )
+    if sys.platform.startswith("linux"):
+        kind = filesystem_type(base)
+        if kind not in RAM_FILESYSTEMS:
+            raise crypto.CryptoError(
+                f"$XDG_RUNTIME_DIR ({base}) is not in memory (file system: "
+                f"{kind or 'unknown'}); the encrypted index is not decrypted to disk"
+            )
+
+
+def _sweep_stale(parent: Path) -> None:
+    """Remove decrypted copies left by codebud processes that are gone.
+
+    Each copy's directory is named index-<pid>-...; a crash or kill -9
+    leaves it behind until logout otherwise.
+    """
+    for directory in parent.glob("index-*"):
+        try:
+            pid = int(directory.name.split("-")[1])
+        except (IndexError, ValueError):
+            continue
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            shutil.rmtree(directory, ignore_errors=True)
+        except PermissionError:
+            pass  # alive, someone else's pid
+
+
 def _runtime_dir() -> Path:
     """A new private directory in RAM for a decrypted index (D14g)."""
     base = os.environ.get("XDG_RUNTIME_DIR")
@@ -89,9 +156,12 @@ def _runtime_dir() -> Path:
             "$XDG_RUNTIME_DIR, which is not set here; without it the index would "
             "be decrypted to disk, so project search is unavailable"
         )
+    _check_runtime_base(Path(base))
     parent = Path(base) / "codebud"
     private_dir(parent)
-    return Path(tempfile.mkdtemp(prefix="index-", dir=parent))  # mkdtemp: 0700
+    _sweep_stale(parent)
+    # mkdtemp creates it 0700
+    return Path(tempfile.mkdtemp(prefix=f"index-{os.getpid()}-", dir=parent))
 
 
 class IndexStore:
