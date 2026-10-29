@@ -167,8 +167,8 @@ rag_hints = false
 
 The file lives at @file{$XDG_CONFIG_HOME/codebud/config.toml} (by default
 @file{~/.config/codebud/config.toml}).  A project can have its own
-@file{.codebud/config.toml}, found like its policy files (the nearest
-@file{.codebud/} at or above the current directory).  Where a value comes
+@file{.codebud/config.toml}, found like its policy files
+(@pxref{Project Policy}).  Where a value comes
 from, highest first:
 
 @enumerate
@@ -596,29 +596,77 @@ Named multi-step sequences that the planner may propose as a unit.
 @xref{Trusted Sequences}.
 @end table
 
-Each file is looked up separately, and the first one found wins:
+Your policy is, for each file, the first one found of:
 
 @enumerate
 @item
-@file{.codebud/@var{name}} in the current project: the nearest
-@file{.codebud/} directory at or above the directory Codebud is started
-from, found the way Git finds @file{.git/}.
+the active profile's policy directory, if it has one (@pxref{Profiles});
 @item
 @file{$XDG_CONFIG_HOME/codebud/@var{name}} (by default
-@file{~/.config/codebud/@var{name}}): your own policy for all projects.
+@file{~/.config/codebud/@var{name}}): your own policy for all projects;
 @item
-The defaults shipped with Codebud.
+the defaults shipped with Codebud.
 @end enumerate
 
-To change the policy, copy a default file to @file{~/.config/codebud/} (or
-a project's @file{.codebud/}) and edit the copy; do not edit the shipped
-defaults.  @command{codebud config} shows which file is in effect for each
-name (@pxref{Checking Your Configuration}).
+@noindent
+A project's @file{.codebud/} can then adjust it (@pxref{Project Policy}).
+To change your policy, copy a default file to @file{~/.config/codebud/}
+and edit the copy; do not edit the shipped defaults.
+@command{codebud config} shows which files are in effect, and whether a
+project policy is trusted (@pxref{Checking Your Configuration}).
+
+Entries must be plain command words (@samp{git status}, @samp{python3}):
+anything else is dropped with a warning, from every file, since the lists
+are also shown to the model.
 
 All three files must be valid JSON arrays.  If a file is malformed, the
 @code{SafetyEngine} treats that list as empty and logs a warning;
 @command{codebud doctor} validates the files in effect.
 
+@menu
+* Project Policy::         What a project's .codebud/ may change.
+@end menu
+
+@node Project Policy
+@subsection Project Policy
+@cindex project policy
+@cindex .codebud directory
+@cindex trust, project
+@cindex trust subcommand
+
+A project can carry its own @file{.codebud/harmless_commands.json},
+@file{powerful_commands.json} and @file{trusted_sequences.json}, for its
+own tools (@command{make test}, @command{cargo build}, @dots{}).  Since a
+repository you clone may come from anyone, a project policy can always
+@emph{narrow} yours but only @emph{widen} it once you trust it:
+
+@itemize
+@item
+@strong{Narrowing applies at once.}  A command the project leaves out of
+both its lists is not allowed in it; one it lists as powerful is asked
+about there even if you call it harmless.
+@item
+@strong{Widening waits for your trust.}  A new command, a powerful
+command made harmless or a new trusted sequence is ignored until you
+trust the project.  @command{run}, @command{plan} and @command{chat}
+show what it would add --- flagging shells, interpreters, network tools
+and the like --- and ask once; without a terminal they ignore it with a
+notice.  @command{codebud trust} does the same on demand,
+@option{--yes} without asking, @option{--revoke} withdraws it.
+@item
+@strong{Trust is tied to the files.}  It is recorded in
+@file{~/.config/codebud/trusted-projects.json} with the SHA-256 of the
+project's policy files, so any change to them --- by a @command{git pull},
+a teammate, or one of Codebud's own steps --- needs trusting again.
+@end itemize
+
+@noindent
+The @file{.codebud/} directory is looked for from where Codebud starts up
+to the top of its git work tree (outside git, in that directory only),
+never in your home directory or @file{/}; one owned by another user is
+ignored with a warning, so a @file{/tmp/.codebud/} someone else made does
+not apply to your projects.  File steps can never write into
+@file{.codebud/} (@pxref{What Is Not Protected}).
 
 @node Harmless Commands
 @section Harmless Commands
@@ -787,11 +835,13 @@ Codebud's locations do not depend on the directory it is started from.
 @pxref{The index Subcommand}).
 @item @file{$XDG_CONFIG_HOME/codebud/} (default @file{~/.config/codebud/})
 @tab Your @file{config.toml}, policy files (overriding the shipped
-defaults), @file{profiles/}, and @file{keys/}: the encryption key, sealed
+defaults), @file{profiles/}, @file{trusted-projects.json} (projects whose
+policy you trust), and @file{keys/}: the encryption key, sealed
 with your passphrase (@pxref{Encryption at Rest}).
 @item @file{.codebud/} in a project
-@tab Policy files for that project, overriding both
-(@pxref{Policy JSON Files}).
+@tab That project's @file{config.toml} and policy files, which narrow
+yours and widen it only once you trust the project (@pxref{Project
+Policy}).
 @end multitable
 
 @cindex permissions, data files

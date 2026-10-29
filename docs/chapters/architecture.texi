@@ -574,6 +574,8 @@ src/codebud/                   the package
 ├── memory.py          MemoryStore (timeline persistence)
 ├── sessions.py        chat session checkpoints
 ├── paths.py           data, config and policy file locations
+├── policy.py          policy in effect: yours, narrowed / trusted-widened
+│                      by the project's
 ├── settings.py        every setting: environment, config.toml, defaults
 ├── fsutil.py          atomic_write_text/bytes(), private_dir(), create_private()
 ├── crypto.py          age encryption at rest: passphrase-sealed key

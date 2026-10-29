@@ -21,6 +21,7 @@ KNOWN_SUBCOMMANDS = {
     "config",
     "profiles",
     "key",
+    "trust",
     "version",
 }
 
@@ -217,6 +218,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     # profiles
     sub.add_parser("profiles", help="List the profiles (built in and your own).")
+
+    # trust
+    p_trust = sub.add_parser(
+        "trust", help="Review, trust or stop trusting this project's command policy."
+    )
+    p_trust.add_argument("--yes", "-y", action="store_true", help="Trust it without asking.")
+    p_trust.add_argument("--revoke", action="store_true", help="Stop trusting it.")
 
     # key
     p_key = sub.add_parser("key", help="Manage the encryption key for data at rest.")

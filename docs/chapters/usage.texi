@@ -21,6 +21,7 @@ output, and how to get help when something goes wrong.
 * The models Subcommand::       See what models are downloaded.
 * The config Subcommand::       Show the resolved configuration.
 * The profiles Subcommand::     List the profiles.
+* The trust Subcommand::        Trust a project's command policy.
 * The key Subcommand::          The encryption key for data at rest.
 * The version Subcommand::      Show version information.
 * Progress Output::             Understanding the spinner and token counter.
@@ -128,6 +129,7 @@ Codebud organises its functionality into subcommands:
 @item @command{models} @tab List downloaded Ollama models
 @item @command{config} @tab Show resolved configuration
 @item @command{profiles} @tab List the profiles
+@item @command{trust} @tab Review, trust or stop trusting the project's command policy
 @item @command{key} @tab Create or manage the encryption key for data at rest
 @item @command{version} @tab Show version information
 @end multitable
@@ -587,8 +589,9 @@ host, DuckDuckGo for web search --- or @samp{Outbound: none}
       while @env{CODEBUD_PASSPHRASE} is set (@pxref{Encryption at Rest})
 @item The policy files in effect --- @file{harmless_commands.json},
       @file{powerful_commands.json} and @file{trusted_sequences.json},
-      from the project's @file{.codebud/}, @file{~/.config/codebud/} or
-      the shipped defaults --- exist and are valid JSON
+      from @file{~/.config/codebud/} or the shipped defaults, and the
+      project's @file{.codebud/} ones --- exist and are valid JSON, and
+      whether a project policy is trusted
 @item Enough free disk space near @file{~/.ollama/models/}
 @item Enough free RAM for the selected model (Linux only; skipped where
       @file{/proc/meminfo} does not exist)
@@ -939,6 +942,26 @@ $ codebud profiles
                  built in
 
 Your own profiles: /home/you/.config/codebud/profiles/<name>.toml
+@end example
+
+
+@node The trust Subcommand
+@section The @command{trust} Subcommand
+@cindex trust subcommand
+
+@command{trust} shows how the current project's @file{.codebud/} policy
+would widen yours, flagging risky entries, and asks whether to trust it
+(@pxref{Project Policy}).  @option{--yes} trusts without asking;
+@option{--revoke} stops trusting it.  A project whose policy only narrows
+yours needs no trust.
+
+@example
+$ codebud trust
+/home/you/src/app/.codebud: not trusted (only its narrowing applies). It widens your policy with:
+    harmless: make test (new)
+    powerful: cargo (new)
+Trust this project's policy? [y/N] y
+Trusted. Codebud asks again if its policy files change.
 @end example
 
 

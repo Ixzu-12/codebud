@@ -146,6 +146,45 @@ def unlock_project_index() -> None:
         os.environ["CODEBUD_RAG"] = "0"
 
 
+def show_widening(effective) -> None:
+    """List how a project's policy would widen yours, flagging risky entries."""
+    from codebud.cli.display import print_status
+
+    for change in effective.widening:
+        flag = "   <- can run code, reach the network or delete" if change.risky else ""
+        print_status(f"    {change}{flag}")
+
+
+def review_project_policy() -> None:
+    """At startup: ask once whether to trust a project policy that widens yours.
+
+    Narrowing always applies without asking. Without a terminal the
+    widening is ignored, with a notice (security review C3, 2026-10-29).
+    """
+    from codebud import policy
+    from codebud.cli.display import print_status, print_warning
+
+    effective = policy.effective()
+    if effective.project is None or effective.trusted:
+        return
+    print_warning(f"This project's command policy ({effective.project}) widens yours:")
+    show_widening(effective)
+    if not sys.stdin.isatty():
+        print_status(
+            "  Ignored (no terminal to ask): only its narrowing applies. Review it with: codebud trust"
+        )
+        return
+    try:
+        answer = input("  Trust this project's policy? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer.startswith("y"):
+        policy.trust(effective.project)
+        print_status("  Trusted. Codebud asks again if its policy files change.")
+    else:
+        print_status("  Not trusted: only its narrowing applies (codebud trust to change that).")
+
+
 def confirm_deletion(paths: list[str], question: str, yes: bool) -> bool:
     """List what would be deleted and ask; --yes skips the question.
 

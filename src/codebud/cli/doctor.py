@@ -274,11 +274,13 @@ def check_embed_model_pulled() -> CheckResult:
 
 def check_config_files() -> CheckResult:
     """Check that the policy files in effect exist and parse."""
-    from codebud.paths import policy_file
+    from codebud.paths import project_policy_file, user_policy_file
+    from codebud.policy import POLICY_FILES as names
 
-    names = ["harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"]
-    for name in names:
-        path = policy_file(name)
+    project = [p for p in (project_policy_file(n) for n in names) if p is not None]
+    for path in [user_policy_file(n) for n in names] + project:
+        if path is None:
+            continue
         if not path.exists():
             return (
                 False,
@@ -289,7 +291,13 @@ def check_config_files() -> CheckResult:
             json.loads(path.read_text())
         except json.JSONDecodeError as exc:
             return False, f"Invalid JSON in {path}: {exc}", f"Fix the JSON in {path}."
-    return True, f"Policy files OK ({policy_file(names[0]).parent})", ""
+    where = user_policy_file(names[0]).parent
+    if project:
+        from codebud import policy
+
+        trusted = "trusted" if policy.effective().trusted else "not trusted: narrowing only"
+        return True, f"Policy files OK ({where}; project {project[0].parent}, {trusted})", ""
+    return True, f"Policy files OK ({where})", ""
 
 
 def check_disk_space() -> CheckResult:

@@ -98,6 +98,8 @@ tests/
 │                                umask; doctor warning
 ├── test_process_hardening.py   no core dumps / not dumpable once a
 │                                secret is held (checked in a subprocess)
+├── test_project_policy.py      project .codebud/ policy: narrow always,
+│                                widen once trusted (hash-bound), asking
 ├── test_purge.py                sessions --delete/--purge, history
 │                                --purge, confirmation, retention limit
 ├── test_rag_chunker.py          chunking by Python definition, Texinfo

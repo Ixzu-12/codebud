@@ -184,8 +184,10 @@ output to execution.
 
 Copy the default @file{harmless_commands.json} or
 @file{powerful_commands.json} to @file{~/.config/codebud/} (for all
-projects) or to a project's @file{.codebud/} (for that project only) and
-edit the copy with any text editor (@pxref{Policy JSON Files}).  Changes
+projects) or to a project's @file{.codebud/} (for that project only; it
+widens your policy only once you trust the project, @pxref{Project
+Policy}) and edit the copy with any text editor (@pxref{Policy JSON
+Files}).  Changes
 take effect the next time @code{AgentCore} is initialised (i.e.@: the next
 @command{codebud} invocation); @command{codebud config} shows which file is
 in effect.

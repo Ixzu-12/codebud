@@ -31,6 +31,7 @@ Subcommands
   models          List downloaded Ollama models
   config          Show resolved configuration (env vars + defaults)
   profiles        List profiles (--profile NAME chooses one)
+  trust           Review / trust / revoke this project's .codebud/ command policy
   key             Encryption key for data at rest: init, passwd, status,
                   encrypt-existing [--yes]
   version         Print version information
@@ -52,6 +53,7 @@ from codebud.cli.admin import (
     cmd_profiles,
     cmd_sessions,
     cmd_skill,
+    cmd_trust,
     cmd_version,
 )
 from codebud.cli.chat import cmd_chat
@@ -127,6 +129,7 @@ def main():
         "config": cmd_config,
         "profiles": cmd_profiles,
         "key": cmd_key,
+        "trust": cmd_trust,
         "version": cmd_version,
     }
 
@@ -139,6 +142,7 @@ def main():
         if args.subcommand in _STORES_DATA:
             crypto.check_ready()  # encryption on but unusable: refuse, never store plaintext
         if args.subcommand in ("run", "plan", "chat"):
+            common.review_project_policy()
             common.unlock_project_index()
         handler(args)
     except crypto.CryptoError as exc:

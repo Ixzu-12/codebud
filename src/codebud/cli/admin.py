@@ -307,7 +307,8 @@ def cmd_config(_args):
         shown = settings.display_value(env, value)
         print(f"  {_OUT_DIM}{env:<25}{_OUT_RESET} = {shown:<34} {_OUT_DIM}({source}){_OUT_RESET}")
 
-    from codebud.paths import data_dir, policy_file
+    from codebud import policy
+    from codebud.paths import data_dir, project_policy_file, user_policy_file
 
     print(f"\n{_OUT_BOLD}Files:{_OUT_RESET}")
     project_config = settings.project_config_file()
@@ -315,8 +316,48 @@ def cmd_config(_args):
     if project_config is not None:
         print(f"  {_OUT_DIM}{'project config file':<24}{_OUT_RESET} = {project_config}")
     print(f"  {_OUT_DIM}{'data directory':<24}{_OUT_RESET} = {data_dir()}")
-    for name in ("harmless_commands.json", "powerful_commands.json", "trusted_sequences.json"):
-        print(f"  {_OUT_DIM}{name:<24}{_OUT_RESET} = {policy_file(name)}")
+    for name in policy.POLICY_FILES:
+        print(f"  {_OUT_DIM}{name:<24}{_OUT_RESET} = {user_policy_file(name)}")
+        project_file = project_policy_file(name)
+        if project_file is not None:
+            print(f"  {_OUT_DIM}{'  adjusted by':<24}{_OUT_RESET} = {project_file}")
+    effective = policy.effective()
+    if effective.project is not None:
+        state = "trusted" if effective.trusted else "not trusted: only its narrowing applies"
+        print(f"  {_OUT_DIM}{'project policy':<24}{_OUT_RESET} = {state}")
+
+
+def cmd_trust(args):
+    """Show what this project's .codebud/ policy changes; trust or revoke it."""
+    from codebud import policy
+
+    effective = policy.effective()
+    if effective.project is None:
+        print("This project has no .codebud/ command policy; yours applies as it is.")
+        return
+    if args.revoke:
+        if policy.revoke(effective.project):
+            print(f"No longer trusting {effective.project}: only its narrowing applies.")
+        else:
+            print(f"{effective.project} was not trusted.")
+        return
+    if not effective.widening:
+        print(f"{effective.project} only narrows your policy; nothing to trust.")
+        return
+    state = "trusted" if effective.trusted else "not trusted (only its narrowing applies)"
+    print(f"{effective.project}: {state}. It widens your policy with:")
+    common.show_widening(effective)
+    if effective.trusted:
+        return
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("codebud: not trusting without confirmation; re-run with --yes.", file=sys.stderr)
+            sys.exit(1)
+        if not input("Trust this project's policy? [y/N] ").strip().lower().startswith("y"):
+            print("Not trusted.")
+            sys.exit(1)
+    policy.trust(effective.project)
+    print("Trusted. Codebud asks again if its policy files change.")
 
 
 def cmd_profiles(_args):

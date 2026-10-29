@@ -6,11 +6,13 @@ directory codebud is started from.
 
 - Runtime data (memory, sessions, project indexes):
       $XDG_DATA_HOME/codebud            (default ~/.local/share/codebud)
-- Policy files (harmless/powerful commands, trusted sequences), first found:
+- Policy files (harmless/powerful commands, trusted sequences): yours, first
+  found of
       the active profile's policy directory, if it has one (profiles.py)
-      <project>/.codebud/               nearest one at or above the cwd
       $XDG_CONFIG_HOME/codebud          (default ~/.config/codebud)
       the defaults shipped with codebud
+  then adjusted by the project's .codebud/ (policy.py): narrowed always,
+  widened only once you trust that project
 - Data written by older versions to the checkout's data/ directory is copied
   to the data directory once (migrate_legacy_data); the originals are kept.
 """
@@ -56,23 +58,69 @@ def config_dir() -> Path:
     return _xdg("XDG_CONFIG_HOME", ".config")
 
 
-def project_config_dir(start: Path | str | None = None) -> Path | None:
-    """Return the nearest .codebud/ at or above ``start`` (default: cwd)."""
+def git_top(start: Path | str | None = None) -> Path | None:
+    """The git work tree containing ``start`` (default: cwd), by looking for
+    .git -- without running git, which follows the repository's config."""
     here = Path(start or os.getcwd()).resolve()
     for directory in (here, *here.parents):
-        candidate = directory / PROJECT_DIR_NAME
-        if candidate.is_dir():
-            return candidate
+        if (directory / ".git").exists():
+            return directory
     return None
 
 
-def policy_file(name: str, start: Path | str | None = None) -> Path:
-    """Return the policy file ``name`` that applies, by precedence."""
-    project = project_config_dir(start)
-    for directory in (PROFILE_POLICY_DIR, project, config_dir()):
+def project_config_dir(start: Path | str | None = None) -> Path | None:
+    """The project's .codebud/ directory, or None.
+
+    Looked for from ``start`` (default: cwd) up to the top of its git work
+    tree -- or, outside git, in ``start`` only -- and never in $HOME or /
+    (~/.codebud is not a project's). A .codebud/ owned by someone else is
+    ignored with a warning: in a shared directory such as /tmp another
+    user could plant one (security review C3, 2026-10-29).
+    """
+    here = Path(start or os.getcwd()).resolve()
+    top = git_top(here) or here
+    home = Path.home().resolve()
+    for directory in (here, *here.parents):
+        if directory == home or directory == Path(directory.anchor):
+            break
+        candidate = directory / PROJECT_DIR_NAME
+        if candidate.is_dir():
+            if candidate.stat().st_uid != os.getuid():
+                _warn_once(f"Ignoring {candidate}: it belongs to another user")
+                return None
+            return candidate
+        if directory == top:
+            break
+    return None
+
+
+_warned: set[str] = set()
+
+
+def _warn_once(message: str) -> None:
+    import logging
+
+    if message not in _warned:
+        _warned.add(message)
+        logging.getLogger(__name__).warning(message)
+
+
+def user_policy_file(name: str) -> Path:
+    """Your policy file ``name``: the active profile's, your config dir's, or
+    the one shipped with codebud. A project's never comes in here -- it only
+    adjusts this one (policy.py)."""
+    for directory in (PROFILE_POLICY_DIR, config_dir()):
         if directory is not None and (directory / name).is_file():
             return directory / name
     return PACKAGED_POLICY_DIR / name
+
+
+def project_policy_file(name: str, start: Path | str | None = None) -> Path | None:
+    """The project's policy file ``name`` in its .codebud/, if it has one."""
+    project = project_config_dir(start)
+    if project is not None and (project / name).is_file():
+        return project / name
+    return None
 
 
 def legacy_data_dir() -> Path:

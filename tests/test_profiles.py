@@ -118,9 +118,9 @@ def test_profile_policy_comes_first(tmp_path, monkeypatch):
     (policy / "harmless_commands.json").write_text(json.dumps(["nmap -sV"]))
     monkeypatch.chdir(tmp_path)
     profiles.activate(profiles.Profile("sec", policy=policy), "--profile")
-    assert paths.policy_file("harmless_commands.json") == policy / "harmless_commands.json"
+    assert paths.user_policy_file("harmless_commands.json") == policy / "harmless_commands.json"
     # Files the profile does not have still come from further down.
-    assert paths.policy_file("powerful_commands.json").parent == paths.PACKAGED_POLICY_DIR
+    assert paths.user_policy_file("powerful_commands.json").parent == paths.PACKAGED_POLICY_DIR
     engine = SafetyEngine()
     assert engine.harmless_commands == ["nmap -sV"]
     # Trust never lifts the refused arguments, whatever the profile.

@@ -30,16 +30,12 @@ from typing import Any
 
 from . import privacy
 from .modes import DEFAULT_MODE, step_allowed
-from .paths import policy_file
+
+# The policy in effect -- yours, adjusted by the project's -- comes from
+# policy.py; the file names stay importable from here.
+from .policy import HARMLESS_FILE, POWERFUL_FILE, TRUSTED_SEQ_FILE  # noqa: F401
 
 logger = logging.getLogger(__name__)
-
-# Policy files, looked up by codebud/paths.policy_file(): the project's
-# .codebud/, then the user's config dir, then the defaults shipped with codebud
-# (the active profile's policy directory comes first, when it has one).
-HARMLESS_FILE = "harmless_commands.json"
-POWERFUL_FILE = "powerful_commands.json"
-TRUSTED_SEQ_FILE = "trusted_sequences.json"
 
 
 def _split(cmd: str) -> list[str]:
@@ -174,9 +170,12 @@ class SafetyEngine:
 
     def reload(self) -> None:
         """(Re)read the policy files, e.g. after a profile switch."""
-        self.harmless_commands = self._load_json(policy_file(HARMLESS_FILE))
-        self.powerful_commands = self._load_json(policy_file(POWERFUL_FILE))
-        self.trusted_sequences = self._load_json(policy_file(TRUSTED_SEQ_FILE))
+        from . import policy
+
+        effective = policy.effective()
+        self.harmless_commands = effective.harmless
+        self.powerful_commands = effective.powerful
+        self.trusted_sequences = effective.sequences
 
     # ------------------------------------------------------------------
     # Public API

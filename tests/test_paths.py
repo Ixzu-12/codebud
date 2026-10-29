@@ -36,27 +36,56 @@ def test_config_dir_follows_xdg_and_defaults(tmp_path, monkeypatch):
     assert paths.config_dir() == tmp_path / ".config" / "codebud"
 
 
-def test_project_dir_is_found_by_walking_up(tmp_path):
-    (tmp_path / "proj" / ".codebud").mkdir(parents=True)
+def test_project_dir_is_found_within_the_git_work_tree(tmp_path):
+    (tmp_path / "proj" / ".git").mkdir(parents=True)
+    (tmp_path / "proj" / ".codebud").mkdir()
     deep = tmp_path / "proj" / "src" / "pkg"
     deep.mkdir(parents=True)
     assert paths.project_config_dir(deep) == tmp_path / "proj" / ".codebud"
     assert paths.project_config_dir(tmp_path) is None
 
 
-def test_policy_file_precedence(tmp_path, monkeypatch):
+def test_the_search_stops_at_the_git_work_tree(tmp_path):
+    # A .codebud/ above the repository (e.g. /tmp/.codebud) does not apply.
+    (tmp_path / ".codebud").mkdir()
+    (tmp_path / "repo" / ".git").mkdir(parents=True)
+    assert paths.project_config_dir(tmp_path / "repo") is None
+
+
+def test_outside_git_only_the_directory_itself_counts(tmp_path):
+    (tmp_path / ".codebud").mkdir()
+    (tmp_path / "sub").mkdir()
+    assert paths.project_config_dir(tmp_path) == tmp_path / ".codebud"
+    assert paths.project_config_dir(tmp_path / "sub") is None
+
+
+def test_home_is_never_a_project(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / ".codebud").mkdir()
+    assert paths.project_config_dir(tmp_path) is None
+
+
+def test_a_codebud_dir_owned_by_someone_else_is_ignored(tmp_path, monkeypatch, caplog):
+    (tmp_path / ".codebud").mkdir()
+    monkeypatch.setattr(paths.os, "getuid", lambda: 4242)
+    assert paths.project_config_dir(tmp_path) is None
+    assert "another user" in caplog.text
+
+
+def test_policy_file_lookup(tmp_path, monkeypatch):
     name = "harmless_commands.json"
-    assert paths.policy_file(name, start=tmp_path) == paths.PACKAGED_POLICY_DIR / name
+    assert paths.user_policy_file(name) == paths.PACKAGED_POLICY_DIR / name
 
     user = paths.config_dir()
     user.mkdir(parents=True)
     (user / name).write_text("[]")
-    assert paths.policy_file(name, start=tmp_path) == user / name
+    assert paths.user_policy_file(name) == user / name
 
     project = tmp_path / "proj" / ".codebud"
     project.mkdir(parents=True)
     (project / name).write_text("[]")
-    assert paths.policy_file(name, start=tmp_path / "proj") == project / name
+    assert paths.project_policy_file(name, start=tmp_path / "proj") == project / name
+    assert paths.user_policy_file(name) == user / name  # a project never replaces yours
 
 
 def test_policy_loads_from_any_working_directory(tmp_path, monkeypatch):
@@ -69,15 +98,18 @@ def test_policy_loads_from_any_working_directory(tmp_path, monkeypatch):
     assert "pytest" in engine.powerful_commands
 
 
-def test_project_policy_overrides_defaults(tmp_path, monkeypatch):
+def test_project_policy_narrows_until_trusted(tmp_path, monkeypatch):
+    from codebud import policy
     from codebud.safety import SafetyEngine
 
     (tmp_path / ".codebud").mkdir()
     (tmp_path / ".codebud" / "harmless_commands.json").write_text(json.dumps(["ls", "tree"]))
     monkeypatch.chdir(tmp_path)
     engine = SafetyEngine()
-    assert engine.harmless_commands == ["ls", "tree"]
-    assert "pytest" in engine.powerful_commands  # other files still from defaults
+    assert engine.harmless_commands == ["ls"]  # narrowed; "tree" waits for trust
+    assert "pytest" in engine.powerful_commands  # other files still yours
+    policy.trust(tmp_path / ".codebud")
+    assert SafetyEngine().harmless_commands == ["ls", "tree"]
 
 
 def test_memory_and_sessions_live_in_the_data_dir(tmp_path, monkeypatch):
