@@ -446,12 +446,33 @@ your files' text as it is.
 @strong{Encryption at rest covers what Codebud stores, not what it is
 doing.}  While Codebud runs, your data is in its memory and the unlocked
 key with it, and an index in use has its decrypted copy in
-@env{XDG_RUNTIME_DIR} (memory, not disk --- unless the system swaps it
-out); file names, sizes and times stay visible; and what your approved
-steps write into your
-project is not Codebud's to encrypt.  Command steps cannot read the key:
-isolation hides Codebud's configuration directory from them
-(@pxref{Isolated Steps}).
+@env{XDG_RUNTIME_DIR} --- memory, not disk, unless the system swaps it
+out: use encrypted swap (or none) if that matters to you.  Python cannot
+wipe the key from memory when it is done with it.  What your approved
+steps write into your project is not Codebud's to encrypt.  Command
+steps cannot read the key: isolation hides Codebud's configuration
+directory from them (@pxref{Isolated Steps}), and their environment
+never holds the passphrase.
+
+@item
+@strong{Some facts about your data stay visible.}  File names, sizes and
+times are not encrypted: a session's name on disk is the time it was
+started, and a project index's directory is named after a hash of the
+project's path --- not secret enough to stop someone who guesses the
+path from confirming it.
+
+@item
+@strong{Changing the passphrase is not changing the key.}
+@command{key passwd} re-seals the same key, so an old copy of
+@file{identity.age} (a backup, say) still opens with the old passphrase.
+If you think the key itself is exposed, the remedy today is a new key
+and @command{key encrypt-existing} on plaintext copies of your data;
+replacing the key in place is not built yet.
+
+@item
+@strong{Not post-quantum yet.}  The key is an X25519 key, the age
+standard.  age 1.3 adds hybrid post-quantum keys, but @code{pyrage} does
+not offer them yet; Codebud will move to them when it does.
 
 @item
 @strong{Your terminal and Ollama are your own.}  Scrollback, shell
